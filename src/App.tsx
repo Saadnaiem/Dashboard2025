@@ -89,7 +89,7 @@ const App: React.FC = () => {
                     }
                 });
 
-            } catch (err) {
+            } catch (err: any) {
                  setError(`Failed to fetch data: ${err instanceof Error ? err.message : String(err)}`);
                  setLoadingState({ isLoading: false, progress: 0, message: '' });
             }
