@@ -83,7 +83,7 @@ const App: React.FC = () => {
                         setAllData(normalizedData);
                         setLoadingState({ isLoading: true, progress: 75, message: 'Processing data...' });
                     },
-                    error: (err) => {
+                    error: (err: any) => {
                         setError(`Failed to parse CSV data: ${err.message}`);
                         setLoadingState({ isLoading: false, progress: 0, message: '' });
                     }
