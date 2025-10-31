@@ -107,7 +107,7 @@ const App: React.FC = () => {
                 setTimeout(() => {
                     setLoadingState({ isLoading: false, progress: 0, message: '' });
                 }, 500);
-            } catch (err) {
+            } catch (err: any) {
                  if (err instanceof Error) {
                     setError(`Error processing data: ${err.message}`);
                 } else {

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
@@ -11,7 +12,6 @@ const COLORS = {
     slate: '#9ca3af',
     teal: '#2dd4bf'  // teal-400
 };
-const CHART_PALETTE = [COLORS.green, COLORS.blue, COLORS.violet, COLORS.red];
 const DIVISION_CHART_PALETTE = ['#38bdf8', '#818cf8', '#34d399', '#fb7185', '#facc15']; // sky, indigo, emerald, rose, amber
 
 const formatNumber = (num: number): string => {
@@ -295,7 +295,7 @@ const Charts: React.FC<ChartsProps> = ({ data, onFilterChange }) => {
                         onMouseLeave={onPieLeave}
                     >
                         <Pie {...divisionPieProps}>
-                            {data.salesByDivision.map((entry, index) => (
+                            {data.salesByDivision.map((_entry, index) => (
                                 <Cell key={`cell-${index}`} fill={DIVISION_CHART_PALETTE[index % DIVISION_CHART_PALETTE.length]} />
                             ))}
                         </Pie>

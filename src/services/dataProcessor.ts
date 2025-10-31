@@ -1,3 +1,4 @@
+
 import { RawSalesDataRow, ProcessedData, ParetoResult } from '../types';
 
 export const normalizeRow = (row: Record<string, string>, headers: string[]): RawSalesDataRow => {
@@ -162,18 +163,18 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     
     // New/Lost entities
     const newBranches = { count: 0, sales: 0 };
-    Object.entries(branches).forEach(([key, {s24, s25}]) => { if(s25 > 0 && s24 === 0) { newBranches.count++; newBranches.sales += s25; }});
+    Object.entries(branches).forEach(([_key, {s24, s25}]) => { if(s25 > 0 && s24 === 0) { newBranches.count++; newBranches.sales += s25; }});
     
     const newBrands = { count: 0, sales: 0 };
     const lostBrands = { count: 0, sales2024: 0 };
-    Object.entries(brands).forEach(([key, {s24, s25}]) => { 
+    Object.entries(brands).forEach(([_key, {s24, s25}]) => { 
       if(s25 > 0 && s24 === 0) { newBrands.count++; newBrands.sales += s25; }
       if(s24 > 0 && s25 === 0) { lostBrands.count++; lostBrands.sales2024 += s24; }
     });
     
     const newItems = { count: 0, sales: 0 };
     const lostItems = { count: 0, sales2024: 0 };
-    Object.entries(items).forEach(([key, {s24, s25}]) => { 
+    Object.entries(items).forEach(([_key, {s24, s25}]) => { 
       if(s25 > 0 && s24 === 0) { newItems.count++; newItems.sales += s25; }
       if(s24 > 0 && s25 === 0) { lostItems.count++; lostItems.sales2024 += s24; }
     });
