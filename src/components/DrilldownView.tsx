@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 import { RawSalesDataRow } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
@@ -34,18 +36,64 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
 
     const hasBranchFilter = useMemo(() => ['new_brands', 'new_items', 'lost_brands', 'lost_items'].includes(viewType), [viewType]);
     
-    const processedData = useMemo(() => {
-        let displayData = [...data];
+    const { processedData, tableTitle, headers } = useMemo(() => {
+        let displayData: DrilldownItem[] = [...data];
+        let currentTitle = title;
+        let localTotal24 = totalSales2024;
+        let localTotal25 = totalSales2025;
 
         // Branch filtering for new/lost entities
         if (hasBranchFilter && selectedBranch && allData) {
+            currentTitle = `${title.split(' in ')[0]} in ${selectedBranch}`;
+            const branchData = allData.filter(row => row['BRANCH NAME'] === selectedBranch);
+            
+            localTotal25 = branchData.reduce((acc, row) => acc + row['SALES2025'], 0);
+            localTotal24 = branchData.reduce((acc, row) => acc + row['SALES2024'], 0);
+            
             const entityType = viewType.includes('brand') ? 'BRAND' : 'ITEM DESCRIPTION';
-            const relevantEntities = new Set(
-                allData
-                    .filter(row => row['BRANCH NAME'] === selectedBranch)
-                    .map(row => row[entityType])
-            );
-            displayData = displayData.filter(item => relevantEntities.has(item.name));
+            const entitySales: { [key: string]: { s24: number, s25: number } } = {};
+            
+            branchData.forEach(row => {
+                const key = row[entityType];
+                if (key) {
+                    entitySales[key] = entitySales[key] || { s24: 0, s25: 0 };
+                    entitySales[key].s24 += row['SALES2024'];
+                    entitySales[key].s25 += row['SALES2025'];
+                }
+            });
+            
+            const newDisplayData: DrilldownItem[] = [];
+            if (viewType.startsWith('new_')) {
+                Object.entries(entitySales).forEach(([name, { s24, s25 }]) => {
+                    if (s25 > 0 && s24 === 0) newDisplayData.push({ name, sales2025: s25 });
+                });
+            } else if (viewType.startsWith('lost_')) {
+                Object.entries(entitySales).forEach(([name, { s24, s25 }]) => {
+                    if (s24 > 0 && s25 === 0) newDisplayData.push({ name, sales2024: s24 });
+                });
+            }
+            displayData = newDisplayData;
+        }
+
+        const baseHeaders = [
+            { key: 'name', label: 'Name', className: 'w-1/3' },
+            { key: 'sales2025', label: '2025 Sales', className: 'text-right' },
+            { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
+            { key: 'growth', label: 'Growth %', className: 'text-right' },
+            { key: 'contribution2025', label: `Contrib. % (of ${selectedBranch ? selectedBranch : 'Total'})`, className: 'text-right' },
+            { key: 'contribution2024', label: `Contrib. % (of ${selectedBranch ? selectedBranch : 'Total'})`, className: 'text-right' },
+        ];
+
+        let currentHeaders;
+        switch (viewType) {
+            case 'new_brands': case 'new_items':
+                currentHeaders = [baseHeaders[0], baseHeaders[1], baseHeaders[4]];
+                break;
+            case 'lost_brands': case 'lost_items':
+                currentHeaders = [baseHeaders[0], baseHeaders[2], baseHeaders[5]];
+                break;
+            default:
+                currentHeaders = baseHeaders;
         }
         
         // Search filtering
@@ -55,10 +103,16 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
             );
         }
 
-        // Sorting
+        // Add contribution percentages and sort
+        let finalData = displayData.map(item => ({
+            ...item,
+            contribution2025: localTotal25 > 0 && item.sales2025 ? (item.sales2025 / localTotal25) * 100 : 0,
+            contribution2024: localTotal24 > 0 && item.sales2024 ? (item.sales2024 / localTotal24) * 100 : 0
+        }));
+
         const sortKey = sortConfig.key;
         if (sortKey) {
-            displayData.sort((a, b) => {
+            finalData.sort((a, b) => {
                 const aValue = (a as any)[sortKey] ?? -Infinity;
                 const bValue = (b as any)[sortKey] ?? -Infinity;
                 if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
@@ -66,14 +120,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
                 return 0;
             });
         }
-        
-        // Add contribution percentages
-        return displayData.map(item => ({
-            ...item,
-            contribution2025: totalSales2025 > 0 && item.sales2025 ? (item.sales2025 / totalSales2025) * 100 : 0,
-            contribution2024: totalSales2024 > 0 && item.sales2024 ? (item.sales2024 / totalSales2024) * 100 : 0
-        }));
-    }, [data, searchTerm, sortConfig, totalSales2025, totalSales2024, hasBranchFilter, selectedBranch, allData, viewType]);
+
+        return { processedData: finalData, tableTitle: currentTitle, headers: currentHeaders };
+    }, [data, searchTerm, sortConfig, totalSales2025, totalSales2024, hasBranchFilter, selectedBranch, allData, viewType, title]);
 
     const requestSort = (key: string) => {
         let direction: SortDirection = 'descending';
@@ -88,28 +137,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
         return sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
     };
 
-    const headers = useMemo(() => {
-        const baseHeaders = [
-            { key: 'name', label: 'Name', className: 'w-1/3' },
-            { key: 'sales2025', label: '2025 Sales', className: 'text-right' },
-            { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
-            { key: 'growth', label: 'Growth %', className: 'text-right' },
-            { key: 'contribution2025', label: '2025 Contrib. %', className: 'text-right' },
-            { key: 'contribution2024', label: '2024 Contrib. %', className: 'text-right' },
-        ];
-        
-        switch (viewType) {
-            case 'new_brands':
-            case 'new_items':
-                return [baseHeaders[0], baseHeaders[1], baseHeaders[4]];
-            case 'lost_brands':
-            case 'lost_items':
-                return [baseHeaders[0], baseHeaders[2], baseHeaders[5]];
-            default: // divisions, branches, brands, items, pareto_*
-                return baseHeaders;
-        }
-    }, [viewType]);
-
     const renderCell = (item: any, headerKey: string) => {
         const value = item[headerKey];
         switch(headerKey) {
@@ -123,6 +150,67 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
             default: return <td></td>;
         }
     };
+    
+    const handleDownloadCSV = () => {
+        const csvHeaders = headers.map(h => `"${h.label}"`).join(',');
+        const csvRows = processedData.map(row => {
+            return headers.map(header => {
+                let value = (row as any)[header.key];
+                if (typeof value === 'number') {
+                    if (header.key.includes('contribution')) return value.toFixed(2);
+                    if (header.key.includes('growth')) return value === Infinity ? 'New' : value.toFixed(2);
+                }
+                if (typeof value === 'string') return `"${value.replace(/"/g, '""')}"`;
+                return value;
+            }).join(',');
+        });
+        
+        const csvString = `${csvHeaders}\n${csvRows.join('\n')}`;
+        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `${title.replace(/ /g, '_')}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadPDF = () => {
+        const doc = new jsPDF();
+        (doc as any).autoTable({
+            head: [headers.map(h => h.label)],
+            body: processedData.map(row => headers.map(header => {
+                const value = (row as any)[header.key];
+                if (typeof value === 'number') {
+                    if (header.key.includes('contribution')) return `${value.toFixed(2)}%`;
+                    if (header.key.includes('growth')) return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
+                    return formatNumberAbbreviated(value);
+                }
+                return value;
+            })),
+            startY: 20,
+            didDrawPage: (data: any) => {
+                doc.setFontSize(18);
+                doc.setTextColor(40);
+                doc.text(tableTitle, data.settings.margin.left, 15);
+            },
+            styles: {
+                fillColor: [30, 41, 59], // slate-800
+                textColor: [226, 232, 240], // slate-200
+                font: 'Inter',
+            },
+            headStyles: {
+                fillColor: [71, 85, 105], // slate-600
+                textColor: [248, 250, 252] // slate-50
+            },
+            alternateRowStyles: {
+                fillColor: [51, 65, 85] // slate-700
+            }
+        });
+        doc.save(`${title.replace(/ /g, '_')}.pdf`);
+    };
 
     return (
         <div className="flex flex-col gap-6">
@@ -133,15 +221,22 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                         </svg>
                     </button>
-                    <h1 className="text-3xl font-extrabold text-white">{title}</h1>
+                    <h1 className="text-3xl font-extrabold text-white">{tableTitle}</h1>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button onClick={handleDownloadCSV} className="p-2 rounded-md bg-slate-700 hover:bg-green-600 transition-colors" aria-label="Download as CSV" title="Download as CSV">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                    </button>
+                    <button onClick={handleDownloadPDF} className="p-2 rounded-md bg-slate-700 hover:bg-red-600 transition-colors" aria-label="Download as PDF" title="Download as PDF">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                    </button>
                 </div>
             </div>
 
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <h2 className="text-xl font-bold text-white">Detailed Breakdown</h2>
                     <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                        {hasBranchFilter && branchOptions && (
+                         {hasBranchFilter && branchOptions && (
                             <select
                                 value={selectedBranch}
                                 onChange={(e) => setSelectedBranch(e.target.value)}
@@ -162,7 +257,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
                 </div>
                 
                 <div className="overflow-x-auto">
-                    <table className="min-w-full text-left text-sm text-slate-300 table-sortable">
+                    <table className="min-w-full text-left text-sm text-slate-300 table-sortable table-banded">
                         <thead className="bg-slate-700/50 text-xs text-slate-200 uppercase tracking-wider">
                             <tr>
                                 {headers.map(header => (
@@ -174,7 +269,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
                         </thead>
                         <tbody>
                             {processedData.map((item) => (
-                                <tr key={item.name} className="border-b border-slate-700 hover:bg-slate-800/60 transition-colors">
+                                <tr key={item.name} className="border-b border-slate-700 hover:bg-sky-500/10 transition-colors">
                                     {headers.map(header => renderCell(item, header.key))}
                                 </tr>
                             ))}

@@ -51,3 +51,7 @@ select[multiple] option:checked {
     content: ' ▼';
     @apply text-sky-400;
 }
+
+.table-banded tbody tr:nth-child(even) {
+    @apply bg-slate-800/20;
+}
