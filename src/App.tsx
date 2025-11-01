@@ -39,7 +39,7 @@ const App: React.FC = () => {
     const [allData, setAllData] = useState<RawSalesDataRow[]>([]);
     const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
     const [filters, setFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
-    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
     const navigate = useNavigate();
     const location = useLocation();
 
@@ -116,12 +116,14 @@ const App: React.FC = () => {
     }, [processedData, filters, allData]);
 
     const handleLogin = () => {
+        localStorage.setItem('isAuthenticated', 'true');
         setIsAuthenticated(true);
         const from = location.state?.from?.pathname || '/';
         navigate(from, { replace: true });
     };
 
     const handleLogout = () => {
+        localStorage.removeItem('isAuthenticated');
         setIsAuthenticated(false);
         navigate('/login');
     };

@@ -87,7 +87,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         summaryDescription, 
         visibleFilters,
         entityTypeLabel,
-        availabilityPercent
+        performanceRateStats
     } = useMemo(() => {
         
         let locallyFilteredRawData = allRawData.filter(row => {
@@ -234,17 +234,20 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             brand: ['items', 'pareto_items', 'new_items', 'lost_items'].includes(viewType)
         };
         
-        let availabilityPercent: number | null = null;
+        let performanceRateStats: { rate: number; sold: number; total: number } | null = null;
         const isBrandOrItemView = viewType.includes('brand') || viewType.includes('item');
 
         if (isBrandOrItemView) {
-            // Corrected logic: Calculate availability based on the final, displayed data.
             const totalInView = finalData.length;
             if (totalInView > 0) {
                 const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
-                availabilityPercent = (soldInView / totalInView) * 100;
+                performanceRateStats = {
+                    rate: (soldInView / totalInView) * 100,
+                    sold: soldInView,
+                    total: totalInView
+                };
             } else {
-                availabilityPercent = 0; // If table is empty, availability is 0
+                performanceRateStats = { rate: 0, sold: 0, total: 0 };
             }
         }
 
@@ -256,7 +259,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             summaryDescription: generateDescription(), 
             visibleFilters,
             entityTypeLabel,
-            availabilityPercent
+            performanceRateStats
         };
     }, [viewType, allRawData, searchTerm, sortConfig, localFilters]);
 
@@ -394,15 +397,16 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
              <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
                 <h2 className="text-xl font-bold text-white mb-2">Table Insights</h2>
                 <p className="text-slate-300 mb-4">{summaryDescription}</p>
-                <div className={`grid grid-cols-2 ${availabilityPercent !== null ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 text-center`}>
+                <div className={`grid grid-cols-2 ${performanceRateStats !== null ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 text-center`}>
                     <div className="bg-slate-700/50 p-4 rounded-lg">
                         <div className="text-sm font-bold text-slate-400 uppercase">Total {entityTypeLabel}</div>
                         <div className="text-2xl font-extrabold text-white">{summaryTotals.count.toLocaleString()}</div>
                     </div>
-                     {availabilityPercent !== null && (
+                     {performanceRateStats !== null && (
                         <div className="bg-slate-700/50 p-4 rounded-lg">
-                            <div className="text-sm font-bold text-slate-400 uppercase">Availability %</div>
-                            <div className="text-2xl font-extrabold text-sky-400">{availabilityPercent.toFixed(2)}%</div>
+                            <div className="text-sm font-bold text-slate-400 uppercase">Items Performance Rate</div>
+                            <div className="text-2xl font-extrabold text-sky-400">{performanceRateStats.rate.toFixed(2)}%</div>
+                            <div className="text-xs text-slate-400 font-semibold">{performanceRateStats.sold.toLocaleString()} / {performanceRateStats.total.toLocaleString()} sold</div>
                         </div>
                     )}
                     <div className="bg-slate-700/50 p-4 rounded-lg">
