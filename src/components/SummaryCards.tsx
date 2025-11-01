@@ -71,13 +71,13 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
                 <SectionTitle>Pareto Analysis (80/20 Rule)</SectionTitle>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <SummaryCard title="Top 20% Branches" icon="📊" to="/details/pareto_branches">
-                         <p>Top <b>{data.pareto.branches.topCount}</b> of <b>{data.pareto.branches.totalContributors}</b> branches generate <b>{data.pareto.branches.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
+                         <p>Top <b>{data.pareto.branches.topCount}</b> of <b>{data.pareto.branches.totalContributors}</b> branches generate <b className="text-green-400 font-extrabold text-lg">{data.pareto.branches.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
                     </SummaryCard>
                     <SummaryCard title="Top 20% Brands" icon="📊" to="/details/pareto_brands">
-                         <p>Top <b>{data.pareto.brands.topCount}</b> of <b>{data.pareto.brands.totalContributors}</b> brands generate <b>{data.pareto.brands.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
+                         <p>Top <b>{data.pareto.brands.topCount}</b> of <b>{data.pareto.brands.totalContributors}</b> brands generate <b className="text-green-400 font-extrabold text-lg">{data.pareto.brands.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
                     </SummaryCard>
                     <SummaryCard title="Top 20% Items" icon="📊" to="/details/pareto_items">
-                         <p>Top <b>{data.pareto.items.topCount}</b> of <b>{data.pareto.items.totalContributors}</b> items generate <b>{data.pareto.items.salesPercent.toFixed(1)}%</b> of sales.</p>
+                         <p>Top <b>{data.pareto.items.topCount}</b> of <b>{data.pareto.items.totalContributors}</b> items generate <b className="text-green-400 font-extrabold text-lg">{data.pareto.items.salesPercent.toFixed(1)}%</b> of sales.</p>
                     </SummaryCard>
                 </div>
             </section>
