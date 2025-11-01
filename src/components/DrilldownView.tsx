@@ -235,19 +235,17 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         };
         
         let availabilityPercent: number | null = null;
-        const availabilityKey = viewType.includes('brand') ? 'BRAND' : viewType.includes('item') ? 'ITEM DESCRIPTION' : null;
-        if (availabilityKey) {
-            const totalInScope = new Set<string>();
-            const soldInScope = new Set<string>();
-            locallyFilteredRawData.forEach(row => {
-                if (row[availabilityKey]) {
-                    totalInScope.add(row[availabilityKey]);
-                    if (row['SALES2025'] > 0) {
-                        soldInScope.add(row[availabilityKey]);
-                    }
-                }
-            });
-            availabilityPercent = totalInScope.size > 0 ? (soldInScope.size / totalInScope.size) * 100 : 0;
+        const isBrandOrItemView = viewType.includes('brand') || viewType.includes('item');
+
+        if (isBrandOrItemView) {
+            // Corrected logic: Calculate availability based on the final, displayed data.
+            const totalInView = finalData.length;
+            if (totalInView > 0) {
+                const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
+                availabilityPercent = (soldInView / totalInView) * 100;
+            } else {
+                availabilityPercent = 0; // If table is empty, availability is 0
+            }
         }
 
         return { 
@@ -376,7 +374,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                     <button onClick={() => navigate('/')} className="p-2 rounded-md bg-slate-700 hover:bg-sky-600 transition-colors" aria-label="Back to dashboard">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                         </svg>
                     </button>
