@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
@@ -186,25 +185,6 @@ const CustomYAxisTick = (props: any) => {
     );
 };
 
-const CustomXAxisTick = (props: any) => {
-    const { x, y, payload, maxChars } = props;
-    const value = payload.value as string;
-
-    if (!value) return null;
-
-    const truncatedValue = value.length > maxChars ? `${value.substring(0, maxChars)}...` : value;
-
-    return (
-        <g transform={`translate(${x},${y})`}>
-            <text x={0} y={0} dy={16} textAnchor="end" fill="white" fontSize={12} fontWeight="bold" transform="rotate(-45)">
-                <title>{value}</title>
-                {truncatedValue}
-            </text>
-        </g>
-    );
-};
-
-
 interface ChartsProps {
     data: ProcessedData;
     filters: FilterState;
@@ -291,8 +271,9 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             .sort((a, b) => b.sales2025 - a.sales2025),
     [data.top50Items]);
 
-    const allBranchesChartHeight = isMobile ? 500 : Math.max(400, allBranchesSorted.length * 25);
-    const top50ItemsChartHeight = isMobile ? 500 : Math.max(400, top50ItemsSorted.length * 25);
+    const barHeight = isMobile ? 22 : 25;
+    const allBranchesChartHeight = Math.max(400, allBranchesSorted.length * barHeight);
+    const top50ItemsChartHeight = Math.max(400, top50ItemsSorted.length * barHeight);
 
     const divisionPieProps: any = {
         activeIndex,
@@ -360,26 +341,17 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             <ChartCard title="Top 10 Brands by 2025 Sales" className="lg:col-span-2">
                 <ResponsiveContainer width="100%" height={400}>
                     <BarChart 
-                        layout={isMobile ? 'horizontal' : 'vertical'} 
+                        layout="vertical"
                         data={top10BrandsSorted} 
                         margin={isMobile 
-                            ? { top: 20, right: 20, bottom: 120, left: 20 } 
+                            ? { top: 20, right: 40, bottom: 20, left: 80 } 
                             : { left: 100, top: 20, right: 60, bottom: 20 }
                         }
                         className="cursor-pointer"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        {isMobile ? (
-                            <>
-                                <XAxis type="category" dataKey="name" stroke="white" interval={0} tick={<CustomXAxisTick maxChars={10} />} />
-                                <YAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            </>
-                        ) : (
-                            <>
-                                <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                                <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={12} />} interval={0} />
-                            </>
-                        )}
+                        <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                        <YAxis type="category" dataKey="name" stroke="white" width={isMobile ? 80 : 100} tick={<CustomYAxisTick maxChars={isMobile ? 10 : 12} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend formatter={renderLegendText} />
                         <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('brands', payload)} />
@@ -393,26 +365,17 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             <ChartCard title="Top 50 Items by 2025 Sales" className="lg:col-span-2">
                  <ResponsiveContainer width="100%" height={top50ItemsChartHeight}>
                     <BarChart 
-                        layout={isMobile ? 'horizontal' : 'vertical'} 
+                        layout="vertical"
                         data={top50ItemsSorted} 
                         margin={isMobile 
-                            ? { top: 20, right: 20, bottom: 150, left: 20 } 
+                            ? { top: 20, right: 40, bottom: 20, left: 120 } 
                             : { left: 250, top: 20, right: 60, bottom: 20 }
                         }
                         className="cursor-pointer"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        {isMobile ? (
-                            <>
-                                <XAxis type="category" dataKey="name" stroke="white" interval={0} tick={<CustomXAxisTick maxChars={15} />} />
-                                <YAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            </>
-                        ) : (
-                            <>
-                                <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                                <YAxis type="category" dataKey="name" stroke="white" width={250} tick={<CustomYAxisTick maxChars={35} />} interval={0} />
-                            </>
-                        )}
+                        <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                        <YAxis type="category" dataKey="name" stroke="white" width={isMobile ? 120 : 250} tick={<CustomYAxisTick maxChars={isMobile ? 18 : 35} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend formatter={renderLegendText} />
                         <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('items', payload)} />
@@ -426,26 +389,17 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             <ChartCard title="All Branches Performance & Growth %" className="lg:col-span-2">
                 <ResponsiveContainer width="100%" height={allBranchesChartHeight}>
                     <BarChart 
-                        layout={isMobile ? 'horizontal' : 'vertical'} 
+                        layout="vertical"
                         data={allBranchesSorted} 
                         margin={isMobile 
-                            ? { top: 20, right: 20, bottom: 120, left: 20 } 
+                            ? { top: 20, right: 40, bottom: 20, left: 100 } 
                             : { left: 150, top: 20, right: 60, bottom: 20 }
                         } 
                         className="cursor-pointer"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        {isMobile ? (
-                            <>
-                                <XAxis type="category" dataKey="name" stroke="white" interval={0} tick={<CustomXAxisTick maxChars={12} />} />
-                                <YAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            </>
-                        ) : (
-                            <>
-                                <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                                <YAxis type="category" dataKey="name" stroke="white" width={150} tick={<CustomYAxisTick maxChars={20} />} interval={0} />
-                            </>
-                        )}
+                        <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                        <YAxis type="category" dataKey="name" stroke="white" width={isMobile ? 100 : 150} tick={<CustomYAxisTick maxChars={isMobile ? 15 : 20} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
                         <Legend formatter={renderLegendText} />
                         <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('branches', payload)} />
