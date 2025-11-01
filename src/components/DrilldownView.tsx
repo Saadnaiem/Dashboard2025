@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { RawSalesDataRow, ProcessedData } from '../types';
-import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
 type SortDirection = 'ascending' | 'descending';
 interface SortConfig { key: string; direction: SortDirection; }
@@ -109,8 +109,18 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
         };
         const calculateGrowth = (current: number, previous: number) => previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
         summaryTotals.growth = calculateGrowth(summaryTotals.total2025, summaryTotals.total2024);
-
-        const generateDescription = () => { /* ... same as before ... */ return `This table provides a detailed analysis for ${viewType}.`; };
+        
+        const generateDescription = () => {
+            let baseText = `This table shows a detailed breakdown for "${currentTitle}".`;
+            if (hasBranchFilter) {
+                if (selectedBranch) {
+                    baseText = `This table shows a detailed breakdown for "${currentTitle.split(' in ')[0]}" within the ${selectedBranch} branch.`;
+                } else {
+                    baseText += ` You can select a branch from the dropdown to see data specific to that location.`;
+                }
+            }
+            return baseText;
+        };
 
         return { processedData: finalData, tableTitle: currentTitle, headers: currentHeaders, summaryTotals, summaryDescription: generateDescription() };
     }, [viewType, filteredData, searchTerm, sortConfig, hasBranchFilter, selectedBranch, allRawData]);
@@ -137,8 +147,54 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
         }
     };
     
-    const handleDownloadCSV = () => { /* ... same as before ... */ };
-    const handleDownloadPDF = () => { /* ... same as before ... */ };
+    const handleDownloadCSV = () => {
+        const csvContent = [
+            headers.map(h => h.label).join(','),
+            ...processedData.map(item =>
+                headers.map(h => {
+                    const value = (item as any)[h.key];
+                    if (typeof value === 'string' && value.includes(',')) return `"${value}"`;
+                    if (typeof value === 'number' && h.key.includes('contribution')) return `${value.toFixed(2)}%`;
+                    if (typeof value === 'number' && h.key === 'growth') {
+                         if (value === Infinity) return 'New';
+                         return `${value.toFixed(2)}%`;
+                    }
+                    return value;
+                }).join(',')
+            )
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.setAttribute('href', URL.createObjectURL(blob));
+        link.setAttribute('download', `${viewType}_data.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadPDF = () => {
+        const doc = new jsPDF();
+        doc.text(tableTitle, 14, 20);
+
+        const tableColumn = headers.map(h => h.label);
+        const tableRows: any[][] = processedData.map(item =>
+            headers.map(h => {
+                const value = (item as any)[h.key];
+                if (h.key === 'growth') return value === Infinity ? 'New' : typeof value === 'number' ? `${value.toFixed(2)}%` : '-';
+                if (h.key.includes('contribution')) return typeof value === 'number' ? `${value.toFixed(2)}%` : '-';
+                if (typeof value === 'number') return formatNumberAbbreviated(value);
+                return value || '-';
+            })
+        );
+
+        (doc as any).autoTable({
+            head: [tableColumn], body: tableRows, startY: 25, theme: 'grid',
+            headStyles: { fillColor: [34, 197, 94] }, // Green-500
+            styles: { font: 'helvetica', fontSize: 8 },
+        });
+        doc.save(`${viewType}_report.pdf`);
+    };
 
     return (
         <div className="flex flex-col gap-6">
@@ -151,9 +207,39 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                     </button>
                     <h1 className="text-3xl font-extrabold text-white">{tableTitle}</h1>
                 </div>
-                {/* ... download buttons ... */}
+                 <div className="flex items-center gap-2">
+                    <button onClick={handleDownloadCSV} className="px-4 py-2 bg-slate-700 text-white font-bold rounded-lg shadow-md hover:bg-sky-600 transition-all flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        CSV
+                    </button>
+                    <button onClick={handleDownloadPDF} className="px-4 py-2 bg-slate-700 text-white font-bold rounded-lg shadow-md hover:bg-sky-600 transition-all flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                        PDF
+                    </button>
+                </div>
             </div>
-            {/* ... summary panel ... */}
+             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
+                <h2 className="text-xl font-bold text-white mb-2">Table Insights</h2>
+                <p className="text-slate-300 mb-4">{summaryDescription}</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                    <div className="bg-slate-700/50 p-4 rounded-lg">
+                        <div className="text-sm font-bold text-slate-400 uppercase">Total Rows</div>
+                        <div className="text-2xl font-extrabold text-white">{summaryTotals.count.toLocaleString()}</div>
+                    </div>
+                    <div className="bg-slate-700/50 p-4 rounded-lg">
+                        <div className="text-sm font-bold text-slate-400 uppercase">2025 Sales</div>
+                        <div className="text-2xl font-extrabold text-green-400">{formatNumberAbbreviated(summaryTotals.total2025)}</div>
+                    </div>
+                    <div className="bg-slate-700/50 p-4 rounded-lg">
+                        <div className="text-sm font-bold text-slate-400 uppercase">2024 Sales</div>
+                        <div className="text-2xl font-extrabold text-slate-300">{formatNumberAbbreviated(summaryTotals.total2024)}</div>
+                    </div>
+                    <div className="bg-slate-700/50 p-4 rounded-lg">
+                        <div className="text-sm font-bold text-slate-400 uppercase">Overall Growth</div>
+                        <div className="text-2xl font-extrabold"><GrowthIndicator value={summaryTotals.growth} /></div>
+                    </div>
+                </div>
+            </div>
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
