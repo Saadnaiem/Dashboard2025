@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { FilterState, ProcessedData } from '../types';
 import useOnClickOutside from '../hooks/useOnClickOutside';
@@ -28,6 +27,10 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
         onReset();
         setShowFilters(false);
     };
+    
+    // FIX: Explicitly typed 'val' as string[] to resolve a type inference issue with Object.values.
+    const activeFilterCount = Object.values(filters).reduce((acc, val: string[]) => acc + val.length, 0);
+    const totalActiveIndicators = activeFilterCount + (searchTerm ? 1 : 0);
 
     return (
         <div ref={filterRef} className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
@@ -50,12 +53,17 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                 <div className="flex items-center gap-4">
                     <button 
                         onClick={() => setShowFilters(!showFilters)} 
-                        className="px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
+                        className="relative px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
                         {showFilters ? 'Hide' : 'Show'} Filters
+                        {totalActiveIndicators > 0 && (
+                            <span className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 rounded-full bg-green-500 text-white text-xs font-bold border-2 border-slate-800">
+                                {totalActiveIndicators}
+                            </span>
+                        )}
                     </button>
                     <button 
                         onClick={handleReset} 
