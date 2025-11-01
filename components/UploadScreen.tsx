@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 
 interface UploadScreenProps {
@@ -42,7 +41,7 @@ const UploadScreen: React.FC<UploadScreenProps> = ({ onFileSelect, error }) => {
     return (
         <div className="max-w-2xl mx-auto flex flex-col items-center justify-center min-h-[80vh]">
             <div className="text-center mb-6">
-                <h1 className="text-4xl font-extrabold text-white mb-2">Pharmacy Sales Dashboard</h1>
+                <h1 className="text-4xl font-extrabold text-white mb-2">Pharmacy Analytics</h1>
                 <p className="text-lg text-slate-300">Upload your sales CSV file to get started.</p>
             </div>
 

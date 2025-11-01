@@ -1,5 +1,5 @@
 {
-  "name": "Pharmacy Sales Dashboard",
-  "description": "An interactive dashboard to visualize and analyze pharmacy sales data from a CSV file. It provides key metrics, sales comparisons, and performance charts for divisions, brands, and branches.",
+  "name": "Pharmacy Analytics",
+  "description": "An interactive analytics platform to visualize and analyze pharmacy sales data. It provides key metrics, performance charts, and deep-dive analysis for divisions, brands, and branches.",
   "requestFramePermissions": []
 }
