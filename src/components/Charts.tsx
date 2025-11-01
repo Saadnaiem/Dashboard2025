@@ -339,7 +339,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                            <Cell fill={COLORS.teal} />
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend payload={legendPayload} formatter={renderLegendText} />
+                        <Legend formatter={renderLegendText} />
                          <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="text-base font-bold" fill="#FFFFFF">
                             YOY Growth
                         </text>
