@@ -1,3 +1,5 @@
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -39,6 +41,7 @@ const App: React.FC = () => {
     const [allData, setAllData] = useState<RawSalesDataRow[]>([]);
     const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
     const [filters, setFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
+    const [searchTerm, setSearchTerm] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
     const navigate = useNavigate();
     const location = useLocation();
@@ -116,17 +119,46 @@ const App: React.FC = () => {
     
     const filteredData = useMemo(() => {
         if (!processedData) return null;
-        const filteredRows = allData.filter(row => {
+
+        const lowercasedTerm = searchTerm.toLowerCase();
+
+        const finalFilteredRows = allData.filter(row => {
+            // Dropdown filters
             const { divisions, branches, brands, items } = filters;
-            return (divisions.length === 0 || divisions.includes(row['DIVISION'])) &&
-                   (branches.length === 0 || branches.includes(row['BRANCH NAME'])) &&
-                   (brands.length === 0 || brands.includes(row['BRAND'])) &&
-                   (items.length === 0 || items.includes(row['ITEM DESCRIPTION']));
+            const divisionMatch = divisions.length === 0 || divisions.includes(row['DIVISION']);
+            const branchMatch = branches.length === 0 || branches.includes(row['BRANCH NAME']);
+            const brandMatch = brands.length === 0 || brands.includes(row['BRAND']);
+            const itemMatch = items.length === 0 || items.includes(row['ITEM DESCRIPTION']);
+            const dropdownMatch = divisionMatch && branchMatch && brandMatch && itemMatch;
+
+            if (!dropdownMatch) return false;
+
+            // Search term filter
+            if (searchTerm) {
+                return (
+                    (row['DIVISION']?.toLowerCase().includes(lowercasedTerm)) ||
+                    (row['BRANCH NAME']?.toLowerCase().includes(lowercasedTerm)) ||
+                    (row['BRAND']?.toLowerCase().includes(lowercasedTerm)) ||
+                    (row['ITEM DESCRIPTION']?.toLowerCase().includes(lowercasedTerm))
+                );
+            }
+
+            return true; // No search term, so it passes this filter
         });
-        if (filteredRows.length === 0 && allData.length > 0) return createEmptyProcessedData(processedData.filterOptions);
-        if (filteredRows.length === allData.length) return processedData;
-        return processSalesData(filteredRows, processedData.filterOptions);
-    }, [processedData, filters, allData]);
+
+        // Check if any filter (dropdowns or search) is active
+        // FIX: Explicitly typed the parameter in the `every` callback to resolve a TypeScript type inference issue with `Object.values`, ensuring that `f` is correctly recognized as a string array.
+        const noFiltersApplied = Object.values(filters).every((f: string[]) => f.length === 0);
+        if (noFiltersApplied && !searchTerm) {
+            return processedData;
+        }
+
+        if (finalFilteredRows.length === 0 && allData.length > 0) {
+            return createEmptyProcessedData(processedData.filterOptions);
+        }
+
+        return processSalesData(finalFilteredRows, processedData.filterOptions);
+    }, [processedData, filters, allData, searchTerm]);
 
     const handleLogin = () => {
         localStorage.setItem('isAuthenticated', 'true');
@@ -169,7 +201,16 @@ const App: React.FC = () => {
                 >
                     <Route 
                         path="/" 
-                        element={<Dashboard data={filteredData!} filters={filters} onFilterChange={setFilters} onLogout={handleLogout} />} 
+                        element={
+                            <Dashboard 
+                                data={filteredData!} 
+                                filters={filters} 
+                                onFilterChange={setFilters} 
+                                onLogout={handleLogout}
+                                searchTerm={searchTerm}
+                                onSearchChange={setSearchTerm}
+                            />
+                        } 
                     />
                     <Route 
                         path="/details/:viewType" 
