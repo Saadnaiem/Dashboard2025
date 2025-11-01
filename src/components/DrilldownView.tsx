@@ -10,7 +10,6 @@ interface SortConfig { key: string; direction: SortDirection; }
 type DrilldownItem = { name: string; code?: string; sales2024?: number; sales2025?: number; growth?: number; };
 
 export interface DrilldownViewProps {
-    filteredData: ProcessedData;
     allRawData: RawSalesDataRow[];
     globalFilterOptions?: ProcessedData['filterOptions'];
 }
@@ -21,7 +20,7 @@ const viewTitles: { [key: string]: string } = {
     'new_brands': 'New Brands in 2025', 'new_items': 'New Items in 2025', 'lost_brands': 'Lost Brands from 2024', 'lost_items': 'Lost Items from 2024',
 };
 
-const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData, globalFilterOptions }) => {
+const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterOptions }) => {
     const { viewType = '' } = useParams<{ viewType: string }>();
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
