@@ -2,6 +2,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
+import { useWindowSize } from '../hooks/useWindowSize';
 
 // New unified color palette
 const COLORS = {
@@ -171,9 +172,7 @@ const CustomYAxisTick = (props: any) => {
     const { x, y, payload, maxChars } = props;
     const value = payload.value as string;
 
-    if (!value) {
-        return null;
-    }
+    if (!value) return null;
 
     const truncatedValue = value.length > maxChars ? `${value.substring(0, maxChars)}...` : value;
 
@@ -186,6 +185,25 @@ const CustomYAxisTick = (props: any) => {
         </g>
     );
 };
+
+const CustomXAxisTick = (props: any) => {
+    const { x, y, payload, maxChars } = props;
+    const value = payload.value as string;
+
+    if (!value) return null;
+
+    const truncatedValue = value.length > maxChars ? `${value.substring(0, maxChars)}...` : value;
+
+    return (
+        <g transform={`translate(${x},${y})`}>
+            <text x={0} y={0} dy={16} textAnchor="end" fill="white" fontSize={12} fontWeight="bold" transform="rotate(-45)">
+                <title>{value}</title>
+                {truncatedValue}
+            </text>
+        </g>
+    );
+};
+
 
 interface ChartsProps {
     data: ProcessedData;
@@ -202,6 +220,8 @@ const ChartCard: React.FC<{ title: string; children: React.ReactNode; className?
 
 const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
     const [activeIndex, setActiveIndex] = useState<number>(-1);
+    const { width } = useWindowSize();
+    const isMobile = width < 768; // Tailwind's md breakpoint
 
     const onPieEnter = useCallback((_: any, index: number) => {
         setActiveIndex(index);
@@ -216,16 +236,13 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             const value = payload.name;
             const currentFilterValues = filters[filterKey];
 
-            // Check if the current filter for this key is already set to ONLY this value
             if (
                 Array.isArray(currentFilterValues) &&
                 currentFilterValues.length === 1 &&
                 currentFilterValues[0] === value
             ) {
-                // If so, reset all filters
                 onFilterChange({ divisions: [], branches: [], brands: [], items: [] });
             } else {
-                // Otherwise, set the filter to this value, clearing others
                 onFilterChange({ divisions: [], branches: [], brands: [], items: [], [filterKey]: [value] });
             }
         }
@@ -274,13 +291,9 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             .sort((a, b) => b.sales2025 - a.sales2025),
     [data.top50Items]);
 
-    // Calculate dynamic height for the branch charts to prevent label overlap
-    const allBranchesChartHeight = Math.max(400, allBranchesSorted.length * 25);
-    const top50ItemsChartHeight = Math.max(400, top50ItemsSorted.length * 25);
+    const allBranchesChartHeight = isMobile ? 500 : Math.max(400, allBranchesSorted.length * 25);
+    const top50ItemsChartHeight = isMobile ? 500 : Math.max(400, top50ItemsSorted.length * 25);
 
-    // FIX: The `activeIndex` prop for the Pie chart is not recognized by the current recharts type definitions.
-    // To resolve this without suppressing errors for the entire component, we extract the props into a variable
-    // and type it as `any`, allowing TypeScript to accept the `activeIndex` property.
     const divisionPieProps: any = {
         activeIndex,
         activeShape: renderActiveShape,
@@ -345,72 +358,102 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             </ChartCard>
 
             <ChartCard title="Top 10 Brands by 2025 Sales" className="lg:col-span-2">
-                <div className="w-full overflow-x-auto">
-                    <ResponsiveContainer width="100%" height={400} minWidth={600}>
-                        <BarChart 
-                            layout="vertical" 
-                            data={top10BrandsSorted} 
-                            margin={{ left: 100, top: 20, right: 60, bottom: 20 }} 
-                            className="cursor-pointer"
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={12} />} interval={0} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend formatter={renderLegendText} />
-                            <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('brands', payload)} />
-                            <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('brands', payload)}>
-                                <LabelList dataKey="growth" content={renderGrowthLabel} />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+                <ResponsiveContainer width="100%" height={400}>
+                    <BarChart 
+                        layout={isMobile ? 'horizontal' : 'vertical'} 
+                        data={top10BrandsSorted} 
+                        margin={isMobile 
+                            ? { top: 20, right: 20, bottom: 120, left: 20 } 
+                            : { left: 100, top: 20, right: 60, bottom: 20 }
+                        }
+                        className="cursor-pointer"
+                    >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        {isMobile ? (
+                            <>
+                                <XAxis type="category" dataKey="name" stroke="white" interval={0} tick={<CustomXAxisTick maxChars={10} />} />
+                                <YAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                            </>
+                        ) : (
+                            <>
+                                <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                                <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={12} />} interval={0} />
+                            </>
+                        )}
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend formatter={renderLegendText} />
+                        <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('brands', payload)} />
+                        <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('brands', payload)}>
+                            {!isMobile && <LabelList dataKey="growth" content={renderGrowthLabel} />}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
             </ChartCard>
 
             <ChartCard title="Top 50 Items by 2025 Sales" className="lg:col-span-2">
-                <div className="w-full overflow-x-auto">
-                    <ResponsiveContainer width="100%" height={top50ItemsChartHeight} minWidth={600}>
-                        <BarChart 
-                            layout="vertical" 
-                            data={top50ItemsSorted} 
-                            margin={{ left: 250, top: 20, right: 60, bottom: 20 }} 
-                            className="cursor-pointer"
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            <YAxis type="category" dataKey="name" stroke="white" width={250} tick={<CustomYAxisTick maxChars={35} />} interval={0} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend formatter={renderLegendText} />
-                            <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('items', payload)} />
-                            <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('items', payload)}>
-                                <LabelList dataKey="growth" content={renderGrowthLabel} />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+                 <ResponsiveContainer width="100%" height={top50ItemsChartHeight}>
+                    <BarChart 
+                        layout={isMobile ? 'horizontal' : 'vertical'} 
+                        data={top50ItemsSorted} 
+                        margin={isMobile 
+                            ? { top: 20, right: 20, bottom: 150, left: 20 } 
+                            : { left: 250, top: 20, right: 60, bottom: 20 }
+                        }
+                        className="cursor-pointer"
+                    >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        {isMobile ? (
+                            <>
+                                <XAxis type="category" dataKey="name" stroke="white" interval={0} tick={<CustomXAxisTick maxChars={15} />} />
+                                <YAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                            </>
+                        ) : (
+                            <>
+                                <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                                <YAxis type="category" dataKey="name" stroke="white" width={250} tick={<CustomYAxisTick maxChars={35} />} interval={0} />
+                            </>
+                        )}
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend formatter={renderLegendText} />
+                        <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('items', payload)} />
+                        <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('items', payload)}>
+                            {!isMobile && <LabelList dataKey="growth" content={renderGrowthLabel} />}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
             </ChartCard>
             
             <ChartCard title="All Branches Performance & Growth %" className="lg:col-span-2">
-                <div className="w-full overflow-x-auto">
-                    <ResponsiveContainer width="100%" height={allBranchesChartHeight} minWidth={600}>
-                        <BarChart 
-                            layout="vertical" 
-                            data={allBranchesSorted} 
-                            margin={{ left: 150, top: 20, right: 60, bottom: 20 }} 
-                            className="cursor-pointer"
-                        >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            <YAxis type="category" dataKey="name" stroke="white" width={150} tick={<CustomYAxisTick maxChars={20} />} interval={0} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend formatter={renderLegendText} />
-                            <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('branches', payload)} />
-                            <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('branches', payload)}>
-                                <LabelList dataKey="growth" content={renderGrowthLabel} />
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </div>
+                <ResponsiveContainer width="100%" height={allBranchesChartHeight}>
+                    <BarChart 
+                        layout={isMobile ? 'horizontal' : 'vertical'} 
+                        data={allBranchesSorted} 
+                        margin={isMobile 
+                            ? { top: 20, right: 20, bottom: 120, left: 20 } 
+                            : { left: 150, top: 20, right: 60, bottom: 20 }
+                        } 
+                        className="cursor-pointer"
+                    >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        {isMobile ? (
+                            <>
+                                <XAxis type="category" dataKey="name" stroke="white" interval={0} tick={<CustomXAxisTick maxChars={12} />} />
+                                <YAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                            </>
+                        ) : (
+                            <>
+                                <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
+                                <YAxis type="category" dataKey="name" stroke="white" width={150} tick={<CustomYAxisTick maxChars={20} />} interval={0} />
+                            </>
+                        )}
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend formatter={renderLegendText} />
+                        <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('branches', payload)} />
+                        <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('branches', payload)}>
+                            {!isMobile && <LabelList dataKey="growth" content={renderGrowthLabel} />}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
             </ChartCard>
         </div>
     );
