@@ -27,9 +27,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
     
     const [localFilters, setLocalFilters] = useState({
-        division: '',
-        branch: '',
-        brand: '',
+        division: [] as string[],
+        branch: [] as string[],
+        brand: [] as string[],
     });
 
     const { availableBranches, availableBrands } = useMemo(() => {
@@ -37,21 +37,21 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         let branches = globalFilterOptions.branches;
         let brands = globalFilterOptions.brands;
 
-        if (localFilters.division) {
+        if (localFilters.division.length > 0) {
             const branchSet = new Set<string>();
             allRawData.forEach(row => {
-                if (row['DIVISION'] === localFilters.division) {
+                if (localFilters.division.includes(row['DIVISION'])) {
                     branchSet.add(row['BRANCH NAME']);
                 }
             });
             branches = Array.from(branchSet).sort();
         }
         
-        if (localFilters.branch || localFilters.division) {
+        if (localFilters.branch.length > 0 || localFilters.division.length > 0) {
              const brandSet = new Set<string>();
              allRawData.forEach(row => {
-                const divisionMatch = !localFilters.division || row['DIVISION'] === localFilters.division;
-                const branchMatch = !localFilters.branch || row['BRANCH NAME'] === localFilters.branch;
+                const divisionMatch = localFilters.division.length === 0 || localFilters.division.includes(row['DIVISION']);
+                const branchMatch = localFilters.branch.length === 0 || localFilters.branch.includes(row['BRANCH NAME']);
                 if (divisionMatch && branchMatch) {
                     brandSet.add(row['BRAND']);
                 }
@@ -63,19 +63,21 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     }, [allRawData, globalFilterOptions, localFilters.division, localFilters.branch]);
 
     useEffect(() => {
-        setLocalFilters(prev => ({ ...prev, branch: '', brand: '' }));
-    }, [localFilters.division]);
+        setLocalFilters(prev => ({ ...prev, branch: [], brand: [] }));
+    }, [localFilters.division.join(',')]);
 
     useEffect(() => {
-        setLocalFilters(prev => ({ ...prev, brand: '' }));
-    }, [localFilters.branch]);
+        setLocalFilters(prev => ({ ...prev, brand: [] }));
+    }, [localFilters.branch.join(',')]);
 
-    const handleLocalFilterChange = (filterKey: keyof typeof localFilters, value: string) => {
-        setLocalFilters(prev => ({ ...prev, [filterKey]: value }));
+    const handleLocalMultiSelectChange = (e: React.ChangeEvent<HTMLSelectElement>, filterKey: keyof typeof localFilters) => {
+        // FIX: Explicitly type 'option' as HTMLOptionElement to resolve a type inference issue where it was treated as 'unknown'.
+        const selectedOptions = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
+        setLocalFilters(prev => ({ ...prev, [filterKey]: selectedOptions }));
     };
 
     const resetLocalFilters = () => {
-        setLocalFilters({ division: '', branch: '', brand: '' });
+        setLocalFilters({ division: [], branch: [], brand: [] });
         setSearchTerm('');
     };
 
@@ -91,9 +93,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     } = useMemo(() => {
         
         let locallyFilteredRawData = allRawData.filter(row => {
-            return (!localFilters.division || row['DIVISION'] === localFilters.division) &&
-                   (!localFilters.branch || row['BRANCH NAME'] === localFilters.branch) &&
-                   (!localFilters.brand || row['BRAND'] === localFilters.brand);
+            return (localFilters.division.length === 0 || localFilters.division.includes(row['DIVISION'])) &&
+                   (localFilters.branch.length === 0 || localFilters.branch.includes(row['BRANCH NAME'])) &&
+                   (localFilters.brand.length === 0 || localFilters.brand.includes(row['BRAND']));
         });
 
         let displayData: DrilldownItem[] = [];
@@ -220,7 +222,11 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         summaryTotals.growth = ((current, previous) => previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100)(summaryTotals.total2025, summaryTotals.total2024);
         
         const generateDescription = () => {
-             let activeFilters = Object.entries(localFilters).filter(([, value]) => value).map(([key, value]) => `${key}: ${value}`).join(', ');
+            // FIX: Cast Object.entries result to correctly type the 'value' as string[] and allow accessing '.length'.
+             let activeFilters = (Object.entries(localFilters) as [string, string[]][])
+                .filter(([, value]) => value.length > 0)
+                .map(([key, value]) => `${key}: ${value.length} selected`)
+                .join(', ');
              let baseText = `This table shows a detailed breakdown for "${currentTitle}".`;
              if (activeFilters) {
                  return `${baseText} Currently filtered by ${activeFilters}.`;
@@ -238,13 +244,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const isBrandOrItemView = viewType.includes('brand') || viewType.includes('item');
 
         if (isBrandOrItemView) {
-            const tableDataForPerfRate = (viewType.startsWith('pareto') || viewType.startsWith('new') || viewType.startsWith('lost'))
-                ? displayData // Use pre-sorted/filtered data for these views
-                : finalData; // Use final filtered/sorted data for 'all' views
-
-            const totalInView = tableDataForPerfRate.length;
+            const totalInView = displayData.length;
             if (totalInView > 0) {
-                const soldInView = tableDataForPerfRate.filter(item => item.sales2025 && item.sales2025 > 0).length;
+                const soldInView = displayData.filter(item => item.sales2025 && item.sales2025 > 0).length;
                 performanceRateStats = {
                     rate: (soldInView / totalInView) * 100,
                     sold: soldInView,
@@ -428,33 +430,40 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </div>
             </div>
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                <div className="flex flex-col md:flex-row flex-wrap justify-between items-center mb-4 gap-4">
-                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-                        {globalFilterOptions && visibleFilters.division && (
-                            <select value={localFilters.division} onChange={(e) => handleLocalFilterChange('division', e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full">
-                                <option value="">All Divisions</option>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    {globalFilterOptions && visibleFilters.division && (
+                        <div>
+                            <label htmlFor="drilldownDivisionFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Division</label>
+                            <select id="drilldownDivisionFilter" multiple size={5} className="w-full" value={localFilters.division} onChange={(e) => handleLocalMultiSelectChange(e, 'division')}>
                                 {globalFilterOptions.divisions.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
-                        )}
-                        {globalFilterOptions && visibleFilters.branch && (
-                           <select value={localFilters.branch} onChange={(e) => handleLocalFilterChange('branch', e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full">
-                                <option value="">All Branches</option>
+                        </div>
+                    )}
+                    {globalFilterOptions && visibleFilters.branch && (
+                        <div>
+                            <label htmlFor="drilldownBranchFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Branch</label>
+                            <select id="drilldownBranchFilter" multiple size={5} className="w-full" value={localFilters.branch} onChange={(e) => handleLocalMultiSelectChange(e, 'branch')}>
                                 {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
-                        )}
-                         {globalFilterOptions && visibleFilters.brand && (
-                           <select value={localFilters.brand} onChange={(e) => handleLocalFilterChange('brand', e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full">
-                                <option value="">All Brands</option>
+                        </div>
+                    )}
+                    {globalFilterOptions && visibleFilters.brand && (
+                        <div>
+                            <label htmlFor="drilldownBrandFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Brand</label>
+                            <select id="drilldownBrandFilter" multiple size={5} className="w-full" value={localFilters.brand} onChange={(e) => handleLocalMultiSelectChange(e, 'brand')}>
                                 {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
-                        )}
-                        <input type="text" placeholder="Search by name or code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full" />
-                    </div>
-                     <button onClick={resetLocalFilters} className="px-4 py-2 bg-rose-600 text-white font-bold rounded-lg shadow-md hover:bg-rose-700 transition-all flex items-center gap-2 text-sm">
+                        </div>
+                    )}
+                </div>
+                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
+                    <input type="text" placeholder="Search by name or code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full md:flex-grow" />
+                    <button onClick={resetLocalFilters} className="px-4 py-2 bg-rose-600 text-white font-bold rounded-lg shadow-md hover:bg-rose-700 transition-all flex items-center gap-2 text-sm w-full md:w-auto flex-shrink-0">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 20h5v-5M20 4h-5v5" /></svg>
-                        Reset
+                        Reset All
                     </button>
                 </div>
+
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-left text-sm text-slate-300 table-sortable table-banded">
                         <thead className="bg-slate-700/50 text-xs text-slate-200 uppercase tracking-wider">

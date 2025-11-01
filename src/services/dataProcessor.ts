@@ -160,6 +160,14 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     };
 
     // New/Lost entities
+    const newBranchNames = [...distinct.branches25].filter(b => !distinct.branches24.has(b));
+    const newBranchesSales = newBranchNames.reduce((acc, branchName) => acc + (branches[branchName]?.s25 || 0), 0);
+    const newBranches = { 
+        count: newBranchNames.length, 
+        sales: newBranchesSales,
+        percentOfTotal: totalSales2025 > 0 ? (newBranchesSales / totalSales2025) * 100 : 0
+    };
+
     const newBrands = { count: 0, sales: 0 };
     const lostBrands = { count: 0, sales2024: 0 };
     const newBrandsList: { name: string; sales2025: number }[] = [];
@@ -220,7 +228,7 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
         },
         paretoContributors,
         newEntities: {
-            branches: { count: distinct.branches25.size - distinct.branches24.size, sales: 0, percentOfTotal: 0 },
+            branches: newBranches,
             brands: { ...newBrands, percentOfTotal: totalSales2025 > 0 ? (newBrands.sales/totalSales2025)*100 : 0 },
             items: { ...newItems, percentOfTotal: totalSales2025 > 0 ? (newItems.sales/totalSales2025)*100 : 0 },
         },
