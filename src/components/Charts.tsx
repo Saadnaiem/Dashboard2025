@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList, LegendType } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
 import { useWindowSize } from '../hooks/useWindowSize';
 
@@ -314,7 +314,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
         label: activeIndex === -1 ? renderDonutLabel : false,
     };
     
-    const legendPayload = [
+    const legendPayload: Array<{ value: string; type: LegendType; id: string; color: string; }> = [
         { value: '2024', type: 'square', id: 'ID01', color: COLORS.blue },
         { value: '2025', type: 'square', id: 'ID02', color: COLORS.green }
     ];
