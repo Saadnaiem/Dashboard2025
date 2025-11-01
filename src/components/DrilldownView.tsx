@@ -79,7 +79,16 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         setSearchTerm('');
     };
 
-    const { processedData, tableTitle, headers, summaryTotals, summaryDescription, visibleFilters } = useMemo(() => {
+    const { 
+        processedData, 
+        tableTitle, 
+        headers, 
+        summaryTotals, 
+        summaryDescription, 
+        visibleFilters,
+        entityTypeLabel,
+        availabilityPercent
+    } = useMemo(() => {
         
         let locallyFilteredRawData = allRawData.filter(row => {
             return (!localFilters.division || row['DIVISION'] === localFilters.division) &&
@@ -140,6 +149,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             return sorted.slice(0, topCount);
         };
         
+        let entityTypeLabel = "Rows";
+        if (viewType.includes('branch')) entityTypeLabel = "Branches";
+        else if (viewType.includes('brand')) entityTypeLabel = "Brands";
+        else if (viewType.includes('item')) entityTypeLabel = "Items";
+        else if (viewType.includes('division')) entityTypeLabel = "Divisions";
+
         switch (viewType) {
             case 'divisions': displayData = reprocessLocally('DIVISION'); break;
             case 'branches': displayData = reprocessLocally('BRANCH NAME'); break;
@@ -156,7 +171,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const isItemView = viewType.includes('item');
         
         const allHeaders = [
-            { key: 'code', label: 'Item Code' }, { key: 'name', label: 'Name' },
+            { key: 'rowNumber', label: '#' }, { key: 'code', label: 'Item Code' }, { key: 'name', label: 'Name' },
             { key: 'sales2025', label: '2025 Sales', className: 'text-right' }, { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
             { key: 'growth', label: 'Growth %', className: 'text-right' },
             { key: 'contribution2025', label: '2025 Contrib. %', className: 'text-right' }, { key: 'contribution2024', label: '2024 Contrib. %', className: 'text-right' },
@@ -165,13 +180,13 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         
         let currentHeaders;
         switch (viewType) {
-            case 'new_brands': currentHeaders = getHeaders(['name', 'sales2025', 'contribution2025']); break;
-            case 'new_items': currentHeaders = getHeaders(['code', 'name', 'sales2025', 'contribution2025']); break;
-            case 'lost_brands': currentHeaders = getHeaders(['name', 'sales2024', 'contribution2024']); break;
-            case 'lost_items': currentHeaders = getHeaders(['code', 'name', 'sales2024', 'contribution2024']); break;
+            case 'new_brands': currentHeaders = getHeaders(['rowNumber', 'name', 'sales2025', 'contribution2025']); break;
+            case 'new_items': currentHeaders = getHeaders(['rowNumber', 'code', 'name', 'sales2025', 'contribution2025']); break;
+            case 'lost_brands': currentHeaders = getHeaders(['rowNumber', 'name', 'sales2024', 'contribution2024']); break;
+            case 'lost_items': currentHeaders = getHeaders(['rowNumber', 'code', 'name', 'sales2024', 'contribution2024']); break;
             default:
-                const defaultKeys = ['name', 'sales2025', 'sales2024', 'growth', 'contribution2025', 'contribution2024'];
-                if (isItemView) defaultKeys.unshift('code');
+                const defaultKeys = ['rowNumber', 'name', 'sales2025', 'sales2024', 'growth', 'contribution2025', 'contribution2024'];
+                if (isItemView) defaultKeys.splice(1, 0, 'code');
                 currentHeaders = getHeaders(defaultKeys);
         }
 
@@ -218,21 +233,48 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             branch: !['divisions', 'branches', 'pareto_branches'].includes(viewType),
             brand: ['items', 'pareto_items', 'new_items', 'lost_items'].includes(viewType)
         };
+        
+        let availabilityPercent: number | null = null;
+        const availabilityKey = viewType.includes('brand') ? 'BRAND' : viewType.includes('item') ? 'ITEM DESCRIPTION' : null;
+        if (availabilityKey) {
+            const totalInScope = new Set<string>();
+            const soldInScope = new Set<string>();
+            locallyFilteredRawData.forEach(row => {
+                if (row[availabilityKey]) {
+                    totalInScope.add(row[availabilityKey]);
+                    if (row['SALES2025'] > 0) {
+                        soldInScope.add(row[availabilityKey]);
+                    }
+                }
+            });
+            availabilityPercent = totalInScope.size > 0 ? (soldInScope.size / totalInScope.size) * 100 : 0;
+        }
 
-        return { processedData: finalData, tableTitle: currentTitle, headers: currentHeaders, summaryTotals, summaryDescription: generateDescription(), visibleFilters };
+        return { 
+            processedData: finalData, 
+            tableTitle: currentTitle, 
+            headers: currentHeaders, 
+            summaryTotals, 
+            summaryDescription: generateDescription(), 
+            visibleFilters,
+            entityTypeLabel,
+            availabilityPercent
+        };
     }, [viewType, allRawData, searchTerm, sortConfig, localFilters]);
 
     const requestSort = (key: string) => {
+        if (key === 'rowNumber') return; // Do not sort by row number
         let direction: SortDirection = 'descending';
         if (sortConfig.key === key && sortConfig.direction === 'descending') direction = 'ascending';
         setSortConfig({ key, direction });
     };
 
-    const getSortClassName = (name: string) => !sortConfig || sortConfig.key !== name ? '' : sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
+    const getSortClassName = (name: string) => !sortConfig || sortConfig.key !== name || name === 'rowNumber' ? '' : sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
 
-    const renderCell = (item: any, headerKey: string) => {
+    const renderCell = (item: any, headerKey: string, index: number) => {
         const value = item[headerKey];
         switch(headerKey) {
+            case 'rowNumber': return <td className="p-4 text-center text-slate-400">{index + 1}</td>;
             case 'code': return <td className="p-4 font-mono text-sm text-slate-400">{value}</td>;
             case 'name': return <td className="p-4 font-medium text-white truncate max-w-sm" title={value}>{value}</td>;
             case 'sales2025': return <td className="p-4 text-right font-semibold text-green-300">{formatNumberAbbreviated(value)}</td>;
@@ -246,10 +288,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     };
     
     const handleDownloadCSV = () => {
+        const csvHeaders = headers.map(h => h.label);
         const csvContent = [
-            headers.map(h => h.label).join(','),
-            ...processedData.map(item =>
+            csvHeaders.join(','),
+            ...processedData.map((item, index) =>
                 headers.map(h => {
+                    if (h.key === 'rowNumber') return index + 1;
                     const value = (item as any)[h.key];
                     if (typeof value === 'string' && value.includes(',')) return `"${value}"`;
                     if (typeof value === 'number' && h.key.includes('contribution')) return `${value.toFixed(2)}%`;
@@ -276,8 +320,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         doc.text(tableTitle, 14, 20);
 
         const tableColumn = headers.map(h => h.label);
-        const tableRows: any[][] = processedData.map(item =>
+        const tableRows: any[][] = processedData.map((item, index) =>
             headers.map(h => {
+                if (h.key === 'rowNumber') return index + 1;
                 const value = (item as any)[h.key];
                 if (h.key === 'growth') return value === Infinity ? 'New' : typeof value === 'number' ? `${value.toFixed(2)}%` : '-';
                 if (h.key.includes('contribution')) return typeof value === 'number' ? `${value.toFixed(2)}%` : '-';
@@ -299,9 +344,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         let labelColSpan = headers.length;
         if(firstNumericIndex > -1) {
             labelColSpan = firstNumericIndex;
-            if(headers.some(h => h.key === 'code')) labelColSpan++;
         }
-
 
         const totalContribution2025 = processedData.reduce((acc, item) => acc + ((item as any).contribution2025 || 0), 0);
         const totalContribution2024 = processedData.reduce((acc, item) => acc + ((item as any).contribution2024 || 0), 0);
@@ -310,7 +353,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             <tfoot className="bg-slate-700/80 text-sm font-bold uppercase tracking-wider text-white">
                 <tr>
                     <td colSpan={labelColSpan} className="p-4">
-                        Totals ({summaryTotals.count.toLocaleString()} rows)
+                        Totals ({summaryTotals.count.toLocaleString()} {entityTypeLabel})
                     </td>
                     {headers.slice(labelColSpan).map(h => {
                         switch(h.key) {
@@ -325,7 +368,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </tr>
             </tfoot>
         );
-    }, [headers, processedData, summaryTotals]);
+    }, [headers, processedData, summaryTotals, entityTypeLabel]);
 
 
     return (
@@ -353,11 +396,17 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
              <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
                 <h2 className="text-xl font-bold text-white mb-2">Table Insights</h2>
                 <p className="text-slate-300 mb-4">{summaryDescription}</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div className={`grid grid-cols-2 ${availabilityPercent !== null ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 text-center`}>
                     <div className="bg-slate-700/50 p-4 rounded-lg">
-                        <div className="text-sm font-bold text-slate-400 uppercase">Total Rows</div>
+                        <div className="text-sm font-bold text-slate-400 uppercase">Total {entityTypeLabel}</div>
                         <div className="text-2xl font-extrabold text-white">{summaryTotals.count.toLocaleString()}</div>
                     </div>
+                     {availabilityPercent !== null && (
+                        <div className="bg-slate-700/50 p-4 rounded-lg">
+                            <div className="text-sm font-bold text-slate-400 uppercase">Availability %</div>
+                            <div className="text-2xl font-extrabold text-sky-400">{availabilityPercent.toFixed(2)}%</div>
+                        </div>
+                    )}
                     <div className="bg-slate-700/50 p-4 rounded-lg">
                         <div className="text-sm font-bold text-slate-400 uppercase">2025 Sales</div>
                         <div className="text-2xl font-extrabold text-green-400">{formatNumberAbbreviated(summaryTotals.total2025)}</div>
@@ -406,7 +455,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             <tr>{headers.map(h => <th key={h.key} scope="col" className={`p-4 ${h.className || ''}`} onClick={() => requestSort(h.key)}><span className={getSortClassName(h.key)}>{h.label}</span></th>)}</tr>
                         </thead>
                         <tbody>
-                            {processedData.map((item, index) => <tr key={`${item.name}-${index}`} className="border-b border-slate-700 hover:bg-sky-500/10 transition-colors">{headers.map(h => renderCell(item, h.key))}</tr>)}
+                            {processedData.map((item, index) => <tr key={`${item.name}-${index}`} className="border-b border-slate-700 hover:bg-sky-500/10 transition-colors">{headers.map(h => renderCell(item, h.key, index))}</tr>)}
                         </tbody>
                         {processedData.length > 0 && tableFooter}
                     </table>
