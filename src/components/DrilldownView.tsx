@@ -1,9 +1,10 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { RawSalesDataRow, ProcessedData } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import useOnClickOutside from '../hooks/useOnClickOutside';
 
 type SortDirection = 'ascending' | 'descending';
 interface SortConfig { key: string; direction: SortDirection; }
@@ -25,7 +26,10 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
-    const [showFilters, setShowFilters] = useState(true);
+    const [showFilters, setShowFilters] = useState(false);
+    const filterContainerRef = useRef<HTMLDivElement>(null);
+
+    useOnClickOutside(filterContainerRef, () => setShowFilters(false));
     
     const [localFilters, setLocalFilters] = useState({
         division: [] as string[],
@@ -75,11 +79,13 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         // FIX: Explicitly type 'option' as HTMLOptionElement to resolve a type inference issue where it was treated as 'unknown'.
         const selectedOptions = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
         setLocalFilters(prev => ({ ...prev, [filterKey]: selectedOptions }));
+        setShowFilters(false);
     };
 
     const resetLocalFilters = () => {
         setLocalFilters({ division: [], branch: [], brand: [] });
         setSearchTerm('');
+        setShowFilters(false);
     };
 
     const { 
@@ -430,7 +436,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     </div>
                 </div>
             </div>
-            <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
+            <div ref={filterContainerRef} className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
                 <div className="flex flex-wrap items-center justify-center gap-4">
                     <button
                         onClick={() => setShowFilters(!showFilters)}

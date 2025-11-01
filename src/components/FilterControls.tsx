@@ -1,6 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { FilterState, ProcessedData } from '../types';
+import useOnClickOutside from '../hooks/useOnClickOutside';
 
 interface FilterControlsProps {
     options: ProcessedData['filterOptions'];
@@ -10,19 +11,24 @@ interface FilterControlsProps {
 
 const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFilterChange }) => {
     const [showFilters, setShowFilters] = useState(false);
+    const filterRef = useRef<HTMLDivElement>(null);
+
+    useOnClickOutside(filterRef, () => setShowFilters(false));
 
     const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>, filterKey: keyof FilterState) => {
         // FIX: Explicitly typed 'opt' as HTMLOptionElement to resolve a type inference issue where it was treated as 'unknown'.
         const selectedOptions = Array.from(e.target.selectedOptions).map((opt: HTMLOptionElement) => opt.value);
         onFilterChange({ ...filters, [filterKey]: selectedOptions });
+        setShowFilters(false);
     };
 
     const resetFilters = () => {
         onFilterChange({ divisions: [], branches: [], brands: [], items: [] });
+        setShowFilters(false);
     };
 
     return (
-        <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
+        <div ref={filterRef} className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
             <div className="flex flex-wrap items-center justify-center gap-4">
                 <button 
                     onClick={() => setShowFilters(!showFilters)} 
