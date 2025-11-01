@@ -194,7 +194,7 @@ interface ChartsProps {
 }
 
 const ChartCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
-    <div className={`bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700 ${className}`}>
+    <div className={`bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300 ${className}`}>
         <h2 className="text-xl font-bold text-white mb-4 text-center">{title}</h2>
         {children}
     </div>
