@@ -167,6 +167,26 @@ const renderLegendText = (value: string) => {
     return <span className="text-slate-200">{value}</span>;
 };
 
+const CustomYAxisTick = (props: any) => {
+    const { x, y, payload, maxChars } = props;
+    const value = payload.value as string;
+
+    if (!value) {
+        return null;
+    }
+
+    const truncatedValue = value.length > maxChars ? `${value.substring(0, maxChars)}...` : value;
+
+    return (
+        <g transform={`translate(${x},${y})`}>
+            <text x={0} y={0} dy={4} textAnchor="end" fill="white" fontSize={12} fontWeight="bold">
+                <title>{value}</title>
+                {truncatedValue}
+            </text>
+        </g>
+    );
+};
+
 interface ChartsProps {
     data: ProcessedData;
     filters: FilterState;
@@ -335,7 +355,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                             <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            <YAxis type="category" dataKey="name" stroke="white" width={100} tick={{ fontSize: 12, fill: 'white', fontWeight: 'bold' }} interval={0} />
+                            <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={12} />} interval={0} />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend formatter={renderLegendText} />
                             <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('brands', payload)} />
@@ -358,7 +378,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                             <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            <YAxis type="category" dataKey="name" stroke="white" width={250} tick={{ fontSize: 12, fill: 'white', fontWeight: 'bold' }} interval={0} />
+                            <YAxis type="category" dataKey="name" stroke="white" width={250} tick={<CustomYAxisTick maxChars={35} />} interval={0} />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend formatter={renderLegendText} />
                             <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('items', payload)} />
@@ -381,7 +401,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                             <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
-                            <YAxis type="category" dataKey="name" stroke="white" width={150} tick={{ fontSize: 12, fill: 'white', fontWeight: 'bold' }} interval={0} />
+                            <YAxis type="category" dataKey="name" stroke="white" width={150} tick={<CustomYAxisTick maxChars={20} />} interval={0} />
                             <Tooltip content={<CustomTooltip />} />
                             <Legend formatter={renderLegendText} />
                             <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('branches', payload)} />
