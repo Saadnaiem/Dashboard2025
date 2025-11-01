@@ -37,9 +37,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                 </div>
                 <form className="space-y-6" onSubmit={handleSubmit}>
                     <div>
-                        <label htmlFor="username" className="block text-sm font-bold text-slate-300 mb-2">
-                            Username
-                        </label>
                         <input
                             id="username"
                             name="username"
@@ -48,16 +45,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                             required
                             value={username}
                             onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Username"
                             className="w-full px-4 py-2 text-white bg-slate-700 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                         />
                     </div>
                     <div>
-                        <label
-                            htmlFor="password"
-                            className="block text-sm font-bold text-slate-300 mb-2"
-                        >
-                            Password
-                        </label>
                         <input
                             id="password"
                             name="password"
@@ -66,6 +58,7 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                             required
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Password"
                             className="w-full px-4 py-2 text-white bg-slate-700 border border-slate-600 rounded-md focus:outline-none focus:ring-2 focus:ring-sky-500"
                         />
                     </div>
@@ -85,8 +78,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         </button>
                     </div>
                 </form>
-                <div className="text-center text-xs text-slate-500 pt-4 border-t border-slate-700">
-                    <p>prepared by Dr. Saad Naiem Ali</p>
+                <div className="text-center pt-4 border-t border-slate-700">
+                    <p className="font-bold text-white text-sm">© 2025 Prepared by Dr. Saad Naiem Ali</p>
                 </div>
             </div>
         </div>

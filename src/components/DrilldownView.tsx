@@ -373,8 +373,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/')} className="p-2 rounded-md bg-slate-700 hover:bg-sky-600 transition-colors" aria-label="Back to dashboard">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <button onClick={() => navigate('/')} className="p-2 rounded-md bg-green-600 hover:bg-green-700 transition-colors" aria-label="Back to dashboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                           <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                         </svg>
                     </button>
