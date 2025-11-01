@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Papa from 'papaparse';
 import { RawSalesDataRow, ProcessedData, FilterState } from './types';
 import { processSalesData, normalizeRow } from './services/dataProcessor';
@@ -8,6 +8,7 @@ import Dashboard from './components/Dashboard';
 import DrilldownView from './components/DrilldownView';
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
+import MainLayout from './components/MainLayout';
 
 const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions']): ProcessedData => ({
     totalSales2024: 0, totalSales2025: 0, salesGrowthPercentage: 0, salesByDivision: [], salesByBrand: [], salesByBranch: [], salesByItem: [],
@@ -40,6 +41,7 @@ const App: React.FC = () => {
     const [filters, setFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const navigate = useNavigate();
+    const location = useLocation();
 
     useEffect(() => {
         const GDRIVE_URL = 'https://corsproxy.io/?https://drive.google.com/uc?export=download&id=1ra1vcQbJiufmfXK0Yvl8qocQLlhjKMAk';
@@ -115,7 +117,8 @@ const App: React.FC = () => {
 
     const handleLogin = () => {
         setIsAuthenticated(true);
-        navigate('/');
+        const from = location.state?.from?.pathname || '/';
+        navigate(from, { replace: true });
     };
 
     const handleLogout = () => {
@@ -143,29 +146,21 @@ const App: React.FC = () => {
             <Routes>
                 <Route path="/login" element={<LoginPage onLogin={handleLogin} />} />
                 <Route 
-                    path="/" 
                     element={
                         <ProtectedRoute isAuthenticated={isAuthenticated}>
-                            <div className="container mx-auto max-w-screen-2xl px-4 py-8">
-                                <Dashboard data={filteredData!} filters={filters} onFilterChange={setFilters} onLogout={handleLogout} />
-                            </div>
+                            <MainLayout />
                         </ProtectedRoute>
-                    } 
-                />
-                <Route 
-                    path="/details/:viewType" 
-                    element={
-                        <ProtectedRoute isAuthenticated={isAuthenticated}>
-                             <div className="container mx-auto max-w-screen-2xl px-4 py-8">
-                                <DrilldownView 
-                                    filteredData={filteredData!}
-                                    allRawData={allData}
-                                    globalFilterOptions={processedData?.filterOptions}
-                                />
-                            </div>
-                        </ProtectedRoute>
-                    } 
-                />
+                    }
+                >
+                    <Route 
+                        path="/" 
+                        element={<Dashboard data={filteredData!} filters={filters} onFilterChange={setFilters} onLogout={handleLogout} />} 
+                    />
+                    <Route 
+                        path="/details/:viewType" 
+                        element={<DrilldownView filteredData={filteredData!} allRawData={allData} globalFilterOptions={processedData?.filterOptions} />} 
+                    />
+                </Route>
             </Routes>
         );
     };
