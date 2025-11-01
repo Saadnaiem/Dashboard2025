@@ -1,4 +1,3 @@
-
 export interface RawSalesDataRow {
     [key: string]: any;
     'DIVISION': string;
@@ -20,15 +19,22 @@ export interface ParetoResult {
     totalContributors: number;
 }
 
+export interface EntitySalesData {
+    name: string;
+    sales2024: number;
+    sales2025: number;
+    growth: number;
+}
+
 export interface ProcessedData {
     totalSales2024: number;
     totalSales2025: number;
     salesGrowthPercentage: number;
     
-    salesByDivision: { name: string; sales2024: number; sales2025: number }[];
-    salesByBrand: { name: string; sales2024: number; sales2025: number; growth: number }[];
-    salesByBranch: { name: string; sales2024: number; sales2025: number; growth: number }[];
-    salesByItem: { name: string; sales2024: number; sales2025: number; growth: number }[];
+    salesByDivision: EntitySalesData[];
+    salesByBrand: EntitySalesData[];
+    salesByBranch: EntitySalesData[];
+    salesByItem: EntitySalesData[];
     
     top10Brands: { name: string; sales2024: number; sales2025: number }[];
     top50Items: { name: string; sales2024: number; sales2025: number }[];
@@ -48,16 +54,28 @@ export interface ProcessedData {
         items: ParetoResult;
     };
     
+    paretoContributors: {
+        branches: EntitySalesData[];
+        brands: EntitySalesData[];
+        items: EntitySalesData[];
+    };
+    
     newEntities: {
         branches: { count: number; sales: number; percentOfTotal: number };
         brands: { count: number; sales: number; percentOfTotal: number };
         items: { count: number; sales: number; percentOfTotal: number };
     };
 
+    newBrandsList: { name: string; sales2025: number }[];
+    newItemsList: { name: string; sales2025: number }[];
+
     lostEntities: {
         brands: { count: number; sales2024: number; percentOfTotal: number };
         items: { count: number; sales2024: number; percentOfTotal: number };
     };
+
+    lostBrandsList: { name: string; sales2024: number }[];
+    lostItemsList: { name: string; sales2024: number }[];
 
     filterOptions: {
         divisions: string[];

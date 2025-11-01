@@ -1,5 +1,4 @@
-
-import { RawSalesDataRow, ProcessedData, ParetoResult } from '../types';
+import { RawSalesDataRow, ProcessedData, ParetoResult, EntitySalesData } from '../types';
 
 export const normalizeRow = (row: Record<string, string>, headers: string[]): RawSalesDataRow => {
     const normalized: { [key: string]: any } = {};
@@ -22,19 +21,12 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
                 let str = String(val).trim();
                 if (str === "" || str.toLowerCase() === 'n/a' || str === '#n/a') return 0;
 
-                // Determine if the number is negative from various accounting formats
                 const isNegative = str.startsWith('-') || str.endsWith('-') || (str.startsWith('(') && str.endsWith(')'));
-                
-                // Remove all non-digit characters except for the decimal point
                 const numericStr = str.replace(/[^0-9.]/g, '');
-
                 const num = parseFloat(numericStr);
 
-                if (isNaN(num)) {
-                    return 0;
-                }
+                if (isNaN(num)) return 0;
 
-                // Apply the sign and ensure we don't create -0
                 const result = isNegative ? -Math.abs(num) : Math.abs(num);
                 return result === 0 ? 0 : result;
             };
@@ -47,44 +39,36 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
     return normalized as RawSalesDataRow;
 };
 
-const calculatePareto = (salesData: { [key: string]: number }): ParetoResult => {
-    const sortedData = Object.entries(salesData)
-        .map(([name, sales]) => ({ name, sales }))
-        .filter(item => item.sales > 0)
-        .sort((a, b) => b.sales - a.sales);
-
+const calculatePareto = (salesData: { name: string, sales: number }[]): { result: ParetoResult, contributors: string[] } => {
+    const sortedData = salesData.filter(item => item.sales > 0).sort((a, b) => b.sales - a.sales);
+    
     const totalContributors = sortedData.length;
-    if (totalContributors === 0) {
-        return { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0 };
-    }
+    if (totalContributors === 0) return { result: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0 }, contributors: [] };
 
     const totalSales = sortedData.reduce((acc, item) => acc + item.sales, 0);
-    if (totalSales === 0) {
-        return { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors };
-    }
+    if (totalSales === 0) return { result: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors }, contributors: [] };
 
     const top20PercentCount = Math.max(1, Math.ceil(totalContributors * 0.20));
     const count = Math.min(top20PercentCount, totalContributors);
-    let salesFromTop20Percent = 0;
-    for (let i = 0; i < count; i++) {
-        salesFromTop20Percent += sortedData[i].sales;
-    }
-
+    
+    const topContributors = sortedData.slice(0, count);
+    const salesFromTop20Percent = topContributors.reduce((acc, item) => acc + item.sales, 0);
+    
     const percentOfSales = (salesFromTop20Percent / totalSales) * 100;
 
     return {
-        topCount: count,
-        salesPercent: percentOfSales,
-        totalSales,
-        totalContributors
+        result: {
+            topCount: count,
+            salesPercent: percentOfSales,
+            totalSales,
+            totalContributors
+        },
+        contributors: topContributors.map(c => c.name)
     };
 };
 
 export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?: ProcessedData['filterOptions']): ProcessedData => {
-    if (data.length === 0) {
-        // This case is handled in App.tsx by createEmptyProcessedData, but as a safeguard:
-        return null as any; 
-    }
+    if (data.length === 0) return null as any; 
 
     let totalSales2024 = 0;
     let totalSales2025 = 0;
@@ -102,39 +86,33 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     data.forEach(row => {
         const s24 = row['SALES2024'];
         const s25 = row['SALES2025'];
-        const div = row['DIVISION'];
-        const brand = row['BRAND'];
-        const branch = row['BRANCH NAME'];
-        const item = row['ITEM DESCRIPTION'];
-
         totalSales2024 += s24;
         totalSales2025 += s25;
 
-        if (div) {
-            divisions[div] = divisions[div] || { s24: 0, s25: 0 };
-            divisions[div].s24 += s24;
-            divisions[div].s25 += s25;
+        const aggr = (store: any, key: string) => {
+            if (key) {
+                store[key] = store[key] || { s24: 0, s25: 0 };
+                store[key].s24 += s24;
+                store[key].s25 += s25;
+            }
+        };
+        
+        aggr(divisions, row['DIVISION']);
+        aggr(brands, row['BRAND']);
+        aggr(branches, row['BRANCH NAME']);
+        aggr(items, row['ITEM DESCRIPTION']);
+
+        if(row['BRANCH NAME']) {
+          if (s24 > 0) distinct.branches24.add(row['BRANCH NAME']);
+          if (s25 > 0) distinct.branches25.add(row['BRANCH NAME']);
         }
-        if (brand) {
-            brands[brand] = brands[brand] || { s24: 0, s25: 0 };
-            brands[brand].s24 += s24;
-            brands[brand].s25 += s25;
-            if (s24 > 0) distinct.brands24.add(brand);
-            if (s25 > 0) distinct.brands25.add(brand);
+        if(row['BRAND']) {
+          if (s24 > 0) distinct.brands24.add(row['BRAND']);
+          if (s25 > 0) distinct.brands25.add(row['BRAND']);
         }
-        if (branch) {
-            branches[branch] = branches[branch] || { s24: 0, s25: 0 };
-            branches[branch].s24 += s24;
-            branches[branch].s25 += s25;
-            if (s24 > 0) distinct.branches24.add(branch);
-            if (s25 > 0) distinct.branches25.add(branch);
-        }
-        if (item) {
-            items[item] = items[item] || { s24: 0, s25: 0 };
-            items[item].s24 += s24;
-            items[item].s25 += s25;
-            if (s24 > 0) distinct.items24.add(item);
-            if (s25 > 0) distinct.items25.add(item);
+        if(row['ITEM DESCRIPTION']) {
+          if (s24 > 0) distinct.items24.add(row['ITEM DESCRIPTION']);
+          if (s25 > 0) distinct.items25.add(row['ITEM DESCRIPTION']);
         }
     });
 
@@ -143,54 +121,70 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
 
     const salesGrowthPercentage = calculateGrowth(totalSales2025, totalSales2024);
 
-    const transform = (obj: { [key: string]: { s24: number, s25: number } }) => 
-        Object.entries(obj).map(([name, { s24, s25 }]) => ({ name, sales2024: s24, sales2025: s25 }));
+    const transform = (obj: { [key: string]: { s24: number, s25: number } }): EntitySalesData[] => 
+        Object.entries(obj).map(([name, { s24, s25 }]) => ({ 
+            name, 
+            sales2024: s24, 
+            sales2025: s25,
+            growth: calculateGrowth(s25, s24)
+        }));
 
     const salesByDivision = transform(divisions).sort((a,b) => b.sales2025 - a.sales2025);
+    const salesByBrand = transform(brands).sort((a,b) => b.sales2025 - a.sales2025);
+    const salesByItem = transform(items).sort((a,b) => b.sales2025 - a.sales2025);
+    const salesByBranch = transform(branches).sort((a,b) => b.sales2025 - a.sales2025);
+
+    const top10Brands = salesByBrand.slice(0, 10).map(({ name, sales2024, sales2025 }) => ({ name, sales2024, sales2025 }));
+    const top50Items = salesByItem.slice(0, 50).map(({ name, sales2024, sales2025 }) => ({ name, sales2024, sales2025 }));
+    const topDivision = salesByDivision[0] || null;
+
+    // Pareto
+    const paretoBranches = calculatePareto(Object.entries(branches).map(([name, data]) => ({ name, sales: data.s25 })));
+    const paretoBrands = calculatePareto(Object.entries(brands).map(([name, data]) => ({ name, sales: data.s25 })));
+    const paretoItems = calculatePareto(Object.entries(items).map(([name, data]) => ({ name, sales: data.s25 })));
     
-    const salesByBrand = transform(brands)
-        .map(d => ({ ...d, growth: calculateGrowth(d.sales2025, d.sales2024) }))
-        .sort((a,b) => b.sales2025 - a.sales2025);
+    const paretoContributors = {
+      branches: salesByBranch.filter(b => paretoBranches.contributors.includes(b.name)),
+      brands: salesByBrand.filter(b => paretoBrands.contributors.includes(b.name)),
+      items: salesByItem.filter(i => paretoItems.contributors.includes(i.name)),
+    };
 
-    const salesByItem = transform(items)
-        .map(d => ({ ...d, growth: calculateGrowth(d.sales2025, d.sales2024) }))
-        .sort((a,b) => b.sales2025 - a.sales2025);
-
-    const salesByBranch = Object.entries(branches).map(([name, { s24, s25 }]) => ({
-        name, 
-        sales2024: s24, 
-        sales2025: s25,
-        growth: calculateGrowth(s25, s24)
-    })).sort((a,b) => b.sales2025 - a.sales2025);
-
-    const top10Brands = salesByBrand.slice(0, 10);
-    const top50Items = salesByItem.slice(0, 50);
-    const topDivisionEntry = salesByDivision[0];
-    const topDivision = topDivisionEntry ? {
-        ...topDivisionEntry,
-        growth: calculateGrowth(topDivisionEntry.sales2025, topDivisionEntry.sales2024)
-    } : null;
-    
     // New/Lost entities
-    const newBranches = { count: 0, sales: 0 };
-    Object.entries(branches).forEach(([_key, {s24, s25}]) => { if(s25 > 0 && s24 === 0) { newBranches.count++; newBranches.sales += s25; }});
-    
     const newBrands = { count: 0, sales: 0 };
     const lostBrands = { count: 0, sales2024: 0 };
-    Object.entries(brands).forEach(([_key, {s24, s25}]) => { 
-      if(s25 > 0 && s24 === 0) { newBrands.count++; newBrands.sales += s25; }
-      if(s24 > 0 && s25 === 0) { lostBrands.count++; lostBrands.sales2024 += s24; }
+    const newBrandsList: { name: string; sales2025: number }[] = [];
+    const lostBrandsList: { name: string; sales2024: number }[] = [];
+    
+    Object.entries(brands).forEach(([key, {s24, s25}]) => { 
+      if(s25 > 0 && s24 === 0) {
+        newBrands.count++;
+        newBrands.sales += s25;
+        newBrandsList.push({ name: key, sales2025: s25 });
+      }
+      if(s24 > 0 && s25 === 0) {
+        lostBrands.count++;
+        lostBrands.sales2024 += s24;
+        lostBrandsList.push({ name: key, sales2024: s24 });
+      }
     });
     
     const newItems = { count: 0, sales: 0 };
     const lostItems = { count: 0, sales2024: 0 };
-    Object.entries(items).forEach(([_key, {s24, s25}]) => { 
-      if(s25 > 0 && s24 === 0) { newItems.count++; newItems.sales += s25; }
-      if(s24 > 0 && s25 === 0) { lostItems.count++; lostItems.sales2024 += s24; }
+    const newItemsList: { name: string; sales2025: number }[] = [];
+    const lostItemsList: { name: string; sales2024: number }[] = [];
+
+    Object.entries(items).forEach(([key, {s24, s25}]) => { 
+      if(s25 > 0 && s24 === 0) {
+        newItems.count++;
+        newItems.sales += s25;
+        newItemsList.push({ name: key, sales2025: s25 });
+      }
+      if(s24 > 0 && s25 === 0) {
+        lostItems.count++;
+        lostItems.sales2024 += s24;
+        lostItemsList.push({ name: key, sales2024: s24 });
+      }
     });
-    
-    const getSalesData = (obj: {[key: string]: {s24: number, s25: number}}) => 
-      Object.fromEntries(Object.entries(obj).map(([key, val]) => [key, val.s25]));
 
     return {
         totalSales2024,
@@ -210,19 +204,24 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
         itemCount2024: distinct.items24.size,
         itemCount2025: distinct.items25.size,
         pareto: {
-            branches: calculatePareto(getSalesData(branches)),
-            brands: calculatePareto(getSalesData(brands)),
-            items: calculatePareto(getSalesData(items)),
+            branches: paretoBranches.result,
+            brands: paretoBrands.result,
+            items: paretoItems.result,
         },
+        paretoContributors,
         newEntities: {
-            branches: { ...newBranches, percentOfTotal: totalSales2025 > 0 ? (newBranches.sales/totalSales2025)*100 : 0 },
+            branches: { count: distinct.branches25.size - distinct.branches24.size, sales: 0, percentOfTotal: 0 },
             brands: { ...newBrands, percentOfTotal: totalSales2025 > 0 ? (newBrands.sales/totalSales2025)*100 : 0 },
             items: { ...newItems, percentOfTotal: totalSales2025 > 0 ? (newItems.sales/totalSales2025)*100 : 0 },
         },
+        newBrandsList: newBrandsList.sort((a,b) => b.sales2025 - a.sales2025),
+        newItemsList: newItemsList.sort((a,b) => b.sales2025 - a.sales2025),
         lostEntities: {
             brands: { ...lostBrands, percentOfTotal: totalSales2024 > 0 ? (lostBrands.sales2024/totalSales2024)*100 : 0 },
             items: { ...lostItems, percentOfTotal: totalSales2024 > 0 ? (lostItems.sales2024/totalSales2024)*100 : 0 },
         },
+        lostBrandsList: lostBrandsList.sort((a,b) => b.sales2024 - a.sales2024),
+        lostItemsList: lostItemsList.sort((a,b) => b.sales2024 - a.sales2024),
         filterOptions: existingFilterOptions || {
             divisions: [...new Set(data.map(r => r['DIVISION']))].filter(Boolean).sort(),
             branches: [...new Set(data.map(r => r['BRANCH NAME']))].filter(Boolean).sort(),

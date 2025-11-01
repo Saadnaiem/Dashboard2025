@@ -1,5 +1,5 @@
-
 import React, { useState, useMemo } from 'react';
+import { RawSalesDataRow } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
 type SortDirection = 'ascending' | 'descending';
@@ -9,78 +9,120 @@ interface SortConfig {
     direction: SortDirection;
 }
 
-interface DrilldownData {
+type DrilldownItem = {
     name: string;
-    sales2024: number;
-    sales2025: number;
-    growth: number;
-}
+    sales2024?: number;
+    sales2025?: number;
+    growth?: number;
+};
 
-interface DrilldownViewProps {
+export interface DrilldownViewProps {
     title: string;
-    data: DrilldownData[];
+    viewType: string;
+    data: DrilldownItem[];
+    totalSales2024: number;
     totalSales2025: number;
     onBack: () => void;
+    allData?: RawSalesDataRow[];
+    branchOptions?: string[];
 }
 
-const DrilldownView: React.FC<DrilldownViewProps> = ({ title, data, totalSales2025, onBack }) => {
+const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, totalSales2024, totalSales2025, onBack, allData, branchOptions }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
+    const [selectedBranch, setSelectedBranch] = useState('');
 
+    const hasBranchFilter = useMemo(() => ['new_brands', 'new_items', 'lost_brands', 'lost_items'].includes(viewType), [viewType]);
+    
     const processedData = useMemo(() => {
-        let sortedData = [...data];
+        let displayData = [...data];
 
+        // Branch filtering for new/lost entities
+        if (hasBranchFilter && selectedBranch && allData) {
+            const entityType = viewType.includes('brand') ? 'BRAND' : 'ITEM DESCRIPTION';
+            const relevantEntities = new Set(
+                allData
+                    .filter(row => row['BRANCH NAME'] === selectedBranch)
+                    .map(row => row[entityType])
+            );
+            displayData = displayData.filter(item => relevantEntities.has(item.name));
+        }
+        
         // Search filtering
         if (searchTerm) {
-            sortedData = sortedData.filter(item =>
+            displayData = displayData.filter(item =>
                 item.name.toLowerCase().includes(searchTerm.toLowerCase())
             );
         }
 
         // Sorting
-        if (sortConfig.key) {
-            sortedData.sort((a, b) => {
-                const aValue = (a as any)[sortConfig.key];
-                const bValue = (b as any)[sortConfig.key];
-                if (aValue < bValue) {
-                    return sortConfig.direction === 'ascending' ? -1 : 1;
-                }
-                if (aValue > bValue) {
-                    return sortConfig.direction === 'ascending' ? 1 : -1;
-                }
+        const sortKey = sortConfig.key;
+        if (sortKey) {
+            displayData.sort((a, b) => {
+                const aValue = (a as any)[sortKey] ?? -Infinity;
+                const bValue = (b as any)[sortKey] ?? -Infinity;
+                if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
+                if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
                 return 0;
             });
         }
         
-        // Add contribution percentage
-        return sortedData.map(item => ({
+        // Add contribution percentages
+        return displayData.map(item => ({
             ...item,
-            contribution: totalSales2025 > 0 ? (item.sales2025 / totalSales2025) * 100 : 0
+            contribution2025: totalSales2025 > 0 && item.sales2025 ? (item.sales2025 / totalSales2025) * 100 : 0,
+            contribution2024: totalSales2024 > 0 && item.sales2024 ? (item.sales2024 / totalSales2024) * 100 : 0
         }));
-    }, [data, searchTerm, sortConfig, totalSales2025]);
+    }, [data, searchTerm, sortConfig, totalSales2025, totalSales2024, hasBranchFilter, selectedBranch, allData, viewType]);
 
     const requestSort = (key: string) => {
-        let direction: SortDirection = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
+        let direction: SortDirection = 'descending';
+        if (sortConfig.key === key && sortConfig.direction === 'descending') {
+            direction = 'ascending';
         }
         setSortConfig({ key, direction });
     };
 
     const getSortClassName = (name: string) => {
-        if (!sortConfig || sortConfig.key !== name) {
-            return '';
-        }
+        if (!sortConfig || sortConfig.key !== name) return '';
         return sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
     };
 
-    const headers = [
-        { key: 'name', label: 'Name', className: 'w-1/3' },
-        { key: 'sales2025', label: '2025 Sales', className: 'text-right' },
-        { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
-        { key: 'growth', label: 'Growth %', className: 'text-right' },
-        { key: 'contribution', label: 'Contribution %', className: 'text-right' },
-    ];
+    const headers = useMemo(() => {
+        const baseHeaders = [
+            { key: 'name', label: 'Name', className: 'w-1/3' },
+            { key: 'sales2025', label: '2025 Sales', className: 'text-right' },
+            { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
+            { key: 'growth', label: 'Growth %', className: 'text-right' },
+            { key: 'contribution2025', label: '2025 Contrib. %', className: 'text-right' },
+            { key: 'contribution2024', label: '2024 Contrib. %', className: 'text-right' },
+        ];
+        
+        switch (viewType) {
+            case 'new_brands':
+            case 'new_items':
+                return [baseHeaders[0], baseHeaders[1], baseHeaders[4]];
+            case 'lost_brands':
+            case 'lost_items':
+                return [baseHeaders[0], baseHeaders[2], baseHeaders[5]];
+            default: // divisions, branches, brands, items, pareto_*
+                return baseHeaders;
+        }
+    }, [viewType]);
+
+    const renderCell = (item: any, headerKey: string) => {
+        const value = item[headerKey];
+        switch(headerKey) {
+            case 'name': return <td className="p-4 font-medium text-white truncate max-w-sm" title={value}>{value}</td>;
+            case 'sales2025': return <td className="p-4 text-right font-semibold text-green-300">{formatNumberAbbreviated(value)}</td>;
+            case 'sales2024': return <td className="p-4 text-right">{formatNumberAbbreviated(value)}</td>;
+            case 'growth': return <td className="p-4 text-right"><GrowthIndicator value={value} /></td>;
+            case 'contribution2025':
+            case 'contribution2024':
+                return <td className="p-4 text-right">{typeof value === 'number' ? `${value.toFixed(2)}%` : '-'}</td>;
+            default: return <td></td>;
+        }
+    };
 
     return (
         <div className="flex flex-col gap-6">
@@ -96,15 +138,27 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, data, totalSales20
             </div>
 
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                <div className="flex justify-between items-center mb-4">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
                     <h2 className="text-xl font-bold text-white">Detailed Breakdown</h2>
-                    <input
-                        type="text"
-                        placeholder="Search by name..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                    />
+                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+                        {hasBranchFilter && branchOptions && (
+                            <select
+                                value={selectedBranch}
+                                onChange={(e) => setSelectedBranch(e.target.value)}
+                                className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full sm:w-auto"
+                            >
+                                <option value="">All Branches</option>
+                                {branchOptions.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                        )}
+                        <input
+                            type="text"
+                            placeholder="Search by name..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full sm:w-auto"
+                        />
+                    </div>
                 </div>
                 
                 <div className="overflow-x-auto">
@@ -121,11 +175,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, data, totalSales20
                         <tbody>
                             {processedData.map((item) => (
                                 <tr key={item.name} className="border-b border-slate-700 hover:bg-slate-800/60 transition-colors">
-                                    <td className="p-4 font-medium text-white truncate max-w-sm" title={item.name}>{item.name}</td>
-                                    <td className="p-4 text-right font-semibold text-green-300">{formatNumberAbbreviated(item.sales2025)}</td>
-                                    <td className="p-4 text-right">{formatNumberAbbreviated(item.sales2024)}</td>
-                                    <td className="p-4 text-right"><GrowthIndicator value={item.growth} /></td>
-                                    <td className="p-4 text-right">{item.contribution.toFixed(2)}%</td>
+                                    {headers.map(header => renderCell(item, header.key))}
                                 </tr>
                             ))}
                         </tbody>
@@ -133,7 +183,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, data, totalSales20
                 </div>
                  {processedData.length === 0 && (
                     <div className="text-center py-8 text-slate-400">
-                        No results found for your search.
+                        No results found for your search or filter selection.
                     </div>
                 )}
             </div>

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { ProcessedData } from '../types';
 import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
@@ -10,6 +9,7 @@ const SummaryCard: React.FC<{ title: string; icon: string; children: React.React
         role={onClick ? 'button' : undefined}
         tabIndex={onClick ? 0 : undefined}
         onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); } : undefined}
+        aria-label={`View details for ${title}`}
     >
         <div className="flex items-center gap-3 mb-2">
             <span className="text-2xl">{icon}</span>
@@ -51,7 +51,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, onViewChange }) => {
                         <GrowthIndicator value={data.salesGrowthPercentage} className="text-xl" />
                     </SummaryCard>
                     
-                    <SummaryCard title="Top Division" icon="🏆">
+                    <SummaryCard title="Top Division" icon="🏆" onClick={() => onViewChange('divisions', 'All Divisions Deep Dive')}>
                          {data.topDivision ? (
                             <>
                                 <div className="text-xl font-bold text-sky-400 truncate" title={data.topDivision.name}>{data.topDivision.name}</div>
@@ -61,23 +61,23 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, onViewChange }) => {
                          ) : <div className="text-xl font-bold text-slate-400">-</div>}
                     </SummaryCard>
                     
-                    <MetricCard title="Branches" icon="🏬" value2025={data.branchCount2025} value2024={data.branchCount2024} onClick={() => onViewChange('branches', 'Branches Deep Dive')} />
-                    <MetricCard title="Brands" icon="🏷️" value2025={data.brandCount2025} value2024={data.brandCount2024} onClick={() => onViewChange('brands', 'Brands Deep Dive')} />
-                    <MetricCard title="Items" icon="📦" value2025={data.itemCount2025} value2024={data.itemCount2024} onClick={() => onViewChange('items', 'Items Deep Dive')} />
+                    <MetricCard title="Branches" icon="🏬" value2025={data.branchCount2025} value2024={data.branchCount2024} onClick={() => onViewChange('branches', 'All Branches Deep Dive')} />
+                    <MetricCard title="Brands" icon="🏷️" value2025={data.brandCount2025} value2024={data.brandCount2024} onClick={() => onViewChange('brands', 'All Brands Deep Dive')} />
+                    <MetricCard title="Items" icon="📦" value2025={data.itemCount2025} value2024={data.itemCount2024} onClick={() => onViewChange('items', 'All Items Deep Dive')} />
                 </div>
             </section>
 
             <section>
                 <SectionTitle>Pareto Analysis (80/20 Rule)</SectionTitle>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <SummaryCard title="Branches" icon="📊">
-                         <p>Top <b>{data.pareto.branches.topCount}</b> (20%) of <b>{data.pareto.branches.totalContributors}</b> branches generate <b>{data.pareto.branches.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
+                    <SummaryCard title="Top 20% Branches" icon="📊" onClick={() => onViewChange('pareto_branches', 'Pareto: Top 20% Branches')}>
+                         <p>Top <b>{data.pareto.branches.topCount}</b> of <b>{data.pareto.branches.totalContributors}</b> branches generate <b>{data.pareto.branches.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
                     </SummaryCard>
-                    <SummaryCard title="Brands" icon="📊">
-                         <p>Top <b>{data.pareto.brands.topCount}</b> (20%) of <b>{data.pareto.brands.totalContributors}</b> brands generate <b>{data.pareto.brands.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
+                    <SummaryCard title="Top 20% Brands" icon="📊" onClick={() => onViewChange('pareto_brands', 'Pareto: Top 20% Brands')}>
+                         <p>Top <b>{data.pareto.brands.topCount}</b> of <b>{data.pareto.brands.totalContributors}</b> brands generate <b>{data.pareto.brands.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
                     </SummaryCard>
-                    <SummaryCard title="Items" icon="📊">
-                         <p>Top <b>{data.pareto.items.topCount}</b> (20%) of <b>{data.pareto.items.totalContributors}</b> items generate <b>{data.pareto.items.salesPercent.toFixed(1)}%</b> of sales.</p>
+                    <SummaryCard title="Top 20% Items" icon="📊" onClick={() => onViewChange('pareto_items', 'Pareto: Top 20% Items')}>
+                         <p>Top <b>{data.pareto.items.topCount}</b> of <b>{data.pareto.items.totalContributors}</b> items generate <b>{data.pareto.items.salesPercent.toFixed(1)}%</b> of sales.</p>
                     </SummaryCard>
                 </div>
             </section>
@@ -85,25 +85,25 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, onViewChange }) => {
             <section>
                 <SectionTitle>Brand & Item Lifecycle</SectionTitle>
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <SummaryCard title="New Brands (2025)" icon="✨">
+                    <SummaryCard title="New Brands (2025)" icon="✨" onClick={() => onViewChange('new_brands', 'New Brands in 2025')}>
                         <div className="text-3xl font-extrabold text-green-400">{formatNumber(data.newEntities.brands.count)}</div>
                         <div className="text-sm">Sales: {formatNumberAbbreviated(data.newEntities.brands.sales)}</div>
                         <div className="text-sm">{data.newEntities.brands.percentOfTotal.toFixed(2)}% of Total Sales</div>
                     </SummaryCard>
                     
-                    <SummaryCard title="Lost Brands (2024)" icon="👋">
+                    <SummaryCard title="Lost Brands (2024)" icon="👋" onClick={() => onViewChange('lost_brands', 'Lost Brands from 2024')}>
                          <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.brands.count)}</div>
                         <div className="text-base font-bold text-slate-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.brands.sales2024)}</div>
                         <div className="text-sm">{data.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
                     </SummaryCard>
 
-                    <SummaryCard title="New Items (2025)" icon="💡">
+                    <SummaryCard title="New Items (2025)" icon="💡" onClick={() => onViewChange('new_items', 'New Items in 2025')}>
                          <div className="text-3xl font-extrabold text-green-400">{formatNumber(data.newEntities.items.count)}</div>
                         <div className="text-sm">Sales: {formatNumberAbbreviated(data.newEntities.items.sales)}</div>
                         <div className="text-sm">{data.newEntities.items.percentOfTotal.toFixed(2)}% of Total Sales</div>
                     </SummaryCard>
                     
-                    <SummaryCard title="Lost Items (2024)" icon="📉">
+                    <SummaryCard title="Lost Items (2024)" icon="📉" onClick={() => onViewChange('lost_items', 'Lost Items from 2024')}>
                          <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.items.count)}</div>
                         <div className="text-base font-bold text-slate-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.items.sales2024)}</div>
                         <div className="text-sm">{data.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
