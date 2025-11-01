@@ -15,6 +15,8 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@types/jspdf": "^2.0.0",
+    "@types/jspdf-autotable": "^3.8.2",
     "@types/papaparse": "^5.3.14",
     "@types/react": "^18.2.66",
     "@types/react-dom": "^18.2.22",
