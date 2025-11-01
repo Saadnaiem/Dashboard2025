@@ -33,8 +33,8 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                 
                 {itemPayload.sales2024 !== undefined && itemPayload.sales2025 !== undefined ? (
                     <>
-                        <div style={{ color: COLORS.teal }}>2025 Sales: {formatNumber(itemPayload.sales2025)}</div>
                         <div style={{ color: COLORS.blue }}>2024 Sales: {formatNumber(itemPayload.sales2024)}</div>
+                        <div style={{ color: COLORS.teal }}>2025 Sales: {formatNumber(itemPayload.sales2025)}</div>
                          {itemPayload.growth !== undefined && (
                              <div className={itemPayload.growth >= 0 ? 'text-green-400' : 'text-red-400'}>
                                  Growth: {itemPayload.growth === Infinity ? 'New' : `${itemPayload.growth.toFixed(2)}%`}
@@ -136,30 +136,53 @@ const renderGrowthLabel = (props: any) => {
 
     const { growth } = payload;
     let growthText = '';
-    let color = '#e5e7eb'; // Default color: slate-200
+    let color = '#e5e7eb';
+    let bgColor = 'rgba(0, 0, 0, 0.3)';
 
     if (growth === Infinity) {
         growthText = 'New';
-        color = COLORS.green;
+        color = '#f0fdf4'; // green-50
+        bgColor = 'rgba(34, 197, 94, 0.7)'; // green-500 with alpha
     } else if (typeof growth === 'number' && !isNaN(growth)) {
         growthText = `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
-        color = growth >= 0 ? COLORS.green : COLORS.red;
+        if (growth >= 0) {
+            color = '#f0fdf4'; // green-50
+            bgColor = 'rgba(34, 197, 94, 0.7)';
+        } else {
+            color = '#fef2f2'; // rose-50
+            bgColor = 'rgba(244, 63, 94, 0.7)'; // rose-500 with alpha
+        }
     } else {
         return null;
     }
 
+    const textWidth = growthText.length * 6.5; 
+    const padding = 8;
+    const rectWidth = textWidth + padding;
+
     return (
-        <text
-            x={x + width + 5}
-            y={y + height / 2}
-            dy={4}
-            fill={color}
-            fontSize="12"
-            fontWeight="bold"
-            textAnchor="start"
-        >
-            {growthText}
-        </text>
+        <g>
+            <rect 
+                x={x + width + 5} 
+                y={y + (height / 2) - 10} 
+                width={rectWidth} 
+                height={20} 
+                rx={5} 
+                ry={5} 
+                fill={bgColor} 
+            />
+            <text
+                x={x + width + 5 + (rectWidth / 2)}
+                y={y + height / 2}
+                dy={4}
+                fill={color}
+                fontSize="12"
+                fontWeight="bold"
+                textAnchor="middle"
+            >
+                {growthText}
+            </text>
+        </g>
     );
 };
 
@@ -290,6 +313,11 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
         labelLine: false,
         label: activeIndex === -1 ? renderDonutLabel : false,
     };
+    
+    const legendPayload = [
+        { value: '2024', type: 'square', id: 'ID01', color: COLORS.blue },
+        { value: '2025', type: 'square', id: 'ID02', color: COLORS.green }
+    ];
 
 
     return (
@@ -311,7 +339,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                            <Cell fill={COLORS.teal} />
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend formatter={renderLegendText} />
+                        <Legend payload={legendPayload} formatter={renderLegendText} />
                          <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="text-base font-bold" fill="#FFFFFF">
                             YOY Growth
                         </text>
@@ -344,16 +372,17 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         layout="vertical"
                         data={top10BrandsSorted} 
                         margin={isMobile 
-                            ? { top: 20, right: 40, bottom: 20, left: 80 } 
-                            : { left: 100, top: 20, right: 60, bottom: 20 }
+                            ? { top: 20, right: 80, bottom: 20, left: 80 } 
+                            : { left: 100, top: 20, right: 80, bottom: 20 }
                         }
                         className="cursor-pointer"
+                        barCategoryGap="20%"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
                         <YAxis type="category" dataKey="name" stroke="white" width={isMobile ? 80 : 100} tick={<CustomYAxisTick maxChars={isMobile ? 10 : 12} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend formatter={renderLegendText} />
+                        <Legend payload={legendPayload} formatter={renderLegendText} />
                         <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('brands', payload)} />
                         <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('brands', payload)}>
                             {!isMobile && <LabelList dataKey="growth" content={renderGrowthLabel} />}
@@ -368,16 +397,17 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         layout="vertical"
                         data={top50ItemsSorted} 
                         margin={isMobile 
-                            ? { top: 20, right: 40, bottom: 20, left: 120 } 
-                            : { left: 250, top: 20, right: 60, bottom: 20 }
+                            ? { top: 20, right: 80, bottom: 20, left: 120 } 
+                            : { left: 250, top: 20, right: 80, bottom: 20 }
                         }
                         className="cursor-pointer"
+                        barCategoryGap="20%"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
                         <YAxis type="category" dataKey="name" stroke="white" width={isMobile ? 120 : 250} tick={<CustomYAxisTick maxChars={isMobile ? 18 : 35} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend formatter={renderLegendText} />
+                        <Legend payload={legendPayload} formatter={renderLegendText} />
                         <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('items', payload)} />
                         <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('items', payload)}>
                             {!isMobile && <LabelList dataKey="growth" content={renderGrowthLabel} />}
@@ -392,16 +422,17 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         layout="vertical"
                         data={allBranchesSorted} 
                         margin={isMobile 
-                            ? { top: 20, right: 40, bottom: 20, left: 100 } 
-                            : { left: 150, top: 20, right: 60, bottom: 20 }
+                            ? { top: 20, right: 80, bottom: 20, left: 100 } 
+                            : { left: 150, top: 20, right: 80, bottom: 20 }
                         } 
                         className="cursor-pointer"
+                        barCategoryGap="20%"
                     >
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumber} tick={{ fill: 'white', fontWeight: 'bold' }} />
                         <YAxis type="category" dataKey="name" stroke="white" width={isMobile ? 100 : 150} tick={<CustomYAxisTick maxChars={isMobile ? 15 : 20} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend formatter={renderLegendText} />
+                        <Legend payload={legendPayload} formatter={renderLegendText} />
                         <Bar dataKey="sales2024" name="2024" fill={COLORS.blue} onClick={(payload) => handleBarClick('branches', payload)} />
                         <Bar dataKey="sales2025" name="2025" fill={COLORS.green} onClick={(payload) => handleBarClick('branches', payload)}>
                             {!isMobile && <LabelList dataKey="growth" content={renderGrowthLabel} />}
