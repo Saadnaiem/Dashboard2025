@@ -80,8 +80,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
             { key: 'sales2025', label: '2025 Sales', className: 'text-right' },
             { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
             { key: 'growth', label: 'Growth %', className: 'text-right' },
-            { key: 'contribution2025', label: `Contrib. % (of ${selectedBranch ? selectedBranch : 'Total'})`, className: 'text-right' },
-            { key: 'contribution2024', label: `Contrib. % (of ${selectedBranch ? selectedBranch : 'Total'})`, className: 'text-right' },
+            { key: 'contribution2025', label: `2025 Contrib. %`, className: 'text-right' },
+            { key: 'contribution2024', label: `2024 Contrib. %`, className: 'text-right' },
         ];
 
         let currentHeaders;
