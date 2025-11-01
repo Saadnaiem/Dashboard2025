@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -26,49 +26,132 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
-    const [selectedBranch, setSelectedBranch] = useState('');
-
-    const hasBranchFilter = useMemo(() => ['new_brands', 'new_items', 'lost_brands', 'lost_items'].includes(viewType), [viewType]);
     
-    const { processedData, tableTitle, headers, summaryTotals, summaryDescription } = useMemo(() => {
-        let displayData: DrilldownItem[] = [];
-        let viewData: { [key: string]: any[] } = {
-            'divisions': filteredData.salesByDivision, 'branches': filteredData.salesByBranch, 'brands': filteredData.salesByBrand, 'items': filteredData.salesByItem,
-            'pareto_branches': filteredData.paretoContributors.branches, 'pareto_brands': filteredData.paretoContributors.brands, 'pareto_items': filteredData.paretoContributors.items,
-            'new_brands': filteredData.newBrandsList, 'new_items': filteredData.newItemsList, 'lost_brands': filteredData.lostBrandsList, 'lost_items': filteredData.lostItemsList,
-        };
-        displayData = viewData[viewType] || [];
+    const [localFilters, setLocalFilters] = useState({
+        division: '',
+        branch: '',
+        brand: '',
+    });
 
-        let currentTitle = viewTitles[viewType] || 'Deep Dive';
-        let localTotal24 = filteredData.totalSales2024;
-        let localTotal25 = filteredData.totalSales2025;
+    const { availableBranches, availableBrands } = useMemo(() => {
+        if (!globalFilterOptions) return { availableBranches: [], availableBrands: [] };
+        let branches = globalFilterOptions.branches;
+        let brands = globalFilterOptions.brands;
 
-        if (hasBranchFilter && selectedBranch && allRawData) {
-            currentTitle = `${currentTitle.split(' in ')[0]} in ${selectedBranch}`;
-            const branchData = allRawData.filter(row => row['BRANCH NAME'] === selectedBranch);
-            
-            localTotal25 = branchData.reduce((acc, row) => acc + row['SALES2025'], 0);
-            localTotal24 = branchData.reduce((acc, row) => acc + row['SALES2024'], 0);
-            
-            const entityType = viewType.includes('brand') ? 'BRAND' : 'ITEM DESCRIPTION';
-            const entitySales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
-            
-            branchData.forEach(row => {
-                const key = row[entityType];
-                if (key) {
-                    entitySales[key] = entitySales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
-                    entitySales[key].s24 += row['SALES2024'];
-                    entitySales[key].s25 += row['SALES2025'];
+        if (localFilters.division) {
+            const branchSet = new Set<string>();
+            allRawData.forEach(row => {
+                if (row['DIVISION'] === localFilters.division) {
+                    branchSet.add(row['BRANCH NAME']);
                 }
             });
-            
-            const newDisplayData: DrilldownItem[] = [];
-            if (viewType.startsWith('new_')) {
-                Object.entries(entitySales).forEach(([name, { s24, s25, code }]) => { if (s25 > 0 && s24 === 0) newDisplayData.push({ name, code, sales2025: s25 }); });
-            } else if (viewType.startsWith('lost_')) {
-                Object.entries(entitySales).forEach(([name, { s24, s25, code }]) => { if (s24 > 0 && s25 === 0) newDisplayData.push({ name, code, sales2024: s24 }); });
-            }
-            displayData = newDisplayData;
+            branches = Array.from(branchSet).sort();
+        }
+        
+        if (localFilters.branch || localFilters.division) {
+             const brandSet = new Set<string>();
+             allRawData.forEach(row => {
+                const divisionMatch = !localFilters.division || row['DIVISION'] === localFilters.division;
+                const branchMatch = !localFilters.branch || row['BRANCH NAME'] === localFilters.branch;
+                if (divisionMatch && branchMatch) {
+                    brandSet.add(row['BRAND']);
+                }
+            });
+            brands = Array.from(brandSet).sort();
+        }
+
+        return { availableBranches: branches, availableBrands: brands };
+    }, [allRawData, globalFilterOptions, localFilters.division, localFilters.branch]);
+
+    useEffect(() => {
+        setLocalFilters(prev => ({ ...prev, branch: '', brand: '' }));
+    }, [localFilters.division]);
+
+    useEffect(() => {
+        setLocalFilters(prev => ({ ...prev, brand: '' }));
+    }, [localFilters.branch]);
+
+    const handleLocalFilterChange = (filterKey: keyof typeof localFilters, value: string) => {
+        setLocalFilters(prev => ({ ...prev, [filterKey]: value }));
+    };
+
+    const resetLocalFilters = () => {
+        setLocalFilters({ division: '', branch: '', brand: '' });
+        setSearchTerm('');
+    };
+
+    const { processedData, tableTitle, headers, summaryTotals, summaryDescription, visibleFilters } = useMemo(() => {
+        
+        let locallyFilteredRawData = allRawData.filter(row => {
+            return (!localFilters.division || row['DIVISION'] === localFilters.division) &&
+                   (!localFilters.branch || row['BRANCH NAME'] === localFilters.branch) &&
+                   (!localFilters.brand || row['BRAND'] === localFilters.brand);
+        });
+
+        let displayData: DrilldownItem[] = [];
+        let currentTitle = viewTitles[viewType] || 'Deep Dive';
+        let localTotal24 = 0;
+        let localTotal25 = 0;
+
+        locallyFilteredRawData.forEach(row => {
+            localTotal24 += row['SALES2024'];
+            localTotal25 += row['SALES2025'];
+        });
+
+        const reprocessLocally = (entityKey: 'BRANCH NAME' | 'BRAND' | 'ITEM DESCRIPTION' | 'DIVISION') => {
+            const sales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
+            locallyFilteredRawData.forEach(row => {
+                const key = row[entityKey];
+                if (key) {
+                    sales[key] = sales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
+                    sales[key].s24 += row['SALES2024'];
+                    sales[key].s25 += row['SALES2025'];
+                }
+            });
+            return Object.entries(sales).map(([name, { s24, s25, code }]) => ({
+                name,
+                code,
+                sales2024: s24,
+                sales2025: s25,
+                growth: s24 === 0 ? (s25 > 0 ? Infinity : 0) : ((s25 - s24) / s24) * 100
+            }));
+        };
+
+        const findNewOrLost = (isNew: boolean) => {
+             const entityKey = viewType.includes('brand') ? 'BRAND' : 'ITEM DESCRIPTION';
+             const sales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
+             locallyFilteredRawData.forEach(row => {
+                 const key = row[entityKey];
+                 if (key) {
+                     sales[key] = sales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
+                     sales[key].s24 += row['SALES2024'];
+                     sales[key].s25 += row['SALES2025'];
+                 }
+             });
+             
+             return Object.entries(sales)
+                .filter(([, {s24, s25}]) => (isNew ? (s25 > 0 && s24 === 0) : (s24 > 0 && s25 === 0)))
+                .map(([name, { s24, s25, code }]) => ({ name, code, sales2024: s24, sales2025: s25 }));
+        };
+        
+        const findPareto = (entityKey: 'BRANCH NAME' | 'BRAND' | 'ITEM DESCRIPTION') => {
+            const aggregated = reprocessLocally(entityKey);
+            const sorted = aggregated.filter(i => i.sales2025 > 0).sort((a, b) => b.sales2025 - a.sales2025);
+            const topCount = Math.max(1, Math.ceil(sorted.length * 0.20));
+            return sorted.slice(0, topCount);
+        };
+        
+        switch (viewType) {
+            case 'divisions': displayData = reprocessLocally('DIVISION'); break;
+            case 'branches': displayData = reprocessLocally('BRANCH NAME'); break;
+            case 'brands': displayData = reprocessLocally('BRAND'); break;
+            case 'items': displayData = reprocessLocally('ITEM DESCRIPTION'); break;
+            case 'pareto_branches': displayData = findPareto('BRANCH NAME'); break;
+            case 'pareto_brands': displayData = findPareto('BRAND'); break;
+            case 'pareto_items': displayData = findPareto('ITEM DESCRIPTION'); break;
+            case 'new_brands': case 'new_items': displayData = findNewOrLost(true); break;
+            case 'lost_brands': case 'lost_items': displayData = findNewOrLost(false); break;
+            default: displayData = [];
         }
 
         const isItemView = viewType.includes('item');
@@ -92,17 +175,17 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                 if (isItemView) defaultKeys.unshift('code');
                 currentHeaders = getHeaders(defaultKeys);
         }
-        
-        if (searchTerm) displayData = displayData.filter(item => 
-            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (item.code && item.code.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
 
         let finalData = displayData.map(item => ({
             ...item,
             contribution2025: localTotal25 > 0 && item.sales2025 ? (item.sales2025 / localTotal25) * 100 : 0,
             contribution2024: localTotal24 > 0 && item.sales2024 ? (item.sales2024 / localTotal24) * 100 : 0
         }));
+
+        if (searchTerm) finalData = finalData.filter(item => 
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (item.code && item.code.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
 
         if (sortConfig.key) {
             finalData.sort((a, b) => {
@@ -120,23 +203,25 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
             total2024: finalData.reduce((acc, item) => acc + (item.sales2024 || 0), 0),
             growth: 0,
         };
-        const calculateGrowth = (current: number, previous: number) => previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
-        summaryTotals.growth = calculateGrowth(summaryTotals.total2025, summaryTotals.total2024);
+        summaryTotals.growth = ((current, previous) => previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100)(summaryTotals.total2025, summaryTotals.total2024);
         
         const generateDescription = () => {
-            let baseText = `This table shows a detailed breakdown for "${currentTitle}".`;
-            if (hasBranchFilter) {
-                if (selectedBranch) {
-                    baseText = `This table shows a detailed breakdown for "${currentTitle.split(' in ')[0]}" within the ${selectedBranch} branch.`;
-                } else {
-                    baseText += ` You can select a branch from the dropdown to see data specific to that location.`;
-                }
-            }
-            return baseText;
+             let activeFilters = Object.entries(localFilters).filter(([, value]) => value).map(([key, value]) => `${key}: ${value}`).join(', ');
+             let baseText = `This table shows a detailed breakdown for "${currentTitle}".`;
+             if (activeFilters) {
+                 return `${baseText} Currently filtered by ${activeFilters}.`;
+             }
+             return baseText;
         };
 
-        return { processedData: finalData, tableTitle: currentTitle, headers: currentHeaders, summaryTotals, summaryDescription: generateDescription() };
-    }, [viewType, filteredData, searchTerm, sortConfig, hasBranchFilter, selectedBranch, allRawData]);
+        const visibleFilters = {
+            division: !['divisions'].includes(viewType),
+            branch: !['divisions', 'branches', 'pareto_branches'].includes(viewType),
+            brand: ['items', 'pareto_items', 'new_items', 'lost_items'].includes(viewType)
+        };
+
+        return { processedData: finalData, tableTitle: currentTitle, headers: currentHeaders, summaryTotals, summaryDescription: generateDescription(), visibleFilters };
+    }, [viewType, allRawData, searchTerm, sortConfig, localFilters]);
 
     const requestSort = (key: string) => {
         let direction: SortDirection = 'descending';
@@ -212,7 +297,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
     
     const tableFooter = useMemo(() => {
         const firstNumericIndex = headers.findIndex(h => ['sales2025', 'sales2024'].includes(h.key));
-        const labelColSpan = firstNumericIndex > -1 ? firstNumericIndex : headers.length;
+        let labelColSpan = headers.length;
+        if(firstNumericIndex > -1) {
+            labelColSpan = firstNumericIndex;
+            if(headers.some(h => h.key === 'code')) labelColSpan++;
+        }
+
 
         const totalContribution2025 = processedData.reduce((acc, item) => acc + ((item as any).contribution2025 || 0), 0);
         const totalContribution2024 = processedData.reduce((acc, item) => acc + ((item as any).contribution2024 || 0), 0);
@@ -223,31 +313,16 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                     <td colSpan={labelColSpan} className="p-4">
                         Totals ({summaryTotals.count.toLocaleString()} rows)
                     </td>
-                    {headers.some(h => h.key === 'sales2025') && (
-                        <td className="p-4 text-right text-green-300">
-                            {formatNumberAbbreviated(summaryTotals.total2025)}
-                        </td>
-                    )}
-                    {headers.some(h => h.key === 'sales2024') && (
-                        <td className="p-4 text-right">
-                            {formatNumberAbbreviated(summaryTotals.total2024)}
-                        </td>
-                    )}
-                    {headers.some(h => h.key === 'growth') && (
-                        <td className="p-4 text-right">
-                            <GrowthIndicator value={summaryTotals.growth} />
-                        </td>
-                    )}
-                    {headers.some(h => h.key === 'contribution2025') && (
-                        <td className="p-4 text-right">
-                            {totalContribution2025.toFixed(2)}%
-                        </td>
-                    )}
-                    {headers.some(h => h.key === 'contribution2024') && (
-                        <td className="p-4 text-right">
-                            {totalContribution2024.toFixed(2)}%
-                        </td>
-                    )}
+                    {headers.slice(labelColSpan).map(h => {
+                        switch(h.key) {
+                            case 'sales2025': return <td key={h.key} className="p-4 text-right text-green-300">{formatNumberAbbreviated(summaryTotals.total2025)}</td>
+                            case 'sales2024': return <td key={h.key} className="p-4 text-right">{formatNumberAbbreviated(summaryTotals.total2024)}</td>
+                            case 'growth': return <td key={h.key} className="p-4 text-right"><GrowthIndicator value={summaryTotals.growth} /></td>
+                            case 'contribution2025': return <td key={h.key} className="p-4 text-right">{totalContribution2025.toFixed(2)}%</td>
+                            case 'contribution2024': return <td key={h.key} className="p-4 text-right">{totalContribution2024.toFixed(2)}%</td>
+                            default: return <td key={h.key}></td>;
+                        }
+                    })}
                 </tr>
             </tfoot>
         );
@@ -260,7 +335,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                 <div className="flex items-center gap-4">
                     <button onClick={() => navigate('/')} className="p-2 rounded-md bg-slate-700 hover:bg-sky-600 transition-colors" aria-label="Back to dashboard">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-l5-5m0 0l5-5m-5 5h12" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
                         </svg>
                     </button>
                     <h1 className="text-3xl font-extrabold text-white">{tableTitle}</h1>
@@ -299,16 +374,32 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                 </div>
             </div>
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-                         {hasBranchFilter && globalFilterOptions && (
-                            <select value={selectedBranch} onChange={(e) => setSelectedBranch(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full sm:w-auto">
-                                <option value="">All Branches</option>
-                                {globalFilterOptions.branches.map(b => <option key={b} value={b}>{b}</option>)}
+                <div className="flex flex-col md:flex-row flex-wrap justify-between items-center mb-4 gap-4">
+                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                        {globalFilterOptions && visibleFilters.division && (
+                            <select value={localFilters.division} onChange={(e) => handleLocalFilterChange('division', e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full">
+                                <option value="">All Divisions</option>
+                                {globalFilterOptions.divisions.map(d => <option key={d} value={d}>{d}</option>)}
                             </select>
                         )}
-                        <input type="text" placeholder="Search by name or code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full sm:w-auto" />
+                        {globalFilterOptions && visibleFilters.branch && (
+                           <select value={localFilters.branch} onChange={(e) => handleLocalFilterChange('branch', e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full">
+                                <option value="">All Branches</option>
+                                {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                        )}
+                         {globalFilterOptions && visibleFilters.brand && (
+                           <select value={localFilters.brand} onChange={(e) => handleLocalFilterChange('brand', e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white w-full">
+                                <option value="">All Brands</option>
+                                {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                            </select>
+                        )}
+                        <input type="text" placeholder="Search by name or code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full" />
                     </div>
+                     <button onClick={resetLocalFilters} className="px-4 py-2 bg-rose-600 text-white font-bold rounded-lg shadow-md hover:bg-rose-700 transition-all flex items-center gap-2 text-sm">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 20h5v-5M20 4h-5v5" /></svg>
+                        Reset
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-left text-sm text-slate-300 table-sortable table-banded">
@@ -316,7 +407,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                             <tr>{headers.map(h => <th key={h.key} scope="col" className={`p-4 ${h.className || ''}`} onClick={() => requestSort(h.key)}><span className={getSortClassName(h.key)}>{h.label}</span></th>)}</tr>
                         </thead>
                         <tbody>
-                            {processedData.map((item) => <tr key={item.name} className="border-b border-slate-700 hover:bg-sky-500/10 transition-colors">{headers.map(h => renderCell(item, h.key))}</tr>)}
+                            {processedData.map((item, index) => <tr key={`${item.name}-${index}`} className="border-b border-slate-700 hover:bg-sky-500/10 transition-colors">{headers.map(h => renderCell(item, h.key))}</tr>)}
                         </tbody>
                         {processedData.length > 0 && tableFooter}
                     </table>
