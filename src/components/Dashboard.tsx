@@ -25,7 +25,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange }) 
                 onFilterChange={onFilterChange}
             />
             <SummaryCards data={data} />
-            <Charts data={data} onFilterChange={onFilterChange} />
+            <Charts data={data} filters={filters} onFilterChange={onFilterChange} />
 
             <div className="mt-8 flex justify-center">
                 <button 

@@ -169,6 +169,7 @@ const renderLegendText = (value: string) => {
 
 interface ChartsProps {
     data: ProcessedData;
+    filters: FilterState;
     onFilterChange: (filters: FilterState) => void;
 }
 
@@ -179,7 +180,7 @@ const ChartCard: React.FC<{ title: string; children: React.ReactNode; className?
     </div>
 );
 
-const Charts: React.FC<ChartsProps> = ({ data, onFilterChange }) => {
+const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
     const [activeIndex, setActiveIndex] = useState<number>(-1);
 
     const onPieEnter = useCallback((_: any, index: number) => {
@@ -193,17 +194,36 @@ const Charts: React.FC<ChartsProps> = ({ data, onFilterChange }) => {
     const handleBarClick = useCallback((filterKey: keyof FilterState, payload: any) => {
         if (payload && payload.name) {
             const value = payload.name;
-            onFilterChange({ divisions: [], branches: [], brands: [], items: [], [filterKey]: [value] });
+            const currentFilterValues = filters[filterKey];
+
+            // Check if the current filter for this key is already set to ONLY this value
+            if (
+                Array.isArray(currentFilterValues) &&
+                currentFilterValues.length === 1 &&
+                currentFilterValues[0] === value
+            ) {
+                // If so, reset all filters
+                onFilterChange({ divisions: [], branches: [], brands: [], items: [] });
+            } else {
+                // Otherwise, set the filter to this value, clearing others
+                onFilterChange({ divisions: [], branches: [], brands: [], items: [], [filterKey]: [value] });
+            }
         }
-    }, [onFilterChange]);
+    }, [onFilterChange, filters]);
 
 
-    const handleDonutClick = () => {
+    const handleDonutClick = useCallback(() => {
         if (data.salesByDivision && data.salesByDivision[activeIndex]) {
             const divisionName = data.salesByDivision[activeIndex].name;
-            onFilterChange({ divisions: [divisionName], branches: [], brands: [], items: [] });
+            const currentFilterValues = filters.divisions;
+
+            if (Array.isArray(currentFilterValues) && currentFilterValues.length === 1 && currentFilterValues[0] === divisionName) {
+                onFilterChange({ divisions: [], branches: [], brands: [], items: [] });
+            } else {
+                onFilterChange({ divisions: [divisionName], branches: [], brands: [], items: [] });
+            }
         }
-    };
+    }, [activeIndex, data.salesByDivision, onFilterChange, filters]);
     
     const yearComparisonData = [
         { name: '2024', value: data.totalSales2024, sales2024: data.totalSales2024, sales2025: 0 },
