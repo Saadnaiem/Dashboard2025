@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -31,4 +32,22 @@ select[multiple] option:checked {
 }
 .recharts-tooltip-cursor {
     fill: rgba(255, 255, 255, 0.1);
+}
+
+.table-sortable th {
+    @apply cursor-pointer select-none transition-colors;
+}
+
+.table-sortable th:hover {
+    @apply bg-slate-700;
+}
+
+.table-sortable .sort-asc::after {
+    content: ' ▲';
+    @apply text-sky-400;
+}
+
+.table-sortable .sort-desc::after {
+    content: ' ▼';
+    @apply text-sky-400;
 }

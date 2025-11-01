@@ -138,19 +138,29 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
         }
     });
 
-    const salesGrowthPercentage = totalSales2024 === 0 ? (totalSales2025 > 0 ? Infinity : 0) : ((totalSales2025 - totalSales2024) / totalSales2024) * 100;
+    const calculateGrowth = (current: number, previous: number) => 
+        previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
+
+    const salesGrowthPercentage = calculateGrowth(totalSales2025, totalSales2024);
 
     const transform = (obj: { [key: string]: { s24: number, s25: number } }) => 
         Object.entries(obj).map(([name, { s24, s25 }]) => ({ name, sales2024: s24, sales2025: s25 }));
 
     const salesByDivision = transform(divisions).sort((a,b) => b.sales2025 - a.sales2025);
-    const salesByBrand = transform(brands).sort((a,b) => b.sales2025 - a.sales2025);
-    const salesByItem = transform(items).sort((a,b) => b.sales2025 - a.sales2025);
+    
+    const salesByBrand = transform(brands)
+        .map(d => ({ ...d, growth: calculateGrowth(d.sales2025, d.sales2024) }))
+        .sort((a,b) => b.sales2025 - a.sales2025);
+
+    const salesByItem = transform(items)
+        .map(d => ({ ...d, growth: calculateGrowth(d.sales2025, d.sales2024) }))
+        .sort((a,b) => b.sales2025 - a.sales2025);
+
     const salesByBranch = Object.entries(branches).map(([name, { s24, s25 }]) => ({
         name, 
         sales2024: s24, 
         sales2025: s25,
-        growth: s24 === 0 ? (s25 > 0 ? Infinity : 0) : ((s25-s24)/s24)*100
+        growth: calculateGrowth(s25, s24)
     })).sort((a,b) => b.sales2025 - a.sales2025);
 
     const top10Brands = salesByBrand.slice(0, 10);
@@ -158,7 +168,7 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     const topDivisionEntry = salesByDivision[0];
     const topDivision = topDivisionEntry ? {
         ...topDivisionEntry,
-        growth: topDivisionEntry.sales2024 === 0 ? (topDivisionEntry.sales2025 > 0 ? Infinity : 0) : ((topDivisionEntry.sales2025 - topDivisionEntry.sales2024) / topDivisionEntry.sales2024) * 100
+        growth: calculateGrowth(topDivisionEntry.sales2025, topDivisionEntry.sales2024)
     } : null;
     
     // New/Lost entities
@@ -189,6 +199,7 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
         salesByDivision,
         salesByBrand,
         salesByBranch,
+        salesByItem,
         top10Brands,
         top50Items,
         topDivision,

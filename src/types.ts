@@ -26,8 +26,9 @@ export interface ProcessedData {
     salesGrowthPercentage: number;
     
     salesByDivision: { name: string; sales2024: number; sales2025: number }[];
-    salesByBrand: { name: string; sales2024: number; sales2025: number }[];
+    salesByBrand: { name: string; sales2024: number; sales2025: number; growth: number }[];
     salesByBranch: { name: string; sales2024: number; sales2025: number; growth: number }[];
+    salesByItem: { name: string; sales2024: number; sales2025: number; growth: number }[];
     
     top10Brands: { name: string; sales2024: number; sales2025: number }[];
     top50Items: { name: string; sales2024: number; sales2025: number }[];

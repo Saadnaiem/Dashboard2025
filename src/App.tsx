@@ -5,6 +5,7 @@ import { RawSalesDataRow, ProcessedData, FilterState } from './types';
 import { processSalesData, normalizeRow } from './services/dataProcessor';
 import LoadingIndicator from './components/LoadingIndicator';
 import Dashboard from './components/Dashboard';
+import DrilldownView from './components/DrilldownView';
 
 const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions']): ProcessedData => ({
     totalSales2024: 0,
@@ -13,6 +14,7 @@ const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions'])
     salesByDivision: [],
     salesByBrand: [],
     salesByBranch: [],
+    salesByItem: [],
     top10Brands: [],
     top50Items: [],
     branchCount2024: 0,
@@ -46,6 +48,7 @@ const App: React.FC = () => {
     const [allData, setAllData] = useState<RawSalesDataRow[]>([]);
     const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
     const [filters, setFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
+    const [currentView, setCurrentView] = useState<{ view: string; title: string } | null>(null);
 
     useEffect(() => {
         const GDRIVE_URL = 'https://corsproxy.io/?https://drive.google.com/uc?export=download&id=1ra1vcQbJiufmfXK0Yvl8qocQLlhjKMAk';
@@ -142,6 +145,14 @@ const App: React.FC = () => {
     }, [processedData, filters, allData]);
 
 
+    const handleViewChange = (view: string, title: string) => {
+        setCurrentView({ view, title });
+    };
+
+    const handleBackToDashboard = () => {
+        setCurrentView(null);
+    };
+
     const renderContent = () => {
         if (error) {
             return (
@@ -164,12 +175,29 @@ const App: React.FC = () => {
             return <LoadingIndicator progress={loadingState.progress} message={loadingState.message} />;
         }
 
+        if (currentView) {
+            let drilldownData: any[] = [];
+            if (currentView.view === 'branches') drilldownData = filteredData.salesByBranch;
+            else if (currentView.view === 'brands') drilldownData = filteredData.salesByBrand;
+            else if (currentView.view === 'items') drilldownData = filteredData.salesByItem;
+
+            return (
+                <DrilldownView
+                    title={currentView.title}
+                    data={drilldownData}
+                    totalSales2025={filteredData.totalSales2025}
+                    onBack={handleBackToDashboard}
+                />
+            );
+        }
+
         if (filteredData) {
             return (
                 <Dashboard
                     data={filteredData}
                     filters={filters}
                     onFilterChange={setFilters}
+                    onViewChange={handleViewChange}
                 />
             );
         }
