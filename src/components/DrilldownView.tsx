@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { RawSalesDataRow } from '../types';
-import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
 type SortDirection = 'ascending' | 'descending';
 
@@ -36,7 +36,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
 
     const hasBranchFilter = useMemo(() => ['new_brands', 'new_items', 'lost_brands', 'lost_items'].includes(viewType), [viewType]);
     
-    const { processedData, tableTitle, headers } = useMemo(() => {
+    const { processedData, tableTitle, headers, summaryTotals, summaryDescription } = useMemo(() => {
         let displayData: DrilldownItem[] = [...data];
         let currentTitle = title;
         let localTotal24 = totalSales2024;
@@ -120,8 +120,39 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
                 return 0;
             });
         }
+        
+        const summaryTotals = {
+            count: finalData.length,
+            total2025: finalData.reduce((acc, item) => acc + (item.sales2025 || 0), 0),
+            total2024: finalData.reduce((acc, item) => acc + (item.sales2024 || 0), 0),
+            growth: 0,
+        };
+        const calculateGrowth = (current: number, previous: number) => 
+            previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
+        summaryTotals.growth = calculateGrowth(summaryTotals.total2025, summaryTotals.total2024);
 
-        return { processedData: finalData, tableTitle: currentTitle, headers: currentHeaders };
+        const generateDescription = () => {
+            const entityMap: { [key: string]: { plural: string } } = {
+                'divisions': { plural: 'divisions' }, 'branches': { plural: 'branches' }, 'brands': { plural: 'brands' }, 'items': { plural: 'items' },
+                'pareto_branches': { plural: 'top branches' }, 'pareto_brands': { plural: 'top brands' }, 'pareto_items': { plural: 'top items' },
+                'new_brands': { plural: 'new brands' }, 'new_items': { plural: 'new items' }, 'lost_brands': { plural: 'lost brands' }, 'lost_items': { plural: 'lost items' },
+            };
+            const { plural } = entityMap[viewType] || { plural: 'entities' };
+            const branchContext = selectedBranch ? ` for the '${selectedBranch}' branch` : ' across all branches';
+
+            switch (viewType) {
+                case 'new_brands': case 'new_items':
+                    return `This table lists all ${plural} that appeared in 2025${branchContext}. The totals below reflect the sales performance of only these new entities.`;
+                case 'lost_brands': case 'lost_items':
+                    return `This table shows all ${plural} from 2024 that had no sales in 2025${branchContext}. The totals below reflect their sales performance in 2024.`;
+                case 'pareto_branches': case 'pareto_brands': case 'pareto_items':
+                     return `This table displays the top 20% of ${plural} that contribute to 80% of the sales, according to the Pareto principle.`;
+                default:
+                    return `This table provides a detailed performance comparison for all ${plural}, showing sales figures for 2024 and 2025, along with their growth and contribution to total sales.`;
+            }
+        };
+
+        return { processedData: finalData, tableTitle: currentTitle, headers: currentHeaders, summaryTotals, summaryDescription: generateDescription() };
     }, [data, searchTerm, sortConfig, totalSales2025, totalSales2024, hasBranchFilter, selectedBranch, allData, viewType, title]);
 
     const requestSort = (key: string) => {
@@ -230,6 +261,27 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ title, viewType, data, to
                     <button onClick={handleDownloadPDF} className="p-2 rounded-md bg-slate-700 hover:bg-red-600 transition-colors" aria-label="Download as PDF" title="Download as PDF">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
                     </button>
+                </div>
+            </div>
+
+            <div className="p-6 bg-slate-900/30 rounded-2xl shadow-lg border border-slate-700 flex flex-col lg:flex-row gap-6">
+                <div className="lg:w-1/2 text-slate-300">
+                    <h3 className="text-lg font-bold text-white mb-2">Table Insights</h3>
+                    <p className="text-sm">{summaryDescription}</p>
+                </div>
+                <div className="lg:w-1/2 grid grid-cols-2 sm:grid-cols-3 gap-4">
+                    <div className="p-4 bg-slate-800/50 rounded-lg text-center">
+                        <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">Entities</div>
+                        <div className="text-2xl font-extrabold text-sky-400">{formatNumber(summaryTotals.count)}</div>
+                    </div>
+                    <div className="p-4 bg-slate-800/50 rounded-lg text-center">
+                        <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">2025 Sales</div>
+                        <div className="text-2xl font-extrabold text-white">{!['lost_brands', 'lost_items'].includes(viewType) ? formatNumberAbbreviated(summaryTotals.total2025) : '-'}</div>
+                    </div>
+                    <div className="p-4 bg-slate-800/50 rounded-lg text-center">
+                        <div className="text-sm font-bold text-slate-400 uppercase tracking-wider">Growth</div>
+                        {!['new_brands', 'new_items', 'lost_brands', 'lost_items'].includes(viewType) ? <GrowthIndicator value={summaryTotals.growth} className="text-2xl justify-center" /> : <div className="text-2xl font-extrabold text-slate-400">-</div>}
+                    </div>
                 </div>
             </div>
 
