@@ -43,10 +43,10 @@ const calculatePareto = (salesData: { name: string, sales: number }[]): { result
     const sortedData = salesData.filter(item => item.sales > 0).sort((a, b) => b.sales - a.sales);
     
     const totalContributors = sortedData.length;
-    if (totalContributors === 0) return { result: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0 }, contributors: [] };
+    if (totalContributors === 0) return { result: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0, topSales: 0 }, contributors: [] };
 
     const totalSales = sortedData.reduce((acc, item) => acc + item.sales, 0);
-    if (totalSales === 0) return { result: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors }, contributors: [] };
+    if (totalSales === 0) return { result: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors, topSales: 0 }, contributors: [] };
 
     const top20PercentCount = Math.max(1, Math.ceil(totalContributors * 0.20));
     const count = Math.min(top20PercentCount, totalContributors);
@@ -61,7 +61,8 @@ const calculatePareto = (salesData: { name: string, sales: number }[]): { result
             topCount: count,
             salesPercent: percentOfSales,
             totalSales,
-            totalContributors
+            totalContributors,
+            topSales: salesFromTop20Percent
         },
         contributors: topContributors.map(c => c.name)
     };

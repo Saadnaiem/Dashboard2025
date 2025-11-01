@@ -15,9 +15,9 @@ const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions'])
     top10Brands: [], top50Items: [], branchCount2024: 0, branchCount2025: 0, brandCount2024: 0, brandCount2025: 0, itemCount2024: 0,
     itemCount2025: 0, topDivision: null,
     pareto: {
-        branches: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0 },
-        brands: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0 },
-        items: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0 },
+        branches: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0, topSales: 0 },
+        brands: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0, topSales: 0 },
+        items: { topCount: 0, salesPercent: 0, totalSales: 0, totalContributors: 0, topSales: 0 },
     },
     paretoContributors: { branches: [], brands: [], items: [] },
     newEntities: {

@@ -17,6 +17,7 @@ export interface ParetoResult {
     salesPercent: number;
     totalSales: number;
     totalContributors: number;
+    topSales: number;
 }
 
 export interface EntitySalesData {

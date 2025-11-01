@@ -71,13 +71,46 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
                 <SectionTitle>Pareto Analysis (80/20 Rule)</SectionTitle>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <SummaryCard title="Top 20% Branches" icon="📊" to="/details/pareto_branches">
-                         <p>Top <b>{data.pareto.branches.topCount}</b> of <b>{data.pareto.branches.totalContributors}</b> branches generate <b className="text-green-400 font-extrabold text-lg">{data.pareto.branches.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
+                        <p className="text-sm">
+                            Top <b>{formatNumber(data.pareto.branches.topCount)}</b> of <b>{formatNumber(data.pareto.branches.totalContributors)}</b> branches generate:
+                        </p>
+                        <div className="flex items-baseline justify-start gap-4 mt-2">
+                            <div className="text-green-400 font-extrabold text-3xl" title={`Exact: ${data.pareto.branches.salesPercent.toFixed(4)}%`}>
+                                {data.pareto.branches.salesPercent.toFixed(1)}%
+                            </div>
+                            <div className="text-sky-400 font-bold text-xl">
+                                {formatNumberAbbreviated(data.pareto.branches.topSales)}
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
                     <SummaryCard title="Top 20% Brands" icon="📊" to="/details/pareto_brands">
-                         <p>Top <b>{data.pareto.brands.topCount}</b> of <b>{data.pareto.brands.totalContributors}</b> brands generate <b className="text-green-400 font-extrabold text-lg">{data.pareto.brands.salesPercent.toFixed(1)}%</b> of 2025 sales.</p>
+                        <p className="text-sm">
+                           Top <b>{formatNumber(data.pareto.brands.topCount)}</b> of <b>{formatNumber(data.pareto.brands.totalContributors)}</b> brands generate:
+                        </p>
+                        <div className="flex items-baseline justify-start gap-4 mt-2">
+                            <div className="text-green-400 font-extrabold text-3xl" title={`Exact: ${data.pareto.brands.salesPercent.toFixed(4)}%`}>
+                                {data.pareto.brands.salesPercent.toFixed(1)}%
+                            </div>
+                            <div className="text-sky-400 font-bold text-xl">
+                                {formatNumberAbbreviated(data.pareto.brands.topSales)}
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
                     <SummaryCard title="Top 20% Items" icon="📊" to="/details/pareto_items">
-                         <p>Top <b>{data.pareto.items.topCount}</b> of <b>{data.pareto.items.totalContributors}</b> items generate <b className="text-green-400 font-extrabold text-lg">{data.pareto.items.salesPercent.toFixed(1)}%</b> of sales.</p>
+                        <p className="text-sm">
+                           Top <b>{formatNumber(data.pareto.items.topCount)}</b> of <b>{formatNumber(data.pareto.items.totalContributors)}</b> items generate:
+                        </p>
+                        <div className="flex items-baseline justify-start gap-4 mt-2">
+                            <div className="text-green-400 font-extrabold text-3xl" title={`Exact: ${data.pareto.items.salesPercent.toFixed(4)}%`}>
+                                {data.pareto.items.salesPercent.toFixed(1)}%
+                            </div>
+                            <div className="text-sky-400 font-bold text-xl">
+                                {formatNumberAbbreviated(data.pareto.items.topSales)}
+                            </div>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
                 </div>
             </section>

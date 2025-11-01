@@ -238,9 +238,13 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const isBrandOrItemView = viewType.includes('brand') || viewType.includes('item');
 
         if (isBrandOrItemView) {
-            const totalInView = finalData.length;
+            const tableDataForPerfRate = (viewType.startsWith('pareto') || viewType.startsWith('new') || viewType.startsWith('lost'))
+                ? displayData // Use pre-sorted/filtered data for these views
+                : finalData; // Use final filtered/sorted data for 'all' views
+
+            const totalInView = tableDataForPerfRate.length;
             if (totalInView > 0) {
-                const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
+                const soldInView = tableDataForPerfRate.filter(item => item.sales2025 && item.sales2025 > 0).length;
                 performanceRateStats = {
                     rate: (soldInView / totalInView) * 100,
                     sold: soldInView,
@@ -406,7 +410,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                         <div className="bg-slate-700/50 p-4 rounded-lg">
                             <div className="text-sm font-bold text-slate-400 uppercase">Items Performance Rate</div>
                             <div className="text-2xl font-extrabold text-sky-400">{performanceRateStats.rate.toFixed(2)}%</div>
-                            <div className="text-xs text-slate-400 font-semibold">{performanceRateStats.sold.toLocaleString()} / {performanceRateStats.total.toLocaleString()} sold</div>
+                            <div className="text-sm font-bold text-green-400">{performanceRateStats.sold.toLocaleString()} / {performanceRateStats.total.toLocaleString()} sold</div>
                         </div>
                     )}
                     <div className="bg-slate-700/50 p-4 rounded-lg">
