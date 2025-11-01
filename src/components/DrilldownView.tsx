@@ -25,6 +25,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
+    const [showFilters, setShowFilters] = useState(true);
     
     const [localFilters, setLocalFilters] = useState({
         division: [] as string[],
@@ -430,41 +431,58 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </div>
             </div>
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                    {globalFilterOptions && visibleFilters.division && (
-                        <div>
-                            <label htmlFor="drilldownDivisionFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Division</label>
-                            <select id="drilldownDivisionFilter" multiple size={5} className="w-full" value={localFilters.division} onChange={(e) => handleLocalMultiSelectChange(e, 'division')}>
-                                {globalFilterOptions.divisions.map(d => <option key={d} value={d}>{d}</option>)}
-                            </select>
-                        </div>
-                    )}
-                    {globalFilterOptions && visibleFilters.branch && (
-                        <div>
-                            <label htmlFor="drilldownBranchFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Branch</label>
-                            <select id="drilldownBranchFilter" multiple size={5} className="w-full" value={localFilters.branch} onChange={(e) => handleLocalMultiSelectChange(e, 'branch')}>
-                                {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                        </div>
-                    )}
-                    {globalFilterOptions && visibleFilters.brand && (
-                        <div>
-                            <label htmlFor="drilldownBrandFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Brand</label>
-                            <select id="drilldownBrandFilter" multiple size={5} className="w-full" value={localFilters.brand} onChange={(e) => handleLocalMultiSelectChange(e, 'brand')}>
-                                {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                            </select>
-                        </div>
-                    )}
-                </div>
-                <div className="flex flex-col md:flex-row justify-between items-center mb-4 gap-4">
-                    <input type="text" placeholder="Search by name or code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full md:flex-grow" />
-                    <button onClick={resetLocalFilters} className="px-4 py-2 bg-rose-600 text-white font-bold rounded-lg shadow-md hover:bg-rose-700 transition-all flex items-center gap-2 text-sm w-full md:w-auto flex-shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 20h5v-5M20 4h-5v5" /></svg>
-                        Reset All
+                <div className="flex flex-wrap items-center justify-center gap-4">
+                    <button
+                        onClick={() => setShowFilters(!showFilters)}
+                        className="px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        {showFilters ? 'Hide Filters' : 'Show Filters'}
+                    </button>
+                    <button
+                        onClick={resetLocalFilters}
+                        className="px-6 py-3 bg-rose-600 text-white font-bold rounded-lg shadow-md hover:bg-rose-700 transition-all flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 20h5v-5M20 4h-5v5" /></svg>
+                        Reset Filters
                     </button>
                 </div>
-
-                <div className="overflow-x-auto">
+                {showFilters && (
+                    <div className="mt-6 pt-6 border-t border-slate-700">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                            {globalFilterOptions && visibleFilters.division && (
+                                <div>
+                                    <label htmlFor="drilldownDivisionFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Division</label>
+                                    <select id="drilldownDivisionFilter" multiple size={5} value={localFilters.division} onChange={(e) => handleLocalMultiSelectChange(e, 'division')}>
+                                        {globalFilterOptions.divisions.map(d => <option key={d} value={d}>{d}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            {globalFilterOptions && visibleFilters.branch && (
+                                <div>
+                                    <label htmlFor="drilldownBranchFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Branch</label>
+                                    <select id="drilldownBranchFilter" multiple size={5} value={localFilters.branch} onChange={(e) => handleLocalMultiSelectChange(e, 'branch')}>
+                                        {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                            {globalFilterOptions && visibleFilters.brand && (
+                                <div>
+                                    <label htmlFor="drilldownBrandFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Brand</label>
+                                    <select id="drilldownBrandFilter" multiple size={5} value={localFilters.brand} onChange={(e) => handleLocalMultiSelectChange(e, 'brand')}>
+                                        {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
+                                    </select>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                            <input type="text" placeholder="Search by name or code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full" />
+                        </div>
+                    </div>
+                )}
+                <div className="overflow-x-auto mt-6">
                     <table className="min-w-full text-left text-sm text-slate-300 table-sortable table-banded">
                         <thead className="bg-slate-700/50 text-xs text-slate-200 uppercase tracking-wider">
                             <tr>{headers.map(h => <th key={h.key} scope="col" className={`p-4 ${h.className || ''}`} onClick={() => requestSort(h.key)}><span className={getSortClassName(h.key)}>{h.label}</span></th>)}</tr>
