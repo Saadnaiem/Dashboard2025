@@ -43,6 +43,19 @@ const App: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
+    // Effect to sync auth state across tabs
+    useEffect(() => {
+        const handleStorageChange = () => {
+            setIsAuthenticated(localStorage.getItem('isAuthenticated') === 'true');
+        };
+
+        window.addEventListener('storage', handleStorageChange);
+
+        return () => {
+            window.removeEventListener('storage', handleStorageChange);
+        };
+    }, []);
+
     useEffect(() => {
         const GDRIVE_URL = 'https://corsproxy.io/?https://drive.google.com/uc?export=download&id=1ra1vcQbJiufmfXK0Yvl8qocQLlhjKMAk';
 
