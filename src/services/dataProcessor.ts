@@ -75,7 +75,7 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     const divisions: { [key: string]: { s24: number, s25: number } } = {};
     const brands: { [key: string]: { s24: number, s25: number } } = {};
     const branches: { [key: string]: { s24: number, s25: number } } = {};
-    const items: { [key: string]: { s24: number, s25: number } } = {};
+    const items: { [key: string]: { s24: number, s25: number, code: string } } = {};
     
     const distinct = {
         branches24: new Set<string>(), branches25: new Set<string>(),
@@ -96,11 +96,19 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
                 store[key].s25 += s25;
             }
         };
+
+        const aggrItems = (store: any, key: string, code: string) => {
+             if (key) {
+                store[key] = store[key] || { s24: 0, s25: 0, code: code || '' };
+                store[key].s24 += s24;
+                store[key].s25 += s25;
+            }
+        };
         
         aggr(divisions, row['DIVISION']);
         aggr(brands, row['BRAND']);
         aggr(branches, row['BRANCH NAME']);
-        aggr(items, row['ITEM DESCRIPTION']);
+        aggrItems(items, row['ITEM DESCRIPTION'], row['ITEM CODE'] || '');
 
         if(row['BRANCH NAME']) {
           if (s24 > 0) distinct.branches24.add(row['BRANCH NAME']);
@@ -121,12 +129,13 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
 
     const salesGrowthPercentage = calculateGrowth(totalSales2025, totalSales2024);
 
-    const transform = (obj: { [key: string]: { s24: number, s25: number } }): EntitySalesData[] => 
-        Object.entries(obj).map(([name, { s24, s25 }]) => ({ 
+    const transform = (obj: { [key: string]: { s24: number, s25: number, code?: string } }): EntitySalesData[] => 
+        Object.entries(obj).map(([name, { s24, s25, code }]) => ({ 
             name, 
             sales2024: s24, 
             sales2025: s25,
-            growth: calculateGrowth(s25, s24)
+            growth: calculateGrowth(s25, s24),
+            code: code
         }));
 
     const salesByDivision = transform(divisions).sort((a,b) => b.sales2025 - a.sales2025);
@@ -170,19 +179,19 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     
     const newItems = { count: 0, sales: 0 };
     const lostItems = { count: 0, sales2024: 0 };
-    const newItemsList: { name: string; sales2025: number }[] = [];
-    const lostItemsList: { name: string; sales2024: number }[] = [];
+    const newItemsList: { name: string; sales2025: number; code: string }[] = [];
+    const lostItemsList: { name: string; sales2024: number; code: string }[] = [];
 
-    Object.entries(items).forEach(([key, {s24, s25}]) => { 
+    Object.entries(items).forEach(([key, {s24, s25, code}]) => { 
       if(s25 > 0 && s24 === 0) {
         newItems.count++;
         newItems.sales += s25;
-        newItemsList.push({ name: key, sales2025: s25 });
+        newItemsList.push({ name: key, sales2025: s25, code });
       }
       if(s24 > 0 && s25 === 0) {
         lostItems.count++;
         lostItems.sales2024 += s24;
-        lostItemsList.push({ name: key, sales2024: s24 });
+        lostItemsList.push({ name: key, sales2024: s24, code });
       }
     });
 

@@ -7,7 +7,7 @@ import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
 type SortDirection = 'ascending' | 'descending';
 interface SortConfig { key: string; direction: SortDirection; }
-type DrilldownItem = { name: string; sales2024?: number; sales2025?: number; growth?: number; };
+type DrilldownItem = { name: string; code?: string; sales2024?: number; sales2025?: number; growth?: number; };
 
 export interface DrilldownViewProps {
     filteredData: ProcessedData;
@@ -51,12 +51,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
             localTotal24 = branchData.reduce((acc, row) => acc + row['SALES2024'], 0);
             
             const entityType = viewType.includes('brand') ? 'BRAND' : 'ITEM DESCRIPTION';
-            const entitySales: { [key: string]: { s24: number, s25: number } } = {};
+            const entitySales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
             
             branchData.forEach(row => {
                 const key = row[entityType];
                 if (key) {
-                    entitySales[key] = entitySales[key] || { s24: 0, s25: 0 };
+                    entitySales[key] = entitySales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
                     entitySales[key].s24 += row['SALES2024'];
                     entitySales[key].s25 += row['SALES2025'];
                 }
@@ -64,26 +64,39 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
             
             const newDisplayData: DrilldownItem[] = [];
             if (viewType.startsWith('new_')) {
-                Object.entries(entitySales).forEach(([name, { s24, s25 }]) => { if (s25 > 0 && s24 === 0) newDisplayData.push({ name, sales2025: s25 }); });
+                Object.entries(entitySales).forEach(([name, { s24, s25, code }]) => { if (s25 > 0 && s24 === 0) newDisplayData.push({ name, code, sales2025: s25 }); });
             } else if (viewType.startsWith('lost_')) {
-                Object.entries(entitySales).forEach(([name, { s24, s25 }]) => { if (s24 > 0 && s25 === 0) newDisplayData.push({ name, sales2024: s24 }); });
+                Object.entries(entitySales).forEach(([name, { s24, s25, code }]) => { if (s24 > 0 && s25 === 0) newDisplayData.push({ name, code, sales2024: s24 }); });
             }
             displayData = newDisplayData;
         }
 
-        const baseHeaders = [
-            { key: 'name', label: 'Name', className: 'w-1/3' }, { key: 'sales2025', label: '2025 Sales', className: 'text-right' },
-            { key: 'sales2024', label: '2024 Sales', className: 'text-right' }, { key: 'growth', label: 'Growth %', className: 'text-right' },
+        const isItemView = viewType.includes('item');
+        
+        const allHeaders = [
+            { key: 'code', label: 'Item Code' }, { key: 'name', label: 'Name' },
+            { key: 'sales2025', label: '2025 Sales', className: 'text-right' }, { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
+            { key: 'growth', label: 'Growth %', className: 'text-right' },
             { key: 'contribution2025', label: '2025 Contrib. %', className: 'text-right' }, { key: 'contribution2024', label: '2024 Contrib. %', className: 'text-right' },
         ];
+        const getHeaders = (keys: string[]) => allHeaders.filter(h => keys.includes(h.key));
+        
         let currentHeaders;
         switch (viewType) {
-            case 'new_brands': case 'new_items': currentHeaders = [baseHeaders[0], baseHeaders[1], baseHeaders[4]]; break;
-            case 'lost_brands': case 'lost_items': currentHeaders = [baseHeaders[0], baseHeaders[2], baseHeaders[5]]; break;
-            default: currentHeaders = baseHeaders;
+            case 'new_brands': currentHeaders = getHeaders(['name', 'sales2025', 'contribution2025']); break;
+            case 'new_items': currentHeaders = getHeaders(['code', 'name', 'sales2025', 'contribution2025']); break;
+            case 'lost_brands': currentHeaders = getHeaders(['name', 'sales2024', 'contribution2024']); break;
+            case 'lost_items': currentHeaders = getHeaders(['code', 'name', 'sales2024', 'contribution2024']); break;
+            default:
+                const defaultKeys = ['name', 'sales2025', 'sales2024', 'growth', 'contribution2025', 'contribution2024'];
+                if (isItemView) defaultKeys.unshift('code');
+                currentHeaders = getHeaders(defaultKeys);
         }
         
-        if (searchTerm) displayData = displayData.filter(item => item.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        if (searchTerm) displayData = displayData.filter(item => 
+            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (item.code && item.code.toLowerCase().includes(searchTerm.toLowerCase()))
+        );
 
         let finalData = displayData.map(item => ({
             ...item,
@@ -136,6 +149,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
     const renderCell = (item: any, headerKey: string) => {
         const value = item[headerKey];
         switch(headerKey) {
+            case 'code': return <td className="p-4 font-mono text-sm text-slate-400">{value}</td>;
             case 'name': return <td className="p-4 font-medium text-white truncate max-w-sm" title={value}>{value}</td>;
             case 'sales2025': return <td className="p-4 text-right font-semibold text-green-300">{formatNumberAbbreviated(value)}</td>;
             case 'sales2024': return <td className="p-4 text-right">{formatNumberAbbreviated(value)}</td>;
@@ -195,6 +209,50 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
         });
         doc.save(`${viewType}_report.pdf`);
     };
+    
+    const tableFooter = useMemo(() => {
+        const firstNumericIndex = headers.findIndex(h => ['sales2025', 'sales2024'].includes(h.key));
+        const labelColSpan = firstNumericIndex > -1 ? firstNumericIndex : headers.length;
+
+        const totalContribution2025 = processedData.reduce((acc, item) => acc + ((item as any).contribution2025 || 0), 0);
+        const totalContribution2024 = processedData.reduce((acc, item) => acc + ((item as any).contribution2024 || 0), 0);
+        
+        return (
+            <tfoot className="bg-slate-700/80 text-sm font-bold uppercase tracking-wider text-white">
+                <tr>
+                    <td colSpan={labelColSpan} className="p-4">
+                        Totals ({summaryTotals.count.toLocaleString()} rows)
+                    </td>
+                    {headers.some(h => h.key === 'sales2025') && (
+                        <td className="p-4 text-right text-green-300">
+                            {formatNumberAbbreviated(summaryTotals.total2025)}
+                        </td>
+                    )}
+                    {headers.some(h => h.key === 'sales2024') && (
+                        <td className="p-4 text-right">
+                            {formatNumberAbbreviated(summaryTotals.total2024)}
+                        </td>
+                    )}
+                    {headers.some(h => h.key === 'growth') && (
+                        <td className="p-4 text-right">
+                            <GrowthIndicator value={summaryTotals.growth} />
+                        </td>
+                    )}
+                    {headers.some(h => h.key === 'contribution2025') && (
+                        <td className="p-4 text-right">
+                            {totalContribution2025.toFixed(2)}%
+                        </td>
+                    )}
+                    {headers.some(h => h.key === 'contribution2024') && (
+                        <td className="p-4 text-right">
+                            {totalContribution2024.toFixed(2)}%
+                        </td>
+                    )}
+                </tr>
+            </tfoot>
+        );
+    }, [headers, processedData, summaryTotals]);
+
 
     return (
         <div className="flex flex-col gap-6">
@@ -202,7 +260,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                 <div className="flex items-center gap-4">
                     <button onClick={() => navigate('/')} className="p-2 rounded-md bg-slate-700 hover:bg-sky-600 transition-colors" aria-label="Back to dashboard">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-l5-5m0 0l5-5m-5 5h12" />
                         </svg>
                     </button>
                     <h1 className="text-3xl font-extrabold text-white">{tableTitle}</h1>
@@ -249,17 +307,18 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ filteredData, allRawData,
                                 {globalFilterOptions.branches.map(b => <option key={b} value={b}>{b}</option>)}
                             </select>
                         )}
-                        <input type="text" placeholder="Search by name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full sm:w-auto" />
+                        <input type="text" placeholder="Search by name or code..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-slate-700 border border-slate-600 rounded-lg px-4 py-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500 w-full sm:w-auto" />
                     </div>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="min-w-full text-left text-sm text-slate-300 table-sortable table-banded">
                         <thead className="bg-slate-700/50 text-xs text-slate-200 uppercase tracking-wider">
-                            <tr>{headers.map(h => <th key={h.key} scope="col" className={`p-4 ${h.className}`} onClick={() => requestSort(h.key)}><span className={getSortClassName(h.key)}>{h.label}</span></th>)}</tr>
+                            <tr>{headers.map(h => <th key={h.key} scope="col" className={`p-4 ${h.className || ''}`} onClick={() => requestSort(h.key)}><span className={getSortClassName(h.key)}>{h.label}</span></th>)}</tr>
                         </thead>
                         <tbody>
                             {processedData.map((item) => <tr key={item.name} className="border-b border-slate-700 hover:bg-sky-500/10 transition-colors">{headers.map(h => renderCell(item, h.key))}</tr>)}
                         </tbody>
+                        {processedData.length > 0 && tableFooter}
                     </table>
                 </div>
                  {processedData.length === 0 && <div className="text-center py-8 text-slate-400">No results found for your search or filter selection.</div>}

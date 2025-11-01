@@ -76,10 +76,6 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         </div>
                     )}
 
-                     <div className="text-center text-xs text-slate-500">
-                        <p>Hint: Use username <span className="font-mono text-sky-400">admin</span> and password <span className="font-mono text-sky-400">password</span></p>
-                    </div>
-
                     <div>
                         <button
                             type="submit"
@@ -89,6 +85,9 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
                         </button>
                     </div>
                 </form>
+                <div className="text-center text-xs text-slate-500 pt-4 border-t border-slate-700">
+                    <p>prepared by Dr. Saad Naiem Ali</p>
+                </div>
             </div>
         </div>
     );

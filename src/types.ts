@@ -24,6 +24,7 @@ export interface EntitySalesData {
     sales2024: number;
     sales2025: number;
     growth: number;
+    code?: string;
 }
 
 export interface ProcessedData {
@@ -67,7 +68,7 @@ export interface ProcessedData {
     };
 
     newBrandsList: { name: string; sales2025: number }[];
-    newItemsList: { name: string; sales2025: number }[];
+    newItemsList: { name: string; sales2025: number; code: string }[];
 
     lostEntities: {
         brands: { count: number; sales2024: number; percentOfTotal: number };
@@ -75,7 +76,7 @@ export interface ProcessedData {
     };
 
     lostBrandsList: { name: string; sales2024: number }[];
-    lostItemsList: { name: string; sales2024: number }[];
+    lostItemsList: { name: string; sales2024: number; code: string }[];
 
     filterOptions: {
         divisions: string[];
