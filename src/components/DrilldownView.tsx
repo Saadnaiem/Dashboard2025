@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 // FIX: Corrected the import of jsPDF to use the conventional PascalCase `jsPDF` class name.
 import jsPDF from 'jspdf';
