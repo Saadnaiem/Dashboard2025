@@ -37,9 +37,15 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 interface SummaryCardsProps {
     data: ProcessedData;
+    searchTerm: string;
 }
 
-const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
+const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm }) => {
+    const buildLink = (basePath: string) => {
+        if (!searchTerm) return basePath;
+        return `${basePath}?search=${encodeURIComponent(searchTerm)}`;
+    };
+
     return (
         <div className="flex flex-col gap-8">
             <section>
@@ -51,7 +57,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
                         <GrowthIndicator value={data.salesGrowthPercentage} className="text-xl" />
                     </SummaryCard>
                     
-                    <SummaryCard title="Top Division" icon="🏆" to="/details/divisions">
+                    <SummaryCard title="Top Division" icon="🏆" to={buildLink('/details/divisions')}>
                          {data.topDivision ? (
                             <>
                                 <div className="text-xl font-bold text-sky-400 truncate" title={data.topDivision.name}>{data.topDivision.name}</div>
@@ -61,16 +67,16 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
                          ) : <div className="text-xl font-bold text-slate-400">-</div>}
                     </SummaryCard>
                     
-                    <MetricCard title="Branches" icon="🏬" value2025={data.branchCount2025} value2024={data.branchCount2024} to="/details/branches" />
-                    <MetricCard title="Brands" icon="🏷️" value2025={data.brandCount2025} value2024={data.brandCount2024} to="/details/brands" />
-                    <MetricCard title="Items" icon="📦" value2025={data.itemCount2025} value2024={data.itemCount2024} to="/details/items" />
+                    <MetricCard title="Branches" icon="🏬" value2025={data.branchCount2025} value2024={data.branchCount2024} to={buildLink('/details/branches')} />
+                    <MetricCard title="Brands" icon="🏷️" value2025={data.brandCount2025} value2024={data.brandCount2024} to={buildLink('/details/brands')} />
+                    <MetricCard title="Items" icon="📦" value2025={data.itemCount2025} value2024={data.itemCount2024} to={buildLink('/details/items')} />
                 </div>
             </section>
 
             <section>
                 <SectionTitle>Pareto Analysis (80/20 Rule)</SectionTitle>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <SummaryCard title="Top 20% Branches" icon="📊" to="/details/pareto_branches">
+                    <SummaryCard title="Top 20% Branches" icon="📊" to={buildLink('/details/pareto_branches')}>
                         <p className="text-sm">
                             Top <b>{formatNumber(data.pareto.branches.topCount)}</b> of <b>{formatNumber(data.pareto.branches.totalContributors)}</b> branches generate:
                         </p>
@@ -84,7 +90,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
                         </div>
                         <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
-                    <SummaryCard title="Top 20% Brands" icon="📊" to="/details/pareto_brands">
+                    <SummaryCard title="Top 20% Brands" icon="📊" to={buildLink('/details/pareto_brands')}>
                         <p className="text-sm">
                            Top <b>{formatNumber(data.pareto.brands.topCount)}</b> of <b>{formatNumber(data.pareto.brands.totalContributors)}</b> brands generate:
                         </p>
@@ -98,7 +104,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
                         </div>
                         <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
-                    <SummaryCard title="Top 20% Items" icon="📊" to="/details/pareto_items">
+                    <SummaryCard title="Top 20% Items" icon="📊" to={buildLink('/details/pareto_items')}>
                         <p className="text-sm">
                            Top <b>{formatNumber(data.pareto.items.topCount)}</b> of <b>{formatNumber(data.pareto.items.totalContributors)}</b> items generate:
                         </p>
@@ -118,25 +124,25 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {
             <section>
                 <SectionTitle>Brand & Item Lifecycle</SectionTitle>
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                    <SummaryCard title="New Brands (2025)" icon="✨" to="/details/new_brands">
+                    <SummaryCard title="New Brands (2025)" icon="✨" to={buildLink('/details/new_brands')}>
                         <div className="text-3xl font-extrabold text-green-400">{formatNumber(data.newEntities.brands.count)}</div>
                         <div className="text-sm">Sales: {formatNumberAbbreviated(data.newEntities.brands.sales)}</div>
                         <div className="text-sm">{data.newEntities.brands.percentOfTotal.toFixed(2)}% of Total Sales</div>
                     </SummaryCard>
                     
-                    <SummaryCard title="Lost Brands (2024)" icon="👋" to="/details/lost_brands">
+                    <SummaryCard title="Lost Brands (2024)" icon="👋" to={buildLink('/details/lost_brands')}>
                          <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.brands.count)}</div>
                         <div className="text-base font-bold text-slate-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.brands.sales2024)}</div>
                         <div className="text-sm">{data.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
                     </SummaryCard>
 
-                    <SummaryCard title="New Items (2025)" icon="💡" to="/details/new_items">
+                    <SummaryCard title="New Items (2025)" icon="💡" to={buildLink('/details/new_items')}>
                          <div className="text-3xl font-extrabold text-green-400">{formatNumber(data.newEntities.items.count)}</div>
                         <div className="text-sm">Sales: {formatNumberAbbreviated(data.newEntities.items.sales)}</div>
                         <div className="text-sm">{data.newEntities.items.percentOfTotal.toFixed(2)}% of Total Sales</div>
                     </SummaryCard>
                     
-                    <SummaryCard title="Lost Items (2024)" icon="📉" to="/details/lost_items">
+                    <SummaryCard title="Lost Items (2024)" icon="📉" to={buildLink('/details/lost_items')}>
                          <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.items.count)}</div>
                         <div className="text-base font-bold text-slate-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.items.sales2024)}</div>
                         <div className="text-sm">{data.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Sales</div>

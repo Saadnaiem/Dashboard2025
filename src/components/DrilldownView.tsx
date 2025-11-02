@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { RawSalesDataRow, ProcessedData } from '../types';
@@ -24,7 +24,11 @@ const viewTitles: { [key: string]: string } = {
 const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterOptions }) => {
     const { viewType = '' } = useParams<{ viewType: string }>();
     const navigate = useNavigate();
-    const [searchTerm, setSearchTerm] = useState('');
+    const location = useLocation();
+
+    const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
+
+    const [searchTerm, setSearchTerm] = useState(queryParams.get('search') || '');
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
     const [showFilters, setShowFilters] = useState(false);
     const filterContainerRef = useRef<HTMLDivElement>(null);
@@ -382,8 +386,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         );
     }, [headers, processedData, summaryTotals, entityTypeLabel]);
 
-    // FIX: Explicitly typed 'val' as string[] to resolve a type inference issue with Object.values.
-    const activeFilterCount = Object.values(localFilters).reduce((acc, val: string[]) => acc + val.length, 0);
+    // FIX: Cast the result of Object.values(localFilters) to string[][] to correctly type `val` in the `reduce` function.
+    const activeFilterCount = (Object.values(localFilters) as string[][]).reduce((acc, val) => acc + val.length, 0);
     const totalActiveIndicators = activeFilterCount + (searchTerm ? 1 : 0);
 
     return (
@@ -459,7 +463,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             className="relative px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
                         >
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6-414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                             </svg>
                             {showFilters ? 'Hide' : 'Show'} Filters
                             {totalActiveIndicators > 0 && (

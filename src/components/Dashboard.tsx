@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { ProcessedData, FilterState } from '../types';
 import Header from './Header';
@@ -32,7 +33,7 @@ const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, on
                 onSearchChange={onSearchChange}
                 onReset={handleReset}
             />
-            <SummaryCards data={data} />
+            <SummaryCards data={data} searchTerm={searchTerm} />
             <Charts data={data} filters={filters} onFilterChange={onFilterChange} />
 
             <div className="mt-8 flex justify-center">

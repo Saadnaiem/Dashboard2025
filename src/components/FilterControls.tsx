@@ -28,8 +28,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
         setShowFilters(false);
     };
     
-    // FIX: Explicitly typed 'val' as string[] to resolve a type inference issue with Object.values.
-    const activeFilterCount = Object.values(filters).reduce((acc, val: string[]) => acc + val.length, 0);
+    // FIX: Cast the result of Object.values(filters) to string[][] to correctly type `val` in the `reduce` function.
+    const activeFilterCount = (Object.values(filters) as string[][]).reduce((acc, val) => acc + val.length, 0);
     const totalActiveIndicators = activeFilterCount + (searchTerm ? 1 : 0);
 
     return (
