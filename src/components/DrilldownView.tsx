@@ -7,17 +7,11 @@ import Papa from 'papaparse';
 import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData } from '../types';
 import { processSalesData } from '../services/dataProcessor';
 import Header from './Header';
-import { formatNumberAbbreviated, GrowthIndicator, formatNumber } from '../utils/formatters';
-import useOnClickOutside from '../hooks/useOnClickOutside';
+import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
-// This is a workaround for the jspdf-autotable plugin not having proper TypeScript support with module loaders.
-// It tells TypeScript that the `autoTable` method will exist on the `jsPDF` instance at runtime.
-declare module 'jspdf' {
-    interface jsPDF {
-        autoTable: (options: any) => jsPDF;
-    }
-}
-
+// FIX: The `declare module` block for 'jspdf' was removed to resolve a TypeScript module augmentation error.
+// A type assertion is now used directly on the `jsPDF` instance within the `handleExport` function
+// to inform TypeScript about the `autoTable` method provided by `jspdf-autotable`.
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
     globalFilterOptions?: ProcessedData['filterOptions'];
@@ -52,9 +46,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [localSearchTerm, setLocalSearchTerm] = useState('');
     const [localFilters, setLocalFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
     
-    // Refs to prevent useEffects from firing on initial render
-    const isInitialMountDivision = useRef(true);
-    const isInitialMountBranch = useRef(true);
 
     const globalFilters: FilterState = useMemo(() => ({
         divisions: searchParams.get('divisions')?.split(',') || [],
@@ -117,7 +108,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const totalBranchesInSystem = globalFilterOptions ? globalFilterOptions.branches.length : 40;
 
         const baseColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
-            { key: 'name', header: 'Name' },
+            { key: 'name', header: 'Name', isNumeric: false },
             { key: 'sales2024', header: '2024 Sales', isNumeric: true },
             { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
             { key: 'sales2025', header: '2025 Sales', isNumeric: true },
@@ -126,8 +117,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         ];
         
         const itemBaseColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
-            { key: 'code', header: 'Item Code' },
-            { key: 'name', header: 'Item Name' },
+            { key: 'code', header: 'Item Code', isNumeric: false },
+            { key: 'name', header: 'Item Name', isNumeric: false },
             { key: 'sales2024', header: '2024 Sales', isNumeric: true },
             { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
             { key: 'sales2025', header: '2025 Sales', isNumeric: true },
@@ -171,20 +162,20 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 performanceMetric = { title: 'Top 20% Items', value: perfRate(data.length, processedViewData.itemCount2025), subtext: `${data.length} / ${processedViewData.itemCount2025} Active Items` };
                 break;
             case 'new_brands':
-                title = 'New Brands in 2025'; data = addContribution(processedViewData.newBrandsList); columns = [{ key: 'name', header: 'Brand Name' }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }]; break;
+                title = 'New Brands in 2025'; data = addContribution(processedViewData.newBrandsList); columns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }]; break;
             case 'lost_brands':
-                title = 'Lost Brands from 2024'; data = addContribution(processedViewData.lostBrandsList); columns = [{ key: 'name', header: 'Brand Name' }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
+                title = 'Lost Brands from 2024'; data = addContribution(processedViewData.lostBrandsList); columns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
             case 'new_items':
-                title = 'New Items in 2025'; data = addContribution(processedViewData.newItemsList); columns = [{ key: 'code', header: 'Item Code' }, { key: 'name', header: 'Item Name' }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }];
+                title = 'New Items in 2025'; data = addContribution(processedViewData.newItemsList); columns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }];
                 performanceMetric = { title: 'New Items %', value: perfRate(data.length, processedViewData.itemCount2025), subtext: `${data.length} / ${processedViewData.itemCount2025} Total Items` };
                 break;
             case 'lost_items':
-                title = 'Lost Items from 2024'; data = addContribution(processedViewData.lostItemsList); columns = [{ key: 'code', header: 'Item Code' }, { key: 'name', header: 'Item Name' }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
+                title = 'Lost Items from 2024'; data = addContribution(processedViewData.lostItemsList); columns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
             default:
                 title = 'Unknown View';
         }
         
-        const finalColumns = [{ key: 'no', header: 'No.' }, ...columns];
+        const finalColumns = [{ key: 'no', header: 'No.', isNumeric: false }, ...columns];
         return { title, dataForTable: data, columns: finalColumns, performanceMetric };
     }, [viewType, processedViewData, globalFilterOptions]);
 
@@ -260,7 +251,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const handleExport = (format: 'pdf' | 'csv') => {
         // FIX: Corrected the instantiation of jsPDF to use the conventional PascalCase `jsPDF` class name.
-        const doc = new jsPDF();
+        const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
         const exportTitle = `${title} | ${contextString || 'All Data'}`;
         const head = [columns.map(c => c.header)];
         const body = sortedData.map((row, index) => {
