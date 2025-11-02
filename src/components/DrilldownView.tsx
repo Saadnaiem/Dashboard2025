@@ -31,6 +31,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
     const [showFilters, setShowFilters] = useState(false);
     const filterContainerRef = useRef<HTMLDivElement>(null);
+    const isInitialDivisionMount = useRef(true);
+    const isInitialBranchMount = useRef(true);
+
 
     useOnClickOutside(filterContainerRef, () => setShowFilters(false));
     
@@ -93,11 +96,19 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     }, [allRawData, globalFilterOptions, localFilters.division, localFilters.branch]);
 
     useEffect(() => {
-        setLocalFilters(prev => ({ ...prev, branch: [], brand: [] }));
+        if (isInitialDivisionMount.current) {
+            isInitialDivisionMount.current = false;
+        } else {
+            setLocalFilters(prev => ({ ...prev, branch: [], brand: [] }));
+        }
     }, [localFilters.division.join(',')]);
 
     useEffect(() => {
-        setLocalFilters(prev => ({ ...prev, brand: [] }));
+        if (isInitialBranchMount.current) {
+            isInitialBranchMount.current = false;
+        } else {
+            setLocalFilters(prev => ({ ...prev, brand: [] }));
+        }
     }, [localFilters.branch.join(',')]);
 
     const handleLocalMultiSelectChange = (e: React.ChangeEvent<HTMLSelectElement>, filterKey: keyof typeof localFilters) => {
