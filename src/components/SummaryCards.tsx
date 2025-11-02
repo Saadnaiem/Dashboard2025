@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { ProcessedData } from '../types';
+import { ProcessedData, FilterState } from '../types';
 import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
 const SummaryCard: React.FC<{ title: string; icon: string; children: React.ReactNode; to?: string; }> = ({ title, icon, children, to }) => {
@@ -38,12 +39,25 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 interface SummaryCardsProps {
     data: ProcessedData;
     searchTerm: string;
+    filters: FilterState;
 }
 
-const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm }) => {
+const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }) => {
     const buildLink = (basePath: string) => {
-        if (!searchTerm) return basePath;
-        return `${basePath}?search=${encodeURIComponent(searchTerm)}`;
+        const params = new URLSearchParams();
+        if (searchTerm) {
+            params.set('search', searchTerm);
+        }
+
+        (Object.keys(filters) as Array<keyof FilterState>).forEach(key => {
+            const value = filters[key];
+            if (Array.isArray(value) && value.length > 0) {
+                params.set(key, value.join(','));
+            }
+        });
+
+        const queryString = params.toString();
+        return queryString ? `${basePath}?${queryString}` : basePath;
     };
 
     return (

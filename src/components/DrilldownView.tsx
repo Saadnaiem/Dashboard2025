@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -26,19 +27,22 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const navigate = useNavigate();
     const location = useLocation();
 
-    const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-
-    const [searchTerm, setSearchTerm] = useState(queryParams.get('search') || '');
+    const [searchTerm, setSearchTerm] = useState(() => new URLSearchParams(location.search).get('search') || '');
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
     const [showFilters, setShowFilters] = useState(false);
     const filterContainerRef = useRef<HTMLDivElement>(null);
 
     useOnClickOutside(filterContainerRef, () => setShowFilters(false));
     
-    const [localFilters, setLocalFilters] = useState({
-        division: [] as string[],
-        branch: [] as string[],
-        brand: [] as string[],
+    const [localFilters, setLocalFilters] = useState(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const getValues = (key: string) => queryParams.get(key)?.split(',').filter(Boolean) || [];
+        
+        return {
+            division: getValues('divisions'),
+            branch: getValues('branches'),
+            brand: getValues('brands'),
+        };
     });
 
     const { availableBranches, availableBrands } = useMemo(() => {
@@ -249,20 +253,26 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             brand: ['items', 'pareto_items', 'new_items', 'lost_items'].includes(viewType)
         };
         
-        let performanceRateStats: { rate: number; sold: number; total: number } | null = null;
-        const isBrandOrItemView = viewType.includes('brand') || viewType.includes('item');
+        let performanceRateStats: { rate: number; sold: number; total: number; label: string; } | null = null;
+        const isPerformanceView = viewType.includes('branch') || viewType.includes('brand') || viewType.includes('item');
+        
+        if (isPerformanceView) {
+            let label = 'Performance Rate';
+            if (viewType.includes('branch')) label = 'Branch Performance Rate';
+            else if (viewType.includes('brand')) label = 'Brand Performance Rate';
+            else if (viewType.includes('item')) label = 'Item Performance Rate';
 
-        if (isBrandOrItemView) {
-            const totalInView = displayData.length;
+            const totalInView = finalData.length;
             if (totalInView > 0) {
-                const soldInView = displayData.filter(item => item.sales2025 && item.sales2025 > 0).length;
+                const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
                 performanceRateStats = {
                     rate: (soldInView / totalInView) * 100,
                     sold: soldInView,
-                    total: totalInView
+                    total: totalInView,
+                    label,
                 };
             } else {
-                performanceRateStats = { rate: 0, sold: 0, total: 0 };
+                performanceRateStats = { rate: 0, sold: 0, total: 0, label };
             }
         }
 
@@ -422,7 +432,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     </div>
                      {performanceRateStats !== null && (
                         <div className="bg-slate-700/50 p-4 rounded-lg">
-                            <div className="text-sm font-bold text-slate-400 uppercase">Items Performance Rate</div>
+                            <div className="text-sm font-bold text-slate-400 uppercase">{performanceRateStats.label}</div>
                             <div className="text-2xl font-extrabold text-sky-400">{performanceRateStats.rate.toFixed(2)}%</div>
                             <div className="text-sm font-bold text-green-400">{performanceRateStats.sold.toLocaleString()} / {performanceRateStats.total.toLocaleString()} sold</div>
                         </div>
