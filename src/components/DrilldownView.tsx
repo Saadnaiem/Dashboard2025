@@ -7,20 +7,6 @@ import Header from './Header';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// FIX: The original module augmentation was failing because TypeScript could not find the module
-// to augment. This happens because 'jspdf' is configured as an external dependency and its types are not
-// available during compilation. To resolve this, we provide a complete ambient module declaration for 'jspdf',
-// defining the jsPDF class and including the `autoTable` method from the 'jspdf-autotable' plugin.
-declare module 'jspdf' {
-    export default class jsPDF {
-        constructor(options?: any);
-        text(text: string | string[], x: number, y: number, options?: any): this;
-        save(filename: string, options?: any): this;
-        autoTable(options: any): this;
-    }
-}
-
-
 // Props
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
@@ -197,7 +183,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const doc = new jsPDF();
         const exportTitle = `${title} ${contextString}`;
         doc.text(exportTitle, 14, 16);
-        doc.autoTable({
+        (doc as any).autoTable({
             head: [columns.map(c => c.header)],
             body: getExportData(),
             startY: 20,
