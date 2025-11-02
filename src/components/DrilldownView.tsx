@@ -57,6 +57,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     });
     
     useEffect(() => {
+        isInitialDivisionMount.current = true;
+        isInitialBranchMount.current = true;
         setLocalFilters({
             division: globalFilters.divisions,
             branch: globalFilters.branches,
@@ -297,26 +299,47 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             brand: ['items', 'pareto_items', 'new_items', 'lost_items'].includes(viewType)
         };
         
-        let performanceRateStats: { rate: number; sold: number; total: number; label: string; } | null = null;
+        let performanceRateStats: { rate: number; sold: number; total: number; label: string; unit: string; } | null = null;
         const isPerformanceView = viewType.includes('branch') || viewType.includes('brand') || viewType.includes('item');
         
         if (isPerformanceView) {
             let label = 'Performance Rate';
-            if (viewType.includes('branch')) label = 'Branch Performance Rate';
-            else if (viewType.includes('brand')) label = 'Brand Performance Rate';
-            else if (viewType.includes('item')) label = 'Item Performance Rate';
+            let unit = 'Active';
+            const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
 
-            const totalInView = finalData.length;
-            if (totalInView > 0) {
-                const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
-                performanceRateStats = {
-                    rate: (soldInView / totalInView) * 100,
-                    sold: soldInView,
-                    total: totalInView,
-                    label,
-                };
-            } else {
-                performanceRateStats = { rate: 0, sold: 0, total: 0, label };
+            if (viewType.includes('branch')) {
+                label = 'Branch Availability %';
+                unit = 'Available';
+                const totalBranches = globalFilterOptions?.branches.length || 0;
+                
+                if (totalBranches > 0) {
+                    performanceRateStats = {
+                        rate: (soldInView / totalBranches) * 100,
+                        sold: soldInView,
+                        total: totalBranches,
+                        label,
+                        unit
+                    };
+                } else {
+                     performanceRateStats = { rate: 0, sold: 0, total: 0, label, unit };
+                }
+
+            } else { 
+                if (viewType.includes('brand')) label = 'Brand Performance Rate';
+                else if (viewType.includes('item')) label = 'Item Performance Rate';
+
+                const totalInView = finalData.length;
+                if (totalInView > 0) {
+                    performanceRateStats = {
+                        rate: (soldInView / totalInView) * 100,
+                        sold: soldInView,
+                        total: totalInView,
+                        label,
+                        unit,
+                    };
+                } else {
+                    performanceRateStats = { rate: 0, sold: 0, total: 0, label, unit };
+                }
             }
         }
 
@@ -330,7 +353,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             entityTypeLabel,
             performanceRateStats
         };
-    }, [viewType, allRawData, localSearchTerm, globalSearchTerm, sortConfig, localFilters]);
+    }, [viewType, allRawData, localSearchTerm, globalSearchTerm, sortConfig, localFilters, globalFilterOptions]);
 
     const requestSort = (key: string) => {
         if (key === 'rowNumber') return; // Do not sort by row number
@@ -478,7 +501,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                         <div className="bg-slate-700/50 p-4 rounded-lg">
                             <div className="text-sm font-bold text-slate-400 uppercase">{performanceRateStats.label}</div>
                             <div className="text-2xl font-extrabold text-sky-400">{performanceRateStats.rate.toFixed(2)}%</div>
-                            <div className="text-sm font-bold text-green-400">{performanceRateStats.sold.toLocaleString()} / {performanceRateStats.total.toLocaleString()} sold</div>
+                            <div className="text-sm font-bold text-green-400">{performanceRateStats.sold.toLocaleString()} / {performanceRateStats.total.toLocaleString()} {performanceRateStats.unit}</div>
                         </div>
                     )}
                     <div className="bg-slate-700/50 p-4 rounded-lg">
