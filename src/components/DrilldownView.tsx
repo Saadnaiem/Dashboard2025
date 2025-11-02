@@ -4,23 +4,22 @@ import { RawSalesDataRow, ProcessedData, EntitySalesData, FilterState } from '..
 import { processSalesData } from '../services/dataProcessor';
 import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import Header from './Header';
+import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// FIX: The original 'declare module "jspdf"' failed because TypeScript couldn't find the base module,
-// likely due to it being loaded via an import map instead of being a direct dependency.
-// This declaration provides a basic shape for the jsPDF class and includes the `autoTable`
-// method from the 'jspdf-autotable' plugin, resolving the type error.
+// FIX: To resolve the "module 'jspdf' cannot be found" error and properly type
+// the 'autoTable' method from the 'jspdf-autotable' plugin, we declare the
+// 'jspdf' module and define the jsPDF class with the methods used in this component.
+// This provides strong typing without requiring an external @types/jspdf package.
 declare module 'jspdf' {
-    class jsPDF {
+    export default class jsPDF {
         constructor(options?: any);
-        text(text: string, x: number, y: number): this;
-        save(filename: string): void;
+        text(text: string | string[], x: number, y: number, options?: any): this;
+        save(filename: string, options?: any): this;
         autoTable(options: any): this;
     }
-    export default jsPDF;
 }
 
-import jsPDF from 'jspdf';
 
 // Props
 interface DrilldownViewProps {
