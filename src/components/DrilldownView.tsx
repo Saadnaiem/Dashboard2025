@@ -7,10 +7,10 @@ import Header from './Header';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
-// FIX: To resolve the "module 'jspdf' cannot be found" error and properly type
-// the 'autoTable' method from the 'jspdf-autotable' plugin, we declare the
-// 'jspdf' module and define the jsPDF class with the methods used in this component.
-// This provides strong typing without requiring an external @types/jspdf package.
+// FIX: The original module augmentation was failing because TypeScript could not find the module
+// to augment. This happens because 'jspdf' is configured as an external dependency and its types are not
+// available during compilation. To resolve this, we provide a complete ambient module declaration for 'jspdf',
+// defining the jsPDF class and including the `autoTable` method from the 'jspdf-autotable' plugin.
 declare module 'jspdf' {
     export default class jsPDF {
         constructor(options?: any);
