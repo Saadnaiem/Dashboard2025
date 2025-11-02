@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -155,6 +154,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             return true;
         });
 
+        const totalActiveBranchesInContext = new Set(contextFilteredRawData.filter(r => r.SALES2025 > 0).map(r => r['BRANCH NAME'])).size;
+        const totalActiveItemsInContext = new Set(contextFilteredRawData.filter(r => r.SALES2025 > 0).map(r => r['ITEM DESCRIPTION'])).size;
+
         let displayData: DrilldownItem[] = [];
         let currentTitle = viewTitles[viewType] || 'Deep Dive';
         let localTotal24 = 0;
@@ -307,7 +309,29 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             let unit = 'Active';
             const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
 
-            if (viewType.includes('branch')) {
+            if (viewType === 'pareto_branches') {
+                label = 'Top 20% Branches';
+                unit = 'Top Branches';
+                const totalInContext = totalActiveBranchesInContext;
+                performanceRateStats = {
+                    rate: totalInContext > 0 ? (soldInView / totalInContext) * 100 : 0,
+                    sold: soldInView,
+                    total: totalInContext,
+                    label,
+                    unit
+                };
+            } else if (viewType === 'pareto_items') {
+                label = 'Top 20% Items';
+                unit = 'Top Items';
+                const totalInContext = totalActiveItemsInContext;
+                performanceRateStats = {
+                    rate: totalInContext > 0 ? (soldInView / totalInContext) * 100 : 0,
+                    sold: soldInView,
+                    total: totalInContext,
+                    label,
+                    unit
+                };
+            } else if (viewType.includes('branch')) {
                 label = 'Branch Availability %';
                 unit = 'Available';
                 const totalBranches = globalFilterOptions?.branches.length || 0;
