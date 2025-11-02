@@ -1,627 +1,268 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
-import jsPDF from 'jspdf';
+import React, { useMemo, useState, useCallback } from 'react';
+import { useParams, useLocation, Link } from 'react-router-dom';
+import { RawSalesDataRow, ProcessedData, EntitySalesData, FilterState } from '../types';
+import { processSalesData } from '../services/dataProcessor';
+import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import Header from './Header';
+import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
-import { RawSalesDataRow, ProcessedData } from '../types';
-import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
-import useOnClickOutside from '../hooks/useOnClickOutside';
 
-type SortDirection = 'ascending' | 'descending';
-interface SortConfig { key: string; direction: SortDirection; }
-type DrilldownItem = { name: string; code?: string; sales2024?: number; sales2025?: number; growth?: number; };
+// Type assertion for jsPDF with autoTable plugin
+declare module 'jspdf' {
+    interface jsPDF {
+        autoTable: (options: any) => jsPDF;
+    }
+}
 
-export interface DrilldownViewProps {
+// Props
+interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
     globalFilterOptions?: ProcessedData['filterOptions'];
 }
 
-const viewTitles: { [key: string]: string } = {
-    'divisions': 'All Divisions Deep Dive', 'branches': 'All Branches Deep Dive', 'brands': 'All Brands Deep Dive', 'items': 'All Items Deep Dive',
-    'pareto_branches': 'Pareto: Top 20% Branches', 'pareto_brands': 'Pareto: Top 20% Brands', 'pareto_items': 'Pareto: Top 20% Items',
-    'new_brands': 'New Brands in 2025', 'new_items': 'New Items in 2025', 'lost_brands': 'Lost Brands from 2024', 'lost_items': 'Lost Items from 2024',
+// Column definition
+interface Column {
+    key: string;
+    header: string;
+    render: (row: any) => React.ReactNode;
+    sortable: boolean;
+    className?: string;
+}
+
+const SortIcon: React.FC<{ direction?: 'asc' | 'desc' }> = ({ direction }) => {
+    if (!direction) return <span className="text-slate-500">↕</span>;
+    return direction === 'asc' ? <span className="text-white">▲</span> : <span className="text-white">▼</span>;
 };
 
+const PerformanceStatCard: React.FC<{ stats: any }> = ({ stats }) => (
+    <div className="bg-slate-800/50 rounded-lg p-4 text-center border border-slate-700">
+        <div className="text-sm font-bold text-slate-300 uppercase tracking-wider">{stats.label}</div>
+        <div className="text-4xl font-extrabold text-green-400 my-2">{stats.rate.toFixed(2)}%</div>
+        <div className="text-base text-slate-400">
+            ({formatNumber(stats.sold)} of {formatNumber(stats.total)} {stats.unit})
+        </div>
+    </div>
+);
+
+
 const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterOptions }) => {
-    const { viewType = '' } = useParams<{ viewType: string }>();
-    const navigate = useNavigate();
+    const { viewType = 'branches' } = useParams<{ viewType: string }>();
     const location = useLocation();
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
-    const [localSearchTerm, setLocalSearchTerm] = useState('');
-    const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
-    const [showFilters, setShowFilters] = useState(false);
-    const filterContainerRef = useRef<HTMLDivElement>(null);
-    const isInitialDivisionMount = useRef(true);
-    const isInitialBranchMount = useRef(true);
-
-
-    useOnClickOutside(filterContainerRef, () => setShowFilters(false));
-    
-    const { globalFilters, globalSearchTerm } = useMemo(() => {
-        const queryParams = new URLSearchParams(location.search);
-        const getValues = (key: string) => queryParams.get(key)?.split(',').filter(Boolean) || [];
+    const filters = useMemo<FilterState & { search: string }>(() => {
+        const params = new URLSearchParams(location.search);
         return {
-            globalFilters: {
-                divisions: getValues('divisions'),
-                branches: getValues('branches'),
-                brands: getValues('brands'),
-            },
-            globalSearchTerm: queryParams.get('search') || '',
+            divisions: params.get('divisions')?.split(',').filter(Boolean) || [],
+            branches: params.get('branches')?.split(',').filter(Boolean) || [],
+            brands: params.get('brands')?.split(',').filter(Boolean) || [],
+            items: params.get('items')?.split(',').filter(Boolean) || [],
+            search: params.get('search') || '',
         };
     }, [location.search]);
 
-    const [localFilters, setLocalFilters] = useState({
-        division: globalFilters.divisions,
-        branch: globalFilters.branches,
-        brand: globalFilters.brands,
-    });
-    
-    useEffect(() => {
-        isInitialDivisionMount.current = true;
-        isInitialBranchMount.current = true;
-        setLocalFilters({
-            division: globalFilters.divisions,
-            branch: globalFilters.branches,
-            brand: globalFilters.brands,
-        });
-    }, [globalFilters]);
+    const filteredRawData = useMemo(() => {
+        const lowercasedTerm = filters.search.toLowerCase();
+        return allRawData.filter(row => {
+            const { divisions, branches, brands, items } = filters;
+            const divisionMatch = divisions.length === 0 || divisions.includes(row['DIVISION']);
+            const branchMatch = branches.length === 0 || branches.includes(row['BRANCH NAME']);
+            const brandMatch = brands.length === 0 || brands.includes(row['BRAND']);
+            const itemMatch = items.length === 0 || items.includes(row['ITEM DESCRIPTION']);
+            const dropdownMatch = divisionMatch && branchMatch && brandMatch && itemMatch;
 
+            if (!dropdownMatch) return false;
 
-    const { availableBranches, availableBrands } = useMemo(() => {
-        if (!globalFilterOptions) return { availableBranches: [], availableBrands: [] };
-        let branches = globalFilterOptions.branches;
-        let brands = globalFilterOptions.brands;
-
-        if (localFilters.division.length > 0) {
-            const branchSet = new Set<string>();
-            allRawData.forEach(row => {
-                if (localFilters.division.includes(row['DIVISION'])) {
-                    branchSet.add(row['BRANCH NAME']);
-                }
-            });
-            branches = Array.from(branchSet).sort();
-        }
-        
-        if (localFilters.branch.length > 0 || localFilters.division.length > 0) {
-             const brandSet = new Set<string>();
-             allRawData.forEach(row => {
-                const divisionMatch = localFilters.division.length === 0 || localFilters.division.includes(row['DIVISION']);
-                const branchMatch = localFilters.branch.length === 0 || localFilters.branch.includes(row['BRANCH NAME']);
-                if (divisionMatch && branchMatch) {
-                    brandSet.add(row['BRAND']);
-                }
-            });
-            brands = Array.from(brandSet).sort();
-        }
-
-        return { availableBranches: branches, availableBrands: brands };
-    }, [allRawData, globalFilterOptions, localFilters.division, localFilters.branch]);
-
-    useEffect(() => {
-        if (isInitialDivisionMount.current) {
-            isInitialDivisionMount.current = false;
-        } else {
-            setLocalFilters(prev => ({ ...prev, branch: [], brand: [] }));
-        }
-    }, [localFilters.division.join(',')]);
-
-    useEffect(() => {
-        if (isInitialBranchMount.current) {
-            isInitialBranchMount.current = false;
-        } else {
-            setLocalFilters(prev => ({ ...prev, brand: [] }));
-        }
-    }, [localFilters.branch.join(',')]);
-
-    const handleLocalMultiSelectChange = (e: React.ChangeEvent<HTMLSelectElement>, filterKey: keyof typeof localFilters) => {
-        const selectedOptions = Array.from(e.target.selectedOptions, (option: HTMLOptionElement) => option.value);
-        setLocalFilters(prev => ({ ...prev, [filterKey]: selectedOptions }));
-        setShowFilters(false);
-    };
-
-    const resetLocalFilters = () => {
-        setLocalFilters({ division: [], branch: [], brand: [] });
-        setLocalSearchTerm('');
-        setShowFilters(false);
-    };
-
-    const { 
-        processedData, 
-        tableTitle, 
-        headers, 
-        summaryTotals, 
-        summaryDescription, 
-        visibleFilters,
-        entityTypeLabel,
-        performanceRateStats
-    } = useMemo(() => {
-        
-        const lowercasedGlobalSearch = globalSearchTerm.toLowerCase();
-        
-        let contextFilteredRawData = allRawData.filter(row => {
-            const divisionMatch = localFilters.division.length === 0 || localFilters.division.includes(row['DIVISION']);
-            const branchMatch = localFilters.branch.length === 0 || localFilters.branch.includes(row['BRANCH NAME']);
-            const brandMatch = localFilters.brand.length === 0 || localFilters.brand.includes(row['BRAND']);
-            if (!(divisionMatch && branchMatch && brandMatch)) return false;
-
-            if (globalSearchTerm) {
-                return (
-                    (row['DIVISION']?.toLowerCase().includes(lowercasedGlobalSearch)) ||
-                    (row['BRANCH NAME']?.toLowerCase().includes(lowercasedGlobalSearch)) ||
-                    (row['BRAND']?.toLowerCase().includes(lowercasedGlobalSearch)) ||
-                    (row['ITEM DESCRIPTION']?.toLowerCase().includes(lowercasedGlobalSearch))
+            if (filters.search) {
+                return Object.values(row).some(val =>
+                    String(val).toLowerCase().includes(lowercasedTerm)
                 );
             }
             return true;
         });
+    }, [allRawData, filters]);
 
-        const totalActiveBranchesInContext = new Set(contextFilteredRawData.filter(r => r.SALES2025 > 0).map(r => r['BRANCH NAME'])).size;
-        const totalActiveItemsInContext = new Set(contextFilteredRawData.filter(r => r.SALES2025 > 0).map(r => r['ITEM DESCRIPTION'])).size;
+    const processedViewData = useMemo(() => {
+        if (filteredRawData.length === 0) return null;
+        return processSalesData(filteredRawData, globalFilterOptions);
+    }, [filteredRawData, globalFilterOptions]);
 
-        let displayData: DrilldownItem[] = [];
-        let currentTitle = viewTitles[viewType] || 'Deep Dive';
-        let localTotal24 = 0;
-        let localTotal25 = 0;
-
-        contextFilteredRawData.forEach(row => {
-            localTotal24 += row['SALES2024'];
-            localTotal25 += row['SALES2025'];
-        });
-
-        const reprocessLocally = (entityKey: 'BRANCH NAME' | 'BRAND' | 'ITEM DESCRIPTION' | 'DIVISION') => {
-            const sales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
-            contextFilteredRawData.forEach(row => {
-                const key = row[entityKey];
-                if (key) {
-                    sales[key] = sales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
-                    sales[key].s24 += row['SALES2024'];
-                    sales[key].s25 += row['SALES2025'];
-                }
-            });
-            return Object.entries(sales).map(([name, { s24, s25, code }]) => ({
-                name,
-                code,
-                sales2024: s24,
-                sales2025: s25,
-                growth: s24 === 0 ? (s25 > 0 ? Infinity : 0) : ((s25 - s24) / s24) * 100
-            }));
-        };
-
-        const findNewOrLost = (isNew: boolean) => {
-             const entityKey = viewType.includes('brand') ? 'BRAND' : 'ITEM DESCRIPTION';
-             const sales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
-             contextFilteredRawData.forEach(row => {
-                 const key = row[entityKey];
-                 if (key) {
-                     sales[key] = sales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
-                     sales[key].s24 += row['SALES2024'];
-                     sales[key].s25 += row['SALES2025'];
-                 }
-             });
-             
-             return Object.entries(sales)
-                .filter(([, {s24, s25}]) => (isNew ? (s25 > 0 && s24 === 0) : (s24 > 0 && s25 === 0)))
-                .map(([name, { s24, s25, code }]) => ({ name, code, sales2024: s24, sales2025: s25 }));
-        };
-        
-        const findPareto = (entityKey: 'BRANCH NAME' | 'BRAND' | 'ITEM DESCRIPTION') => {
-            const aggregated = reprocessLocally(entityKey);
-            const sorted = aggregated.filter(i => i.sales2025 > 0).sort((a, b) => b.sales2025 - a.sales2025);
-            const topCount = Math.max(1, Math.ceil(sorted.length * 0.20));
-            return sorted.slice(0, topCount);
-        };
-        
-        let entityTypeLabel = "Rows";
-        if (viewType.includes('branch')) entityTypeLabel = "Branches";
-        else if (viewType.includes('brand')) entityTypeLabel = "Brands";
-        else if (viewType.includes('item')) entityTypeLabel = "Items";
-        else if (viewType.includes('division')) entityTypeLabel = "Divisions";
-
-        switch (viewType) {
-            case 'divisions': displayData = reprocessLocally('DIVISION'); break;
-            case 'branches': displayData = reprocessLocally('BRANCH NAME'); break;
-            case 'brands': displayData = reprocessLocally('BRAND'); break;
-            case 'items': displayData = reprocessLocally('ITEM DESCRIPTION'); break;
-            case 'pareto_branches': displayData = findPareto('BRANCH NAME'); break;
-            case 'pareto_brands': displayData = findPareto('BRAND'); break;
-            case 'pareto_items': displayData = findPareto('ITEM DESCRIPTION'); break;
-            case 'new_brands': case 'new_items': displayData = findNewOrLost(true); break;
-            case 'lost_brands': case 'lost_items': displayData = findNewOrLost(false); break;
-            default: displayData = [];
-        }
-
-        const isItemView = viewType.includes('item');
-        
-        const allHeaders = [
-            { key: 'rowNumber', label: '#' }, { key: 'code', label: 'Item Code' }, { key: 'name', label: 'Name' },
-            { key: 'sales2025', label: '2025 Sales', className: 'text-right' }, { key: 'sales2024', label: '2024 Sales', className: 'text-right' },
-            { key: 'growth', label: 'Growth %', className: 'text-right' },
-            { key: 'contribution2025', label: '2025 Contrib. %', className: 'text-right' }, { key: 'contribution2024', label: '2024 Contrib. %', className: 'text-right' },
-        ];
-        const getHeaders = (keys: string[]) => allHeaders.filter(h => keys.includes(h.key));
-        
-        let currentHeaders;
-        switch (viewType) {
-            case 'new_brands': currentHeaders = getHeaders(['rowNumber', 'name', 'sales2025', 'contribution2025']); break;
-            case 'new_items': currentHeaders = getHeaders(['rowNumber', 'code', 'name', 'sales2025', 'contribution2025']); break;
-            case 'lost_brands': currentHeaders = getHeaders(['rowNumber', 'name', 'sales2024', 'contribution2024']); break;
-            case 'lost_items': currentHeaders = getHeaders(['rowNumber', 'code', 'name', 'sales2024', 'contribution2024']); break;
+    useEffect(() => {
+        // Set default sort based on view type
+        switch(viewType) {
+            case 'new_brands':
+            case 'new_items':
+                 setSortConfig({ key: 'sales2025', direction: 'desc' });
+                 break;
+            case 'lost_brands':
+            case 'lost_items':
+                setSortConfig({ key: 'sales2024', direction: 'desc' });
+                break;
             default:
-                const defaultKeys = ['rowNumber', 'name', 'sales2025', 'sales2024', 'growth', 'contribution2025', 'contribution2024'];
-                if (isItemView) defaultKeys.splice(1, 0, 'code');
-                currentHeaders = getHeaders(defaultKeys);
+                setSortConfig({ key: 'sales2025', direction: 'desc' });
         }
+    }, [viewType]);
 
-        let finalData = displayData.map(item => ({
-            ...item,
-            contribution2025: localTotal25 > 0 && item.sales2025 ? (item.sales2025 / localTotal25) * 100 : 0,
-            contribution2024: localTotal24 > 0 && item.sales2024 ? (item.sales2024 / localTotal24) * 100 : 0
-        }));
 
-        if (localSearchTerm) {
-            const lowercasedLocalSearch = localSearchTerm.toLowerCase();
-            finalData = finalData.filter(item => 
-                item.name.toLowerCase().includes(lowercasedLocalSearch) ||
-                (item.code && item.code.toLowerCase().includes(lowercasedLocalSearch))
-            );
-        }
+    const { title, data, columns, performanceRateStats } = useMemo(() => {
+        if (!processedViewData) return { title: 'No Data for Current Filter', data: [], columns: [], performanceRateStats: null };
 
-        if (sortConfig.key) {
-            finalData.sort((a, b) => {
-                const aValue = (a as any)[sortConfig.key] ?? -Infinity;
-                const bValue = (b as any)[sortConfig.key] ?? -Infinity;
-                if (aValue < bValue) return sortConfig.direction === 'ascending' ? -1 : 1;
-                if (aValue > bValue) return sortConfig.direction === 'ascending' ? 1 : -1;
-                return 0;
-            });
-        }
-        
-        const summaryTotals = {
-            count: finalData.length,
-            total2025: finalData.reduce((acc, item) => acc + (item.sales2025 || 0), 0),
-            total2024: finalData.reduce((acc, item) => acc + (item.sales2024 || 0), 0),
-            growth: 0,
-        };
-        summaryTotals.growth = ((current, previous) => previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100)(summaryTotals.total2025, summaryTotals.total2024);
-        
-        const generateDescription = () => {
-             let activeFilters = (Object.entries(localFilters) as [string, string[]][])
-                .filter(([, value]) => value.length > 0)
-                .map(([key, value]) => `${key}: ${value.length} selected`)
-                .join(', ');
-             let baseText = `This table shows a detailed breakdown for "${currentTitle}".`;
-             if (activeFilters) {
-                 return `${baseText} Currently filtered by ${activeFilters}.`;
-             }
-             return baseText;
-        };
+        let title = '';
+        let data: any[] = [];
+        let columns: Column[] = [];
+        let performanceRateStats = null;
 
-        const visibleFilters = {
-            division: !['divisions'].includes(viewType),
-            branch: !['divisions', 'branches', 'pareto_branches'].includes(viewType),
-            brand: ['items', 'pareto_items', 'new_items', 'lost_items'].includes(viewType)
+        const commonColumns = {
+            sales2024: { key: 'sales2024', header: '2024 Sales', render: (row: EntitySalesData) => formatNumberAbbreviated(row.sales2024), sortable: true, className: 'text-right' },
+            sales2025: { key: 'sales2025', header: '2025 Sales', render: (row: EntitySalesData) => formatNumberAbbreviated(row.sales2025), sortable: true, className: 'text-right' },
+            growth: { key: 'growth', header: 'Growth %', render: (row: EntitySalesData) => <GrowthIndicator value={row.growth} />, sortable: true, className: 'text-right' },
         };
         
-        let performanceRateStats: { rate: number; sold: number; total: number; label: string; unit: string; } | null = null;
-        const isPerformanceView = viewType.includes('branch') || viewType.includes('brand') || viewType.includes('item');
-        
-        if (isPerformanceView) {
-            let label = 'Performance Rate';
-            let unit = 'Active';
-            const soldInView = finalData.filter(item => item.sales2025 && item.sales2025 > 0).length;
-
-            if (viewType === 'pareto_branches') {
-                label = 'Top 20% Branches';
-                unit = 'Top Branches';
-                const totalInContext = totalActiveBranchesInContext;
-                performanceRateStats = {
-                    rate: totalInContext > 0 ? (soldInView / totalInContext) * 100 : 0,
-                    sold: soldInView,
-                    total: totalInContext,
-                    label,
-                    unit
-                };
-            } else if (viewType === 'pareto_items') {
-                label = 'Top 20% Items';
-                unit = 'Top Items';
-                const totalInContext = totalActiveItemsInContext;
-                performanceRateStats = {
-                    rate: totalInContext > 0 ? (soldInView / totalInContext) * 100 : 0,
-                    sold: soldInView,
-                    total: totalInContext,
-                    label,
-                    unit
-                };
-            } else if (viewType.includes('branch')) {
-                label = 'Branch Availability %';
-                unit = 'Available';
-                const totalBranches = globalFilterOptions?.branches.length || 0;
-                
-                if (totalBranches > 0) {
-                    performanceRateStats = {
-                        rate: (soldInView / totalBranches) * 100,
-                        sold: soldInView,
-                        total: totalBranches,
-                        label,
-                        unit
-                    };
-                } else {
-                     performanceRateStats = { rate: 0, sold: 0, total: 0, label, unit };
-                }
-
-            } else { 
-                if (viewType.includes('brand')) label = 'Brand Performance Rate';
-                else if (viewType.includes('item')) label = 'Item Performance Rate';
-
-                const totalInView = finalData.length;
-                if (totalInView > 0) {
-                    performanceRateStats = {
-                        rate: (soldInView / totalInView) * 100,
-                        sold: soldInView,
-                        total: totalInView,
-                        label,
-                        unit,
-                    };
-                } else {
-                    performanceRateStats = { rate: 0, sold: 0, total: 0, label, unit };
-                }
-            }
+        switch (viewType) {
+            case 'divisions':
+                title = 'Division Performance'; data = processedViewData.salesByDivision;
+                columns = [ { key: 'name', header: 'Division', render: (row: EntitySalesData) => row.name, sortable: true }, commonColumns.sales2024, commonColumns.sales2025, commonColumns.growth ];
+                break;
+            case 'branches':
+                title = 'Branch Performance'; data = processedViewData.salesByBranch;
+                columns = [ { key: 'name', header: 'Branch', render: (row: EntitySalesData) => row.name, sortable: true }, commonColumns.sales2024, commonColumns.sales2025, commonColumns.growth ];
+                break;
+            case 'brands':
+                title = 'Brand Performance'; data = processedViewData.salesByBrand;
+                columns = [ { key: 'name', header: 'Brand', render: (row: EntitySalesData) => row.name, sortable: true }, commonColumns.sales2024, commonColumns.sales2025, commonColumns.growth ];
+                break;
+            case 'items':
+                title = 'Item Performance'; data = processedViewData.salesByItem;
+                columns = [ { key: 'code', header: 'Item Code', render: (row: any) => row.code, sortable: true }, { key: 'name', header: 'Item Description', render: (row: EntitySalesData) => row.name, sortable: true }, commonColumns.sales2024, commonColumns.sales2025, commonColumns.growth ];
+                break;
+            case 'pareto_branches':
+                title = 'Top 20% Branches (Pareto)'; data = processedViewData.paretoContributors.branches;
+                columns = [ { key: 'name', header: 'Branch', render: (row: EntitySalesData) => row.name, sortable: true }, commonColumns.sales2024, commonColumns.sales2025, commonColumns.growth ];
+                break;
+            case 'pareto_brands':
+                title = 'Top 20% Brands (Pareto)'; data = processedViewData.paretoContributors.brands;
+                columns = [ { key: 'name', header: 'Brand', render: (row: EntitySalesData) => row.name, sortable: true }, commonColumns.sales2024, commonColumns.sales2025, commonColumns.growth ];
+                break;
+            case 'pareto_items':
+                title = 'Top 20% Items (Pareto)'; data = processedViewData.paretoContributors.items;
+                columns = [ { key: 'code', header: 'Item Code', render: (row: any) => row.code, sortable: true }, { key: 'name', header: 'Item Description', render: (row: EntitySalesData) => row.name, sortable: true }, commonColumns.sales2024, commonColumns.sales2025, commonColumns.growth ];
+                break;
+            case 'new_brands':
+                title = 'New Brands (Sold in 2025 only)'; data = processedViewData.newBrandsList;
+                columns = [ { key: 'name', header: 'Brand', render: (row: any) => row.name, sortable: true }, commonColumns.sales2025 ];
+                break;
+            case 'lost_brands':
+                title = 'Lost Brands (Sold in 2024 only)'; data = processedViewData.lostBrandsList;
+                columns = [ { key: 'name', header: 'Brand', render: (row: any) => row.name, sortable: true }, commonColumns.sales2024 ];
+                break;
+            case 'new_items':
+                title = 'New Items (Sold in 2025 only)'; data = processedViewData.newItemsList;
+                columns = [ { key: 'code', header: 'Item Code', render: (row: any) => row.code, sortable: true }, { key: 'name', header: 'Item Description', render: (row: any) => row.name, sortable: true }, commonColumns.sales2025 ];
+                const totalItems2025 = processedViewData.itemCount2025, newItemsCount = processedViewData.newEntities.items.count;
+                performanceRateStats = { rate: totalItems2025 > 0 ? (newItemsCount / totalItems2025) * 100 : 0, sold: newItemsCount, total: totalItems2025, label: 'New Items Rate', unit: 'Total Items' };
+                break;
+            case 'lost_items':
+                title = 'Lost Items (Sold in 2024 only)'; data = processedViewData.lostItemsList;
+                columns = [ { key: 'code', header: 'Item Code', render: (row: any) => row.code, sortable: true }, { key: 'name', header: 'Item Description', render: (row: any) => row.name, sortable: true }, commonColumns.sales2024 ];
+                const totalItems2024 = processedViewData.itemCount2024, lostItemsCount = processedViewData.lostEntities.items.count;
+                performanceRateStats = { rate: totalItems2024 > 0 ? (lostItemsCount / totalItems2024) * 100 : 0, sold: lostItemsCount, total: totalItems2024, label: 'Lost Items Rate', unit: 'Total Items (2024)' };
+                break;
+            default:
+                title = 'Unknown View';
         }
 
-        return { 
-            processedData: finalData, 
-            tableTitle: currentTitle, 
-            headers: currentHeaders, 
-            summaryTotals, 
-            summaryDescription: generateDescription(), 
-            visibleFilters,
-            entityTypeLabel,
-            performanceRateStats
-        };
-    }, [viewType, allRawData, localSearchTerm, globalSearchTerm, sortConfig, localFilters, globalFilterOptions]);
+        return { title, data, columns, performanceRateStats };
+    }, [viewType, processedViewData]);
 
-    const requestSort = (key: string) => {
-        if (key === 'rowNumber') return; // Do not sort by row number
-        let direction: SortDirection = 'descending';
-        if (sortConfig.key === key && sortConfig.direction === 'descending') direction = 'ascending';
+    const sortedData = useMemo(() => {
+        if (!sortConfig) return data;
+        return [...data].sort((a, b) => {
+            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
+            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }, [data, sortConfig]);
+
+    const handleSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
         setSortConfig({ key, direction });
     };
 
-    const getSortClassName = (name: string) => !sortConfig || sortConfig.key !== name || name === 'rowNumber' ? '' : sortConfig.direction === 'ascending' ? 'sort-asc' : 'sort-desc';
-
-    const renderCell = (item: any, headerKey: string, index: number) => {
-        const value = item[headerKey];
-        switch(headerKey) {
-            case 'rowNumber': return <td className="p-4 text-center text-slate-400">{index + 1}</td>;
-            case 'code': return <td className="p-4 font-mono text-sm text-slate-400">{value}</td>;
-            case 'name': return <td className="p-4 font-medium text-white truncate max-w-sm" title={value}>{value}</td>;
-            case 'sales2025': return <td className="p-4 text-right font-semibold text-green-300">{formatNumberAbbreviated(value)}</td>;
-            case 'sales2024': return <td className="p-4 text-right">{formatNumberAbbreviated(value)}</td>;
-            case 'growth': return <td className="p-4 text-right"><GrowthIndicator value={value} /></td>;
-            case 'contribution2025':
-            case 'contribution2024':
-                return <td className="p-4 text-right">{typeof value === 'number' ? `${value.toFixed(2)}%` : '-'}</td>;
-            default: return <td></td>;
-        }
-    };
-    
-    const handleDownloadCSV = () => {
-        const csvHeaders = headers.map(h => h.label);
-        const csvContent = [
-            csvHeaders.join(','),
-            ...processedData.map((item, index) =>
-                headers.map(h => {
-                    if (h.key === 'rowNumber') return index + 1;
-                    const value = (item as any)[h.key];
-                    if (typeof value === 'string' && value.includes(',')) return `"${value}"`;
-                    if (typeof value === 'number' && h.key.includes('contribution')) return `${value.toFixed(2)}%`;
-                    if (typeof value === 'number' && h.key === 'growth') {
-                         if (value === Infinity) return 'New';
-                         return `${value.toFixed(2)}%`;
-                    }
-                    return value;
-                }).join(',')
-            )
-        ].join('\n');
-
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.setAttribute('href', URL.createObjectURL(blob));
-        link.setAttribute('download', `${viewType}_data.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
-
-    const handleDownloadPDF = () => {
+    const handleExportPDF = useCallback(() => {
         const doc = new jsPDF();
-        doc.text(tableTitle, 14, 20);
-
-        const tableColumn = headers.map(h => h.label);
-        const tableRows: any[][] = processedData.map((item, index) =>
-            headers.map(h => {
-                if (h.key === 'rowNumber') return index + 1;
-                const value = (item as any)[h.key];
-                if (h.key === 'growth') return value === Infinity ? 'New' : typeof value === 'number' ? `${value.toFixed(2)}%` : '-';
-                if (h.key.includes('contribution')) return typeof value === 'number' ? `${value.toFixed(2)}%` : '-';
-                if (typeof value === 'number') return formatNumberAbbreviated(value);
-                return value || '-';
-            })
-        );
-
-        (doc as any).autoTable({
-            head: [tableColumn], body: tableRows, startY: 25, theme: 'grid',
-            headStyles: { fillColor: [34, 197, 94] }, // Green-500
-            styles: { font: 'helvetica', fontSize: 8 },
+        doc.text(title, 14, 16);
+        doc.autoTable({
+            head: [columns.map(c => c.header)],
+            body: sortedData.map(row => columns.map(col => {
+                const value = row[col.key];
+                if (typeof value === 'number') return formatNumber(value);
+                return String(value ?? '');
+            })),
+            startY: 20,
         });
-        doc.save(`${viewType}_report.pdf`);
-    };
-    
-    const tableFooter = useMemo(() => {
-        const firstNumericIndex = headers.findIndex(h => ['sales2025', 'sales2024'].includes(h.key));
-        let labelColSpan = headers.length;
-        if(firstNumericIndex > -1) {
-            labelColSpan = firstNumericIndex;
-        }
-
-        const totalContribution2025 = processedData.reduce((acc, item) => acc + ((item as any).contribution2025 || 0), 0);
-        const totalContribution2024 = processedData.reduce((acc, item) => acc + ((item as any).contribution2024 || 0), 0);
-        
-        return (
-            <tfoot className="bg-slate-700/80 text-sm font-bold uppercase tracking-wider text-white">
-                <tr>
-                    <td colSpan={labelColSpan} className="p-4">
-                        Totals ({summaryTotals.count.toLocaleString()} {entityTypeLabel})
-                    </td>
-                    {headers.slice(labelColSpan).map(h => {
-                        switch(h.key) {
-                            case 'sales2025': return <td key={h.key} className="p-4 text-right text-green-300">{formatNumberAbbreviated(summaryTotals.total2025)}</td>
-                            case 'sales2024': return <td key={h.key} className="p-4 text-right">{formatNumberAbbreviated(summaryTotals.total2024)}</td>
-                            case 'growth': return <td key={h.key} className="p-4 text-right"><GrowthIndicator value={summaryTotals.growth} /></td>
-                            case 'contribution2025': return <td key={h.key} className="p-4 text-right">{totalContribution2025.toFixed(2)}%</td>
-                            case 'contribution2024': return <td key={h.key} className="p-4 text-right">{totalContribution2024.toFixed(2)}%</td>
-                            default: return <td key={h.key}></td>;
-                        }
-                    })}
-                </tr>
-            </tfoot>
-        );
-    }, [headers, processedData, summaryTotals, entityTypeLabel]);
-
-    // FIX: Cast the result of Object.values(localFilters) to string[][] to correctly type `val` in the `reduce` function.
-    const activeFilterCount = (Object.values(localFilters) as string[][]).reduce((acc, val) => acc + val.length, 0);
-    const totalActiveIndicators = activeFilterCount + (localSearchTerm ? 1 : 0);
+        doc.save(`${viewType}_details.pdf`);
+    }, [title, columns, sortedData, viewType]);
 
     return (
         <div className="flex flex-col gap-6">
+            <Header />
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/')} className="p-2 rounded-md bg-green-600 hover:bg-green-700 transition-colors" aria-label="Back to dashboard">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
-                        </svg>
-                    </button>
-                    <h1 className="text-3xl font-extrabold text-white">{tableTitle}</h1>
+                    <Link to="/" className="px-4 py-2 bg-slate-700 text-white font-bold rounded-lg shadow-md hover:bg-sky-600 transition-all flex items-center gap-2">
+                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" /></svg>
+                        Back to Dashboard
+                    </Link>
+                    <h2 className="text-2xl font-bold text-white">{title}</h2>
                 </div>
-                 <div className="flex items-center gap-2">
-                    <button onClick={handleDownloadCSV} className="px-4 py-2 bg-slate-700 text-white font-bold rounded-lg shadow-md hover:bg-sky-600 transition-all flex items-center gap-2 text-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        CSV
-                    </button>
-                    <button onClick={handleDownloadPDF} className="px-4 py-2 bg-slate-700 text-white font-bold rounded-lg shadow-md hover:bg-sky-600 transition-all flex items-center gap-2 text-sm">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                        PDF
-                    </button>
-                </div>
+                <button onClick={handleExportPDF} className="px-4 py-2 bg-green-600 text-white font-bold rounded-lg shadow-md hover:bg-green-700 transition-all flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    Export PDF
+                </button>
             </div>
-             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                <h2 className="text-xl font-bold text-white mb-2">Table Insights</h2>
-                <p className="text-slate-300 mb-4">{summaryDescription}</p>
-                <div className={`grid grid-cols-2 ${performanceRateStats !== null ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 text-center`}>
-                    <div className="bg-slate-700/50 p-4 rounded-lg">
-                        <div className="text-sm font-bold text-slate-400 uppercase">Total {entityTypeLabel}</div>
-                        <div className="text-2xl font-extrabold text-white">{summaryTotals.count.toLocaleString()}</div>
-                    </div>
-                     {performanceRateStats !== null && (
-                        <div className="bg-slate-700/50 p-4 rounded-lg">
-                            <div className="text-sm font-bold text-slate-400 uppercase">{performanceRateStats.label}</div>
-                            <div className="text-2xl font-extrabold text-sky-400">{performanceRateStats.rate.toFixed(2)}%</div>
-                            <div className="text-sm font-bold text-green-400">{performanceRateStats.sold.toLocaleString()} / {performanceRateStats.total.toLocaleString()} {performanceRateStats.unit}</div>
-                        </div>
-                    )}
-                    <div className="bg-slate-700/50 p-4 rounded-lg">
-                        <div className="text-sm font-bold text-slate-400 uppercase">2025 Sales</div>
-                        <div className="text-2xl font-extrabold text-green-400">{formatNumberAbbreviated(summaryTotals.total2025)}</div>
-                    </div>
-                    <div className="bg-slate-700/50 p-4 rounded-lg">
-                        <div className="text-sm font-bold text-slate-400 uppercase">2024 Sales</div>
-                        <div className="text-2xl font-extrabold text-slate-300">{formatNumberAbbreviated(summaryTotals.total2024)}</div>
-                    </div>
-                    <div className="bg-slate-700/50 p-4 rounded-lg">
-                        <div className="text-sm font-bold text-slate-400 uppercase">Overall Growth</div>
-                        <div className="text-2xl font-extrabold"><GrowthIndicator value={summaryTotals.growth} /></div>
-                    </div>
+            
+            {performanceRateStats && (
+                <div className="my-4 max-w-sm mx-auto">
+                    <PerformanceStatCard stats={performanceRateStats} />
                 </div>
-            </div>
-            <div ref={filterContainerRef} className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                    <div className="relative w-full md:max-w-md">
-                        <input
-                            type="text"
-                            placeholder="Search this table by name or code..."
-                            value={localSearchTerm}
-                            onChange={(e) => setLocalSearchTerm(e.target.value)}
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        />
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                        <button
-                            onClick={() => setShowFilters(!showFilters)}
-                            className="relative px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6-414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-                            </svg>
-                            {showFilters ? 'Hide' : 'Show'} Filters
-                            {totalActiveIndicators > 0 && (
-                                <span className="absolute -top-2 -right-2 flex items-center justify-center h-6 w-6 rounded-full bg-green-500 text-white text-xs font-bold border-2 border-slate-800">
-                                    {totalActiveIndicators}
-                                </span>
-                            )}
-                        </button>
-                        <button
-                            onClick={resetLocalFilters}
-                            className="px-6 py-3 bg-rose-600 text-white font-bold rounded-lg shadow-md hover:bg-rose-700 transition-all flex items-center gap-2"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h5M20 20v-5h-5M4 20h5v-5M20 4h-5v5" /></svg>
-                            Reset
-                        </button>
-                    </div>
-                </div>
-                {showFilters && (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-700">
-                        {globalFilterOptions && visibleFilters.division && (
-                            <div>
-                                <label htmlFor="drilldownDivisionFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Division</label>
-                                <select id="drilldownDivisionFilter" multiple size={5} value={localFilters.division} onChange={(e) => handleLocalMultiSelectChange(e, 'division')}>
-                                    {globalFilterOptions.divisions.map(d => <option key={d} value={d}>{d}</option>)}
-                                </select>
-                            </div>
-                        )}
-                        {globalFilterOptions && visibleFilters.branch && (
-                            <div>
-                                <label htmlFor="drilldownBranchFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Branch</label>
-                                <select id="drilldownBranchFilter" multiple size={5} value={localFilters.branch} onChange={(e) => handleLocalMultiSelectChange(e, 'branch')}>
-                                    {availableBranches.map(b => <option key={b} value={b}>{b}</option>)}
-                                </select>
-                            </div>
-                        )}
-                        {globalFilterOptions && visibleFilters.brand && (
-                            <div>
-                                <label htmlFor="drilldownBrandFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Filter by Brand</label>
-                                <select id="drilldownBrandFilter" multiple size={5} value={localFilters.brand} onChange={(e) => handleLocalMultiSelectChange(e, 'brand')}>
-                                    {availableBrands.map(b => <option key={b} value={b}>{b}</option>)}
-                                </select>
-                            </div>
-                        )}
-                    </div>
-                )}
-                <div className="overflow-x-auto mt-6">
-                    <table className="min-w-full text-left text-sm text-slate-300 table-sortable table-banded">
-                        <thead className="bg-slate-700/50 text-xs text-slate-200 uppercase tracking-wider">
-                            <tr>{headers.map(h => <th key={h.key} scope="col" className={`p-4 ${h.className || ''}`} onClick={() => requestSort(h.key)}><span className={getSortClassName(h.key)}>{h.label}</span></th>)}</tr>
+            )}
+
+            <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-slate-300">
+                        <thead className="text-xs text-slate-300 uppercase bg-slate-700/50">
+                            <tr>
+                                {columns.map(col => (
+                                    <th key={col.key} scope="col" className={`px-6 py-3 ${col.sortable ? 'cursor-pointer hover:bg-slate-600' : ''}`} onClick={() => col.sortable && handleSort(col.key)}>
+                                        <div className="flex items-center gap-2">
+                                            {col.header}
+                                            {col.sortable && <SortIcon direction={sortConfig?.key === col.key ? sortConfig.direction : undefined} />}
+                                        </div>
+                                    </th>
+                                ))}
+                            </tr>
                         </thead>
                         <tbody>
-                            {processedData.map((item, index) => <tr key={`${item.name}-${index}`} className="border-b border-slate-700 hover:bg-sky-500/10 transition-colors">{headers.map(h => renderCell(item, h.key, index))}</tr>)}
+                            {sortedData.length > 0 ? sortedData.map((row, index) => (
+                                <tr key={index} className="bg-slate-800/30 border-b border-slate-700 hover:bg-slate-700/50">
+                                    {columns.map(col => (
+                                        <td key={col.key} className={`px-6 py-4 ${col.className || ''}`}>
+                                            {col.render(row)}
+                                        </td>
+                                    ))}
+                                </tr>
+                            )) : (
+                                <tr>
+                                    <td colSpan={columns.length} className="text-center py-8 text-slate-400">
+                                        No data available for the current filters.
+                                    </td>
+                                </tr>
+                            )}
                         </tbody>
-                        {processedData.length > 0 && tableFooter}
                     </table>
                 </div>
-                 {processedData.length === 0 && <div className="text-center py-8 text-slate-400">No results found for your search or filter selection.</div>}
             </div>
         </div>
     );
