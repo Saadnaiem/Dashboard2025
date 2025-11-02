@@ -1,3 +1,4 @@
+// FIX: Removed self-import which caused a conflict with the local declaration.
 export interface RawSalesDataRow {
     [key: string]: any;
     'DIVISION': string;
@@ -47,6 +48,7 @@ export interface ProcessedData {
     brandCount2025: number;
     itemCount2024: number;
     itemCount2025: number;
+    totalUniqueItemCount: number;
 
     topDivision: { name: string; sales2024: number; sales2025: number; growth: number; } | null;
 

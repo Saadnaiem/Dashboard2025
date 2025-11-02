@@ -204,6 +204,8 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
       }
     });
 
+    const totalUniqueItemCount = new Set([...distinct.items24, ...distinct.items25]).size;
+
     return {
         totalSales2024,
         totalSales2025,
@@ -221,6 +223,7 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
         brandCount2025: distinct.brands25.size,
         itemCount2024: distinct.items24.size,
         itemCount2025: distinct.items25.size,
+        totalUniqueItemCount,
         pareto: {
             branches: paretoBranches.result,
             brands: paretoBrands.result,

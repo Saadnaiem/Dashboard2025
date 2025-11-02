@@ -1,6 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
-// FIX: Corrected the import of jsPDF to use the conventional PascalCase `jsPDF` class name.
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
@@ -9,9 +8,6 @@ import { processSalesData } from '../services/dataProcessor';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
-// FIX: The `declare module` block for 'jspdf' was removed to resolve a TypeScript module augmentation error.
-// A type assertion is now used directly on the `jsPDF` instance within the `handleExport` function
-// to inform TypeScript about the `autoTable` method provided by `jspdf-autotable`.
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
     globalFilterOptions?: ProcessedData['filterOptions'];
@@ -19,14 +15,16 @@ interface DrilldownViewProps {
 
 type SortableKeys = keyof EntitySalesData | 'sales2024' | 'sales2025' | 'growth' | 'code' | 'name' | 'contribution2024' | 'contribution2025';
 
-const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
+const ContributionCell: React.FC<{ value: number; highlight?: boolean }> = ({ value, highlight = false }) => {
     if (typeof value !== 'number' || isNaN(value)) {
         return <span className="text-right block">-</span>;
     }
     const percentage = value.toFixed(2);
+    const textClassName = highlight ? 'font-bold text-lg text-sky-400' : 'font-mono text-sm';
+
     return (
         <div className="flex items-center justify-end gap-2 w-full">
-            <span className="font-mono text-sm">{percentage}%</span>
+            <span className={textClassName}>{percentage}%</span>
             <div className="w-16 bg-slate-600 rounded-full h-2.5 flex-shrink-0">
                 <div
                     className="bg-sky-500 h-2.5 rounded-full"
@@ -57,17 +55,15 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const globalSearchTerm = useMemo(() => searchParams.get('search') || '', [searchParams]);
 
     useEffect(() => {
-        // Initialize local filters from URL parameters
         setLocalFilters({
             divisions: searchParams.get('divisions_local')?.split(',').filter(Boolean) || [],
             branches: searchParams.get('branches_local')?.split(',').filter(Boolean) || [],
             brands: searchParams.get('brands_local')?.split(',').filter(Boolean) || [],
-            items: [], // Not used for local filtering in this view
+            items: [],
         });
         setLocalSearchTerm(searchParams.get('search_local') || '');
     }, [searchParams]);
 
-    // This data is filtered by the main dashboard's context (global filters and search)
     const globallyFilteredRawData = useMemo(() => {
         const lowercasedTerm = globalSearchTerm.toLowerCase();
         return allRawData.filter(row => {
@@ -133,6 +129,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         }));
         
         const perfRate = (count: number, total: number) => total > 0 ? (count / total) * 100 : 0;
+        const hasGlobalContext = globalFilters.divisions.length > 0 || globalFilters.branches.length > 0 || globalFilters.brands.length > 0 || !!globalSearchTerm;
 
         switch (viewType) {
             case 'divisions':
@@ -147,7 +144,19 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 break;
             case 'items':
                 title = 'All Items'; data = addContribution(processedViewData.salesByItem); columns = itemBaseColumns;
-                performanceMetric = { title: 'Item Performance Rate', value: perfRate(processedViewData.itemCount2025, processedViewData.itemCount2024), subtext: `${processedViewData.itemCount2025} / ${processedViewData.itemCount2024} Active` };
+                if (hasGlobalContext) {
+                    performanceMetric = { 
+                        title: 'Item Availability %', 
+                        value: perfRate(processedViewData.itemCount2025, processedViewData.itemCount2024), 
+                        subtext: `${processedViewData.itemCount2025} / ${processedViewData.itemCount2024} Active` 
+                    };
+                } else {
+                    performanceMetric = { 
+                        title: 'Item Availability %', 
+                        value: perfRate(processedViewData.itemCount2025, processedViewData.totalUniqueItemCount), 
+                        subtext: `${processedViewData.itemCount2025} / ${processedViewData.totalUniqueItemCount} Total Items` 
+                    };
+                }
                 break;
             case 'pareto_branches':
                 title = 'Top 20% Branches (Pareto)'; data = addContribution(processedViewData.paretoContributors.branches); columns = baseColumns;
@@ -177,13 +186,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         
         const finalColumns = [{ key: 'no', header: 'No.', isNumeric: false }, ...columns];
         return { title, dataForTable: data, columns: finalColumns, performanceMetric };
-    }, [viewType, processedViewData, globalFilterOptions]);
+    }, [viewType, processedViewData, globalFilterOptions, globalFilters, globalSearchTerm]);
 
     const finalData = useMemo(() => {
         if (!dataForTable) return [];
         const lowercasedTerm = localSearchTerm.toLowerCase();
         
-        // FIX: Explicitly typed the parameter in the `every` callback to resolve a TypeScript type inference issue with `Object.values`.
         const noFiltersApplied = Object.values(localFilters).every((f: string[]) => f.length === 0);
 
         if (!localSearchTerm && noFiltersApplied) {
@@ -195,7 +203,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 String(val).toLowerCase().includes(lowercasedTerm)
             );
 
-            // This part is simplified as localFilters are not used in this component's UI yet
             const filterMatch = true; 
 
             return searchMatch && filterMatch;
@@ -250,7 +257,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const contextString = getContextString();
 
     const handleExport = (format: 'pdf' | 'csv') => {
-        // FIX: Corrected the instantiation of jsPDF to use the conventional PascalCase `jsPDF` class name.
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
         const exportTitle = `${title} | ${contextString || 'All Data'}`;
         const head = [columns.map(c => c.header)];
@@ -376,18 +382,23 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                         <tbody>
                             {sortedData.map((row, index) => (
                                 <tr key={index} className="hover:bg-slate-800/80 transition-colors text-sm">
-                                    {columns.map(col => (
-                                        <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
-                                            {(() => {
-                                                if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
-                                                const value = row[col.key as keyof typeof row];
-                                                if (col.key === 'growth') return <GrowthIndicator value={value} />;
-                                                if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
-                                                if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
-                                                return value;
-                                            })()}
-                                        </td>
-                                    ))}
+                                    {columns.map(col => {
+                                        const is2024Col = col.key === 'sales2024' || col.key === 'contribution2024';
+                                        const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${is2024Col ? 'font-bold text-lg text-sky-400' : ''}`;
+                                        return (
+                                            <td key={col.key} className={tdClassName}>
+                                                {(() => {
+                                                    if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
+                                                    const value = row[col.key as keyof typeof row];
+                                                    if (col.key === 'growth') return <GrowthIndicator value={value} />;
+                                                    if (col.key === 'contribution2024') return <ContributionCell value={value} highlight />;
+                                                    if (col.key === 'contribution2025') return <ContributionCell value={value} />;
+                                                    if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
+                                                    return value;
+                                                })()}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             ))}
                         </tbody>
