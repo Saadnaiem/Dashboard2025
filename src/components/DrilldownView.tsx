@@ -44,6 +44,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [localSearchTerm, setLocalSearchTerm] = useState('');
     const [localFilters, setLocalFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
     
+    const isLostView = viewType === 'lost_brands' || viewType === 'lost_items';
+    const isNewView = viewType === 'new_brands' || viewType === 'new_items';
 
     const globalFilters: FilterState = useMemo(() => ({
         divisions: searchParams.get('divisions')?.split(',') || [],
@@ -209,6 +211,25 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         });
     }, [dataForTable, localSearchTerm, localFilters]);
 
+    const totalRow = useMemo(() => {
+        if (!finalData || finalData.length === 0) return null;
+
+        const totalSales2024 = finalData.reduce((acc, row) => acc + (row.sales2024 || 0), 0);
+        const totalSales2025 = finalData.reduce((acc, row) => acc + (row.sales2025 || 0), 0);
+
+        const calculateGrowth = (current: number, previous: number) =>
+            previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
+
+        return {
+            name: `Total (${finalData.length})`,
+            code: 'TOTAL',
+            sales2024: totalSales2024,
+            sales2025: totalSales2025,
+            contribution2024: finalData.reduce((acc, row) => acc + (row.contribution2024 || 0), 0),
+            contribution2025: finalData.reduce((acc, row) => acc + (row.contribution2025 || 0), 0),
+            growth: calculateGrowth(totalSales2025, totalSales2024),
+        };
+    }, [finalData]);
 
     const sortedData = useMemo(() => {
         if (!finalData) return [];
@@ -260,6 +281,18 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
         const exportTitle = `${title} | ${contextString || 'All Data'}`;
         const head = [columns.map(c => c.header)];
+
+        const totalBodyRow = totalRow ? [columns.map(col => {
+            if (col.key === 'no') return 'TOTAL';
+            const value = totalRow[col.key as keyof typeof totalRow];
+            if (col.key === 'name') return totalRow.name;
+            if (col.key === 'code') return totalRow.code;
+            if (col.key === 'growth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
+            if (col.key === 'contribution2024' || col.key === 'contribution2025') return `${value.toFixed(2)}%`;
+            if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
+            return '';
+        })] : [];
+
         const body = sortedData.map((row, index) => {
              return columns.map(col => {
                 if (col.key === 'no') return index + 1;
@@ -270,6 +303,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 return value;
             });
         });
+
+        const finalBody = [...totalBodyRow, ...body];
         const filename = `${title.toLowerCase().replace(/ /g, '_')}_${contextString.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'export'}`;
 
         if (format === 'pdf') {
@@ -277,7 +312,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             doc.autoTable({
                 startY: 20,
                 head: head,
-                body: body,
+                body: finalBody,
                 theme: 'striped',
                 headStyles: { fillColor: [34, 197, 94] },
             });
@@ -285,7 +320,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         } else {
             const csvContent = Papa.unparse({
                 fields: head[0],
-                data: body
+                data: finalBody
             });
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
@@ -327,12 +362,52 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             )}
             
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
-                    <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total Sales (2025)</h3>
-                    <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(processedViewData.totalSales2025)}</div>
-                    <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(processedViewData.totalSales2024)}</div>
-                    <GrowthIndicator value={processedViewData.salesGrowthPercentage} className="text-2xl mt-2" />
-                </div>
+                {isLostView ? (
+                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
+                            Total Lost Sales (2024)
+                        </h3>
+                        <div className="text-5xl font-extrabold text-rose-400">
+                            {formatNumberAbbreviated(
+                                viewType === 'lost_brands' 
+                                ? processedViewData.lostEntities.brands.sales2024 
+                                : processedViewData.lostEntities.items.sales2024
+                            )}
+                        </div>
+                        <div className="text-sm font-bold text-slate-400 mt-1">
+                            {viewType === 'lost_brands' 
+                                ? `${processedViewData.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Total`
+                                : `${processedViewData.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Total`
+                            }
+                        </div>
+                    </div>
+                ) : isNewView ? (
+                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
+                            Total New Sales (2025)
+                        </h3>
+                        <div className="text-5xl font-extrabold text-green-400">
+                            {formatNumberAbbreviated(
+                                viewType === 'new_brands' 
+                                ? processedViewData.newEntities.brands.sales
+                                : processedViewData.newEntities.items.sales
+                            )}
+                        </div>
+                         <div className="text-sm font-bold text-slate-400 mt-1">
+                            {viewType === 'new_brands' 
+                                ? `${processedViewData.newEntities.brands.percentOfTotal.toFixed(2)}% of 2025 Total`
+                                : `${processedViewData.newEntities.items.percentOfTotal.toFixed(2)}% of 2025 Total`
+                            }
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total Sales (2025)</h3>
+                        <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(processedViewData.totalSales2025)}</div>
+                        <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(processedViewData.totalSales2024)}</div>
+                        <GrowthIndicator value={processedViewData.salesGrowthPercentage} className="text-2xl mt-2" />
+                    </div>
+                )}
 
                 {performanceMetric && (
                     <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
@@ -370,7 +445,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                  </div>
                 <div className="overflow-x-auto bg-slate-800/50 p-1 rounded-b-2xl shadow-lg border-b border-x border-slate-700">
                     <table className="w-full text-left text-slate-300 table-sortable table-banded">
-                        <thead className="text-xs text-slate-400 uppercase bg-slate-700/50">
+                        <thead className="text-xs text-slate-400 uppercase bg-slate-700/50 sticky top-0 z-20">
                             <tr>
                                 {columns.map(col => (
                                     <th key={col.key} scope="col" className={`p-3 transition-colors ${col.key !== 'no' ? 'cursor-pointer hover:bg-slate-600/50' : ''} ${col.isNumeric ? 'text-right' : 'text-left'} ${getSortClassName(col.key as SortableKeys)}`} onClick={() => requestSort(col.key as SortableKeys)}>
@@ -380,6 +455,28 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             </tr>
                         </thead>
                         <tbody>
+                             {totalRow && (
+                                <tr className="bg-sky-900/60 font-bold text-white sticky top-[41px] z-10 backdrop-blur-sm">
+                                    {columns.map(col => {
+                                        const tdClassName = `p-3 whitespace-nowrap border-b-2 border-slate-600 ${col.isNumeric ? 'text-right' : ''}`;
+                                        let content: React.ReactNode = '';
+                                        
+                                        switch(col.key) {
+                                            case 'no': content = ''; break;
+                                            case 'name': content = totalRow.name; break;
+                                            case 'code': content = totalRow.code; break;
+                                            case 'growth': content = <GrowthIndicator value={totalRow.growth} />; break;
+                                            case 'contribution2024': content = <ContributionCell value={totalRow.contribution2024} />; break;
+                                            case 'contribution2025': content = <ContributionCell value={totalRow.contribution2025} />; break;
+                                            case 'sales2024': content = formatNumberAbbreviated(totalRow.sales2024); break;
+                                            case 'sales2025': content = formatNumberAbbreviated(totalRow.sales2025); break;
+                                            default: content = '';
+                                        }
+
+                                        return <td key={`total-${col.key}`} className={tdClassName}>{content}</td>;
+                                    })}
+                                </tr>
+                            )}
                             {sortedData.map((row, index) => (
                                 <tr key={index} className="hover:bg-slate-800/80 transition-colors text-sm">
                                     {columns.map(col => {
