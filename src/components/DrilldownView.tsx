@@ -27,23 +27,40 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [searchTerm, setSearchTerm] = useState(() => new URLSearchParams(location.search).get('search') || '');
+    const [localSearchTerm, setLocalSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'sales2025', direction: 'descending' });
     const [showFilters, setShowFilters] = useState(false);
     const filterContainerRef = useRef<HTMLDivElement>(null);
 
     useOnClickOutside(filterContainerRef, () => setShowFilters(false));
     
-    const [localFilters, setLocalFilters] = useState(() => {
+    const { globalFilters, globalSearchTerm } = useMemo(() => {
         const queryParams = new URLSearchParams(location.search);
         const getValues = (key: string) => queryParams.get(key)?.split(',').filter(Boolean) || [];
-        
         return {
-            division: getValues('divisions'),
-            branch: getValues('branches'),
-            brand: getValues('brands'),
+            globalFilters: {
+                divisions: getValues('divisions'),
+                branches: getValues('branches'),
+                brands: getValues('brands'),
+            },
+            globalSearchTerm: queryParams.get('search') || '',
         };
+    }, [location.search]);
+
+    const [localFilters, setLocalFilters] = useState({
+        division: globalFilters.divisions,
+        branch: globalFilters.branches,
+        brand: globalFilters.brands,
     });
+    
+    useEffect(() => {
+        setLocalFilters({
+            division: globalFilters.divisions,
+            branch: globalFilters.branches,
+            brand: globalFilters.brands,
+        });
+    }, [globalFilters]);
+
 
     const { availableBranches, availableBrands } = useMemo(() => {
         if (!globalFilterOptions) return { availableBranches: [], availableBrands: [] };
@@ -91,7 +108,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const resetLocalFilters = () => {
         setLocalFilters({ division: [], branch: [], brand: [] });
-        setSearchTerm('');
+        setLocalSearchTerm('');
         setShowFilters(false);
     };
 
@@ -106,10 +123,23 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         performanceRateStats
     } = useMemo(() => {
         
-        let locallyFilteredRawData = allRawData.filter(row => {
-            return (localFilters.division.length === 0 || localFilters.division.includes(row['DIVISION'])) &&
-                   (localFilters.branch.length === 0 || localFilters.branch.includes(row['BRANCH NAME'])) &&
-                   (localFilters.brand.length === 0 || localFilters.brand.includes(row['BRAND']));
+        const lowercasedGlobalSearch = globalSearchTerm.toLowerCase();
+        
+        let contextFilteredRawData = allRawData.filter(row => {
+            const divisionMatch = localFilters.division.length === 0 || localFilters.division.includes(row['DIVISION']);
+            const branchMatch = localFilters.branch.length === 0 || localFilters.branch.includes(row['BRANCH NAME']);
+            const brandMatch = localFilters.brand.length === 0 || localFilters.brand.includes(row['BRAND']);
+            if (!(divisionMatch && branchMatch && brandMatch)) return false;
+
+            if (globalSearchTerm) {
+                return (
+                    (row['DIVISION']?.toLowerCase().includes(lowercasedGlobalSearch)) ||
+                    (row['BRANCH NAME']?.toLowerCase().includes(lowercasedGlobalSearch)) ||
+                    (row['BRAND']?.toLowerCase().includes(lowercasedGlobalSearch)) ||
+                    (row['ITEM DESCRIPTION']?.toLowerCase().includes(lowercasedGlobalSearch))
+                );
+            }
+            return true;
         });
 
         let displayData: DrilldownItem[] = [];
@@ -117,14 +147,14 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         let localTotal24 = 0;
         let localTotal25 = 0;
 
-        locallyFilteredRawData.forEach(row => {
+        contextFilteredRawData.forEach(row => {
             localTotal24 += row['SALES2024'];
             localTotal25 += row['SALES2025'];
         });
 
         const reprocessLocally = (entityKey: 'BRANCH NAME' | 'BRAND' | 'ITEM DESCRIPTION' | 'DIVISION') => {
             const sales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
-            locallyFilteredRawData.forEach(row => {
+            contextFilteredRawData.forEach(row => {
                 const key = row[entityKey];
                 if (key) {
                     sales[key] = sales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
@@ -144,7 +174,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const findNewOrLost = (isNew: boolean) => {
              const entityKey = viewType.includes('brand') ? 'BRAND' : 'ITEM DESCRIPTION';
              const sales: { [key: string]: { s24: number, s25: number, code?: string } } = {};
-             locallyFilteredRawData.forEach(row => {
+             contextFilteredRawData.forEach(row => {
                  const key = row[entityKey];
                  if (key) {
                      sales[key] = sales[key] || { s24: 0, s25: 0, code: row['ITEM CODE'] };
@@ -212,10 +242,13 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             contribution2024: localTotal24 > 0 && item.sales2024 ? (item.sales2024 / localTotal24) * 100 : 0
         }));
 
-        if (searchTerm) finalData = finalData.filter(item => 
-            item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (item.code && item.code.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
+        if (localSearchTerm) {
+            const lowercasedLocalSearch = localSearchTerm.toLowerCase();
+            finalData = finalData.filter(item => 
+                item.name.toLowerCase().includes(lowercasedLocalSearch) ||
+                (item.code && item.code.toLowerCase().includes(lowercasedLocalSearch))
+            );
+        }
 
         if (sortConfig.key) {
             finalData.sort((a, b) => {
@@ -286,7 +319,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             entityTypeLabel,
             performanceRateStats
         };
-    }, [viewType, allRawData, searchTerm, sortConfig, localFilters]);
+    }, [viewType, allRawData, localSearchTerm, globalSearchTerm, sortConfig, localFilters]);
 
     const requestSort = (key: string) => {
         if (key === 'rowNumber') return; // Do not sort by row number
@@ -398,7 +431,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     // FIX: Cast the result of Object.values(localFilters) to string[][] to correctly type `val` in the `reduce` function.
     const activeFilterCount = (Object.values(localFilters) as string[][]).reduce((acc, val) => acc + val.length, 0);
-    const totalActiveIndicators = activeFilterCount + (searchTerm ? 1 : 0);
+    const totalActiveIndicators = activeFilterCount + (localSearchTerm ? 1 : 0);
 
     return (
         <div className="flex flex-col gap-6">
@@ -456,9 +489,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     <div className="relative w-full md:max-w-md">
                         <input
                             type="text"
-                            placeholder="Search by name or code..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Search this table by name or code..."
+                            value={localSearchTerm}
+                            onChange={(e) => setLocalSearchTerm(e.target.value)}
                             className="w-full bg-slate-700 border border-slate-600 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                         />
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
