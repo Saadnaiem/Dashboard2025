@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -15,16 +16,15 @@ interface DrilldownViewProps {
 
 type SortableKeys = keyof EntitySalesData | 'sales2024' | 'sales2025' | 'growth' | 'code' | 'name' | 'contribution2024' | 'contribution2025';
 
-const ContributionCell: React.FC<{ value: number; highlight?: boolean }> = ({ value, highlight = false }) => {
+const ContributionCell: React.FC<{ value: number; }> = ({ value }) => {
     if (typeof value !== 'number' || isNaN(value)) {
         return <span className="text-right block">-</span>;
     }
     const percentage = value.toFixed(2);
-    const textClassName = highlight ? 'font-bold text-lg text-sky-400' : 'font-mono text-sm';
 
     return (
         <div className="flex items-center justify-end gap-2 w-full">
-            <span className={textClassName}>{percentage}%</span>
+            <span>{percentage}%</span>
             <div className="w-16 bg-slate-600 rounded-full h-2.5 flex-shrink-0">
                 <div
                     className="bg-sky-500 h-2.5 rounded-full"
@@ -384,15 +384,24 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                 <tr key={index} className="hover:bg-slate-800/80 transition-colors text-sm">
                                     {columns.map(col => {
                                         const is2024Col = col.key === 'sales2024' || col.key === 'contribution2024';
-                                        const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${is2024Col ? 'font-bold text-lg text-sky-400' : ''}`;
+                                        const is2025Col = col.key === 'sales2025' || col.key === 'contribution2025';
+
+                                        let yearStyle = '';
+                                        if (is2024Col) {
+                                            yearStyle = 'font-bold text-lg text-sky-400';
+                                        } else if (is2025Col) {
+                                            yearStyle = 'font-bold text-lg text-green-400';
+                                        }
+                                        
+                                        const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle}`;
+
                                         return (
                                             <td key={col.key} className={tdClassName}>
                                                 {(() => {
                                                     if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
                                                     const value = row[col.key as keyof typeof row];
                                                     if (col.key === 'growth') return <GrowthIndicator value={value} />;
-                                                    if (col.key === 'contribution2024') return <ContributionCell value={value} highlight />;
-                                                    if (col.key === 'contribution2025') return <ContributionCell value={value} />;
+                                                    if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
                                                     if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
                                                     return value;
                                                 })()}

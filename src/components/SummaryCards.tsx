@@ -27,7 +27,7 @@ const SummaryCard: React.FC<{ title: string; icon: string; children: React.React
 const MetricCard: React.FC<{ title: string; icon: string; value2025: number; value2024: number; to: string; }> = ({ title, icon, value2025, value2024, to }) => (
     <SummaryCard title={title} icon={icon} to={to}>
         <div className="text-3xl font-extrabold text-green-400">{formatNumber(value2025, 0)}</div>
-        <div className="text-base font-bold text-slate-400">2024: {formatNumber(value2024, 0)}</div>
+        <div className="font-bold text-lg text-sky-400">2024: {formatNumber(value2024, 0)}</div>
         <GrowthIndicator value={value2025 - value2024} unit="" className="text-xl" />
     </SummaryCard>
 );
@@ -67,7 +67,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                     <SummaryCard title="Total Sales (2025)" icon="💰">
                         <div className="text-3xl font-extrabold text-green-400">{formatNumberAbbreviated(data.totalSales2025)}</div>
-                        <div className="text-base font-bold text-slate-400 mb-1">2024: {formatNumberAbbreviated(data.totalSales2024)}</div>
+                        <div className="font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalSales2024)}</div>
                         <GrowthIndicator value={data.salesGrowthPercentage} className="text-xl" />
                     </SummaryCard>
                     
@@ -146,7 +146,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                     
                     <SummaryCard title="Lost Brands (2024)" icon="👋" to={buildLink('/details/lost_brands')}>
                          <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.brands.count)}</div>
-                        <div className="text-base font-bold text-slate-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.brands.sales2024)}</div>
+                        <div className="font-bold text-lg text-sky-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.brands.sales2024)}</div>
                         <div className="text-sm">{data.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
                     </SummaryCard>
 
@@ -158,7 +158,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                     
                     <SummaryCard title="Lost Items (2024)" icon="📉" to={buildLink('/details/lost_items')}>
                          <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.items.count)}</div>
-                        <div className="text-base font-bold text-slate-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.items.sales2024)}</div>
+                        <div className="font-bold text-lg text-sky-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.items.sales2024)}</div>
                         <div className="text-sm">{data.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
                     </SummaryCard>
                  </div>
