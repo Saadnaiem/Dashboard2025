@@ -3,13 +3,10 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { GoogleGenAI } from '@google/genai';
 import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData } from '../types';
 import { processSalesData } from '../services/dataProcessor';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
-import ApiKeyModal from './ApiKeyModal';
-import { logoBase64 } from '../assets/logo';
 
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
@@ -46,11 +43,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [localSearchTerm, setLocalSearchTerm] = useState('');
     const [localFilters, setLocalFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
     
-    const [aiSummary, setAiSummary] = useState('');
-    const [isAiLoading, setIsAiLoading] = useState(false);
-    const [aiError, setAiError] = useState('');
-    const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-
     const isLostView = viewType === 'lost_brands' || viewType === 'lost_items';
     const isNewView = viewType === 'new_brands' || viewType === 'new_items';
 
@@ -71,8 +63,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             items: [],
         });
         setLocalSearchTerm(searchParams.get('search_local') || '');
-        setAiSummary('');
-        setAiError('');
     }, [searchParams, viewType]);
 
     const globallyFilteredRawData = useMemo(() => {
@@ -319,18 +309,15 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const filename = `${title.toLowerCase().replace(/ /g, '_')}_${contextString.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'export'}`;
 
         if (format === 'pdf') {
-            const logoData = logoBase64.split(',')[1];
-            doc.addImage(logoData, 'PNG', 14, 10, 60, 14);
-
             doc.setFontSize(16);
-            doc.text(exportTitle, 14, 35);
+            doc.text(exportTitle, 14, 20);
 
             doc.setFontSize(10);
             doc.setTextColor(100);
-            doc.text(exportSubtitle, 14, 41);
+            doc.text(exportSubtitle, 14, 26);
 
             doc.autoTable({
-                startY: 45,
+                startY: 30,
                 head: head,
                 body: finalBody,
                 theme: 'striped',
@@ -354,62 +341,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         }
     };
     
-    const handleGetAiSummary = async () => {
-        setIsAiLoading(true);
-        setAiSummary('');
-        setAiError('');
-
-        const apiKey = localStorage.getItem('gemini_api_key');
-
-        if (!apiKey) {
-            setIsApiKeyModalOpen(true);
-            setIsAiLoading(false);
-            return;
-        }
-
-        try {
-            const ai = new GoogleGenAI({ apiKey });
-            
-            const dataForPrompt = sortedData.slice(0, 20).map(row => {
-                const { name, sales2024, sales2025, growth } = row;
-                return { name, sales2024, sales2025, growth: growth === Infinity ? 'New' : `${growth?.toFixed(1)}%` };
-            });
-
-            const prompt = `You are a senior pharmacy business analyst. Based on the following data table for "${title}", provide a concise summary of the top 3-5 key insights and actionable recommendations. The data is pre-filtered with the context: "${contextString || 'None'}". Focus on major growth, decline, and concentration. Format your response in markdown.
-
-            Data (Top 20 rows):
-            ${JSON.stringify(dataForPrompt, null, 2)}
-            `;
-            
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: prompt,
-            });
-
-            setAiSummary(response.text || '');
-
-        } catch (error) {
-            console.error("Error fetching AI summary:", error);
-            const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
-            
-            if (errorMessage.includes("API key not valid") || errorMessage.includes("permission denied")) {
-                 localStorage.removeItem('gemini_api_key'); // Clear bad key
-                 setAiError("Your API key is invalid or has insufficient permissions. Please enter a new one.");
-                 setIsApiKeyModalOpen(true);
-            } else {
-                 setAiError(errorMessage);
-            }
-        } finally {
-            setIsAiLoading(false);
-        }
-    };
-    
-    const handleApiKeySave = (newKey: string) => {
-        localStorage.setItem('gemini_api_key', newKey);
-        setIsApiKeyModalOpen(false);
-        handleGetAiSummary(); // Retry after saving new key
-    };
-
     if (!processedViewData) {
         return <div className="min-h-screen flex items-center justify-center text-white text-xl">
             <div className="flex flex-col items-center gap-4">
@@ -421,11 +352,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     return (
         <div className="flex flex-col gap-6">
-            <ApiKeyModal
-                isOpen={isApiKeyModalOpen}
-                onClose={() => setIsApiKeyModalOpen(false)}
-                onSave={handleApiKeySave}
-            />
             <Header />
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                 <h2 className="text-2xl font-bold text-white text-center sm:text-left">{title}</h2>
@@ -496,28 +422,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                         <div className="text-sm font-bold text-slate-400 mt-1">{performanceMetric.subtext}</div>
                     </div>
                 )}
-            </div>
-
-            <div className="bg-slate-800/50 p-4 rounded-2xl shadow-lg border border-slate-700 flex flex-col gap-4">
-                <button 
-                    onClick={handleGetAiSummary} 
-                    disabled={isAiLoading}
-                    className="w-full sm:w-auto self-center px-6 py-3 bg-indigo-600 text-white font-bold rounded-lg shadow-md hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-wait"
-                >
-                    {isAiLoading ? (
-                         <>
-                            <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                            Generating Insights...
-                        </>
-                    ) : (
-                        <>
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M11 3a1 1 0 100 2h2.586l-6.293 6.293a1 1 0 101.414 1.414L15 6.414V9a1 1 0 102 0V4a1 1 0 00-1-1h-4z" /><path d="M5 5a2 2 0 00-2 2v8a2 2 0 002 2h8a2 2 0 002-2v-3a1 1 0 10-2 0v3H5V7h3a1 1 0 000-2H5z" /></svg>
-                            Get AI Summary
-                        </>
-                    )}
-                </button>
-                {aiError && <div className="text-center text-red-400 bg-red-900/30 p-3 rounded-lg">{aiError}</div>}
-                {aiSummary && <div className="prose prose-invert prose-sm max-w-none bg-slate-900/50 p-4 rounded-lg border border-slate-600 whitespace-pre-wrap">{aiSummary}</div>}
             </div>
 
             <div>

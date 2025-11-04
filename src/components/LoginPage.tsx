@@ -1,5 +1,4 @@
 import React, { useState } from 'react';
-import { logoBase64 } from '../assets/logo';
 
 interface LoginPageProps {
     onLogin: () => void;
@@ -26,10 +25,8 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
         <div className="flex items-center justify-center min-h-screen bg-slate-900">
             <div className="w-full max-w-md p-8 space-y-8 bg-slate-800/50 rounded-2xl shadow-2xl border border-slate-700">
                 <div className="text-center">
-                    <div className="flex items-center justify-center mb-4">
-                       <img src={logoBase64} alt="Dr Sulaiman Al Habib Pharmacy Logo" className="w-80" />
-                    </div>
-                    <p className="text-slate-400">Please sign in to continue</p>
+                     <h1 className="text-4xl font-extrabold text-white">Pharmacy Analytics</h1>
+                    <p className="text-slate-400 mt-2">Please sign in to continue</p>
                 </div>
                 <form className="space-y-6" onSubmit={handleSubmit}>
                     <div>

@@ -1,10 +1,10 @@
-// FIX: Defined the AIStudio interface to resolve the type conflict with existing global declarations for window.aistudio.
-interface AIStudio {
-    hasSelectedApiKey: () => Promise<boolean>;
-    openSelectKey: () => Promise<void>;
-}
-
+// FIX: Moved the AIStudio interface inside the `declare global` block to ensure it's treated as a single global type, resolving the "Subsequent property declarations must have the same type" error.
 declare global {
+    interface AIStudio {
+        hasSelectedApiKey: () => Promise<boolean>;
+        openSelectKey: () => Promise<void>;
+    }
+
     interface Window {
         aistudio?: AIStudio;
     }
