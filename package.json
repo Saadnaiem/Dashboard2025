@@ -16,6 +16,7 @@
     "recharts": "^2.12.7"
   },
   "devDependencies": {
+    "@google/genai": "^0.14.0",
     "@types/jspdf": "^2.0.0",
     "@types/papaparse": "^5.3.14",
     "@types/react": "^18.2.66",
