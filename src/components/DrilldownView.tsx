@@ -252,7 +252,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const pieChartData = useMemo(() => {
         const appropriateViews = ['divisions', 'branches', 'brands', 'items', 'pareto_branches', 'pareto_brands', 'pareto_items'];
-        if (!appropriateViews.includes(viewType!) || !dataForTable || dataForTable.length === 0) {
+        if (!processedViewData || !viewType || !appropriateViews.includes(viewType) || !dataForTable || dataForTable.length === 0) {
             return null;
         }
     
@@ -639,7 +639,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </div>
             </div>
 
-            {barChartData && barChartData.length > 0 && (
+            {barChartData && barChartData.length > 0 && viewType && (
                 <div className="mt-8">
                     <div className="bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700">
                         <h3 className="text-xl font-bold text-white mb-4 text-center">
