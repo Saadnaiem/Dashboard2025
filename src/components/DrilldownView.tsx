@@ -369,7 +369,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 contents: prompt,
             });
 
-            setAiSummary(response.text);
+            setAiSummary(response.text || '');
 
         } catch (error) {
             console.error("Error fetching AI summary:", error);
