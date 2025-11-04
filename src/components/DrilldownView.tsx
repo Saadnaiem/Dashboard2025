@@ -3,7 +3,7 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData } from '../types';
 import { processSalesData } from '../services/dataProcessor';
 import Header from './Header';
@@ -255,25 +255,31 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         if (!appropriateViews.includes(viewType!) || !dataForTable || dataForTable.length === 0) {
             return null;
         }
-
+    
         const sortedBySales = [...dataForTable].sort((a, b) => b.sales2025 - a.sales2025);
-
+    
         const topN = 5;
         const topData = sortedBySales.slice(0, topN);
         const otherData = sortedBySales.slice(topN);
-
+    
         if (otherData.length === 0) {
-            return topData.map(d => ({ name: d.name, value: d.sales2025 }));
+            return topData.map(d => ({ ...d, value: d.sales2025 }));
         }
-
+    
         const othersValue = otherData.reduce((acc, curr) => acc + curr.sales2025, 0);
-
+        const othersContribution = processedViewData.totalSales2025 > 0 ? (othersValue / processedViewData.totalSales2025) * 100 : 0;
+    
         return [
-            ...topData.map(d => ({ name: d.name, value: d.sales2025 })),
-            { name: 'Others', value: othersValue }
+            ...topData.map(d => ({ ...d, value: d.sales2025 })),
+            { name: 'Others', value: othersValue, sales2025: othersValue, contribution2025: othersContribution }
         ].filter(d => d.value > 0);
+    
+    }, [dataForTable, viewType, processedViewData]);
 
-    }, [dataForTable, viewType]);
+    const barChartData = useMemo(() => {
+        if (!isNewView && !isLostView) return null;
+        return [...dataForTable].slice(0, 20); // Top 20
+    }, [dataForTable, isNewView, isLostView]);
     
     const requestSort = (key: SortableKeys | 'no') => {
         if (key === 'no') return;
@@ -347,7 +353,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 head: head,
                 body: finalBody,
                 theme: 'striped',
-                headStyles: { fillColor: [52, 211, 153] }, // Green color
+                headStyles: { fillColor: [22, 163, 74] }, // Green color
             });
             doc.save(`${filename}.pdf`);
         } else {
@@ -393,14 +399,45 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const PieTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
+            const data = payload[0].payload;
             return (
                 <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-3 rounded-lg shadow-lg">
-                    <p className="font-bold" style={{ color: payload[0].payload.fill }}>{`${payload[0].name}: ${formatNumberAbbreviated(payload[0].value)}`}</p>
+                    <p className="font-bold" style={{ color: payload[0].payload.fill }}>{`${data.name}: ${formatNumberAbbreviated(data.value)}`}</p>
+                    {data.contribution2025 !== undefined && (
+                        <p className="text-slate-300 text-sm">
+                            Contribution: {data.contribution2025.toFixed(2)}%
+                        </p>
+                    )}
                 </div>
             );
         }
         return null;
     };
+    
+    const BarTooltip = ({ active, payload }: any) => {
+        if (active && payload && payload.length) {
+            const data = payload[0].payload;
+            return (
+                <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-4 rounded-lg shadow-lg text-sm">
+                    <p className="font-bold text-green-300 mb-2">{data.name}</p>
+                    {isNewView && data.sales2025 !== undefined && (
+                        <>
+                            <p style={{ color: '#34d399' }}>2025 Sales: {formatNumberAbbreviated(data.sales2025)}</p>
+                            <p className="text-slate-300">Contrib %: {data.contribution2025.toFixed(2)}%</p>
+                        </>
+                    )}
+                    {isLostView && data.sales2024 !== undefined && (
+                        <>
+                            <p style={{ color: '#38bdf8' }}>2024 Sales: {formatNumberAbbreviated(data.sales2024)}</p>
+                            <p className="text-slate-300">Contrib %: {data.contribution2024.toFixed(2)}%</p>
+                        </>
+                    )}
+                </div>
+            );
+        }
+        return null;
+    };
+
 
     return (
         <div className="flex flex-col gap-6">
@@ -419,65 +456,67 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {isLostView ? (
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
-                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
-                            Total Lost Sales (2024)
-                        </h3>
-                        <div className="text-5xl font-extrabold text-rose-400">
-                            {formatNumberAbbreviated(
-                                viewType === 'lost_brands' 
-                                ? processedViewData.lostEntities.brands.sales2024 
-                                : processedViewData.lostEntities.items.sales2024
-                            )}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-1 flex flex-col gap-6">
+                    {isLostView ? (
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                Total Lost Sales (2024)
+                            </h3>
+                            <div className="text-5xl font-extrabold text-rose-400">
+                                {formatNumberAbbreviated(
+                                    viewType === 'lost_brands' 
+                                    ? processedViewData.lostEntities.brands.sales2024 
+                                    : processedViewData.lostEntities.items.sales2024
+                                )}
+                            </div>
+                            <div className="text-sm font-bold text-slate-400 mt-1">
+                                {viewType === 'lost_brands' 
+                                    ? `${processedViewData.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Total`
+                                    : `${processedViewData.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Total`
+                                }
+                            </div>
                         </div>
-                        <div className="text-sm font-bold text-slate-400 mt-1">
-                            {viewType === 'lost_brands' 
-                                ? `${processedViewData.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Total`
-                                : `${processedViewData.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Total`
-                            }
+                    ) : isNewView ? (
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
+                                Total New Sales (2025)
+                            </h3>
+                            <div className="text-5xl font-extrabold text-green-400">
+                                {formatNumberAbbreviated(
+                                    viewType === 'new_brands' 
+                                    ? processedViewData.newEntities.brands.sales
+                                    : processedViewData.newEntities.items.sales
+                                )}
+                            </div>
+                             <div className="text-sm font-bold text-slate-400 mt-1">
+                                {viewType === 'new_brands' 
+                                    ? `${processedViewData.newEntities.brands.percentOfTotal.toFixed(2)}% of 2025 Total`
+                                    : `${processedViewData.newEntities.items.percentOfTotal.toFixed(2)}% of 2025 Total`
+                                }
+                            </div>
                         </div>
-                    </div>
-                ) : isNewView ? (
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
-                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
-                            Total New Sales (2025)
-                        </h3>
-                        <div className="text-5xl font-extrabold text-green-400">
-                            {formatNumberAbbreviated(
-                                viewType === 'new_brands' 
-                                ? processedViewData.newEntities.brands.sales
-                                : processedViewData.newEntities.items.sales
-                            )}
+                    ) : (
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total Sales (2025)</h3>
+                            <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(processedViewData.totalSales2025)}</div>
+                            <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(processedViewData.totalSales2024)}</div>
+                            <GrowthIndicator value={processedViewData.salesGrowthPercentage} className="text-2xl mt-2" />
                         </div>
-                         <div className="text-sm font-bold text-slate-400 mt-1">
-                            {viewType === 'new_brands' 
-                                ? `${processedViewData.newEntities.brands.percentOfTotal.toFixed(2)}% of 2025 Total`
-                                : `${processedViewData.newEntities.items.percentOfTotal.toFixed(2)}% of 2025 Total`
-                            }
-                        </div>
-                    </div>
-                ) : (
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
-                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total Sales (2025)</h3>
-                        <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(processedViewData.totalSales2025)}</div>
-                        <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(processedViewData.totalSales2024)}</div>
-                        <GrowthIndicator value={processedViewData.salesGrowthPercentage} className="text-2xl mt-2" />
-                    </div>
-                )}
+                    )}
 
-                {performanceMetric && (
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
-                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">{performanceMetric.title}</h3>
-                        <div className="text-5xl font-extrabold text-green-400">{performanceMetric.value.toFixed(1)}%</div>
-                        <div className="text-sm font-bold text-slate-400 mt-1">{performanceMetric.subtext}</div>
-                    </div>
-                )}
+                    {performanceMetric && (
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">{performanceMetric.title}</h3>
+                            <div className="text-5xl font-extrabold text-green-400">{performanceMetric.value.toFixed(1)}%</div>
+                            <div className="text-sm font-bold text-slate-400 mt-1">{performanceMetric.subtext}</div>
+                        </div>
+                    )}
+                </div>
                  {pieChartData && (
-                    <div className={`bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 ${!performanceMetric ? 'md:col-span-1 lg:col-span-2' : ''}`}>
+                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 lg:col-span-2">
                         <h3 className="text-xl font-bold text-white mb-4 text-center">Top 5 Contribution (2025)</h3>
-                        <ResponsiveContainer width="100%" height={250}>
+                        <ResponsiveContainer width="100%" height={400}>
                             <PieChart>
                                 <Pie
                                     data={pieChartData}
@@ -485,7 +524,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                     nameKey="name"
                                     cx="50%"
                                     cy="50%"
-                                    outerRadius={80}
+                                    outerRadius={120}
                                     labelLine={false}
                                     label={renderCustomizedLabel}
                                 >
@@ -599,6 +638,29 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     )}
                 </div>
             </div>
+
+            {barChartData && barChartData.length > 0 && (
+                <div className="mt-8">
+                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700">
+                        <h3 className="text-xl font-bold text-white mb-4 text-center">
+                            Top {barChartData.length} {isNewView ? 'New' : 'Lost'} {viewType.includes('brands') ? 'Brands' : 'Items'}
+                        </h3>
+                        <ResponsiveContainer width="100%" height={Math.max(400, barChartData.length * 30)}>
+                            <BarChart layout="vertical" data={barChartData} margin={{ top: 5, right: 30, left: 150, bottom: 5 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                                <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} tick={{ fill: 'white' }} />
+                                <YAxis type="category" dataKey="name" stroke="white" width={150} tick={{ fontSize: 12, fill: 'white' }} interval={0} />
+                                <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }}/>
+                                <Bar 
+                                    dataKey={isLostView ? "sales2024" : "sales2025"} 
+                                    name={isLostView ? "2024 Sales" : "2025 Sales"}
+                                    fill={isLostView ? "#f87171" : "#34d399"} 
+                                />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
