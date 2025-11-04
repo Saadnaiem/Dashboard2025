@@ -459,7 +459,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 flex flex-col gap-6">
                     {isLostView ? (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                             <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
                                 Total Lost Sales (2024)
                             </h3>
@@ -478,7 +478,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             </div>
                         </div>
                     ) : isNewView ? (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                             <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
                                 Total New Sales (2025)
                             </h3>
@@ -497,7 +497,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             </div>
                         </div>
                     ) : (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                             <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total Sales (2025)</h3>
                             <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(processedViewData.totalSales2025)}</div>
                             <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(processedViewData.totalSales2024)}</div>
@@ -506,7 +506,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     )}
 
                     {performanceMetric && (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
+                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                             <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">{performanceMetric.title}</h3>
                             <div className="text-5xl font-extrabold text-green-400">{performanceMetric.value.toFixed(1)}%</div>
                             <div className="text-sm font-bold text-slate-400 mt-1">{performanceMetric.subtext}</div>
@@ -514,7 +514,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     )}
                 </div>
                  {pieChartData && (
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 lg:col-span-2">
+                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 lg:col-span-2 hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                         <h3 className="text-xl font-bold text-white mb-4 text-center">Top 5 Contribution (2025)</h3>
                         <ResponsiveContainer width="100%" height={400}>
                             <PieChart>
@@ -612,13 +612,14 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                             yearStyle = 'font-bold text-lg text-green-400';
                                         }
                                         
-                                        const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle}`;
+                                        const isItemNameCol = col.header === 'Item Name';
+                                        const value = row[col.key as keyof typeof row];
+                                        const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle} ${isItemNameCol ? 'item-name-cell' : ''}`;
 
                                         return (
-                                            <td key={col.key} className={tdClassName}>
+                                            <td key={col.key} className={tdClassName} title={isItemNameCol ? String(value) : undefined}>
                                                 {(() => {
                                                     if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
-                                                    const value = row[col.key as keyof typeof row];
                                                     if (col.key === 'growth') return <GrowthIndicator value={value} />;
                                                     if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
                                                     if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
@@ -641,7 +642,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
             {barChartData && barChartData.length > 0 && viewType && (
                 <div className="mt-8">
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700">
+                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700 hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                         <h3 className="text-xl font-bold text-white mb-4 text-center">
                             Top {barChartData.length} {isNewView ? 'New' : 'Lost'} {viewType.includes('brands') ? 'Brands' : 'Items'}
                         </h3>

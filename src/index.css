@@ -73,3 +73,10 @@ body {
 .table-banded tbody tr:nth-child(even) {
     @apply bg-slate-800/20;
 }
+
+.item-name-cell {
+    max-width: 350px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
