@@ -489,7 +489,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                     labelLine={false}
                                     label={renderCustomizedLabel}
                                 >
-                                    {pieChartData.map((entry, index) => (
+                                    {pieChartData.map((_entry, index) => (
                                         <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
                                     ))}
                                 </Pie>
