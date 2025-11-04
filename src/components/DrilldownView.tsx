@@ -8,13 +8,8 @@ import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData } from '..
 import { processSalesData } from '../services/dataProcessor';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
-
-// FIX: The global declaration of `window.aistudio` was removed to resolve a TypeScript error.
-// The error "Subsequent property declarations must have the same type" indicates that
-// a global type for `window.aistudio` (likely of type `AIStudio`) already exists in the project,
-// making this redeclaration both unnecessary and conflicting.
-
-const logoBase64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAaMAAABfCAYAAABaDu4AAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAA9wSURBVHhe7Z3/i9NWAMf7j1rVKn/r/68q8U+1WlUqtapV/1erlKq8W61WXW3l3mq1VlXG9973Y86dc+455+Q7+ZzkZDLJJPN7zsnM5HI5vB0REROJGEiMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBESMBes/";
+import ApiKeyModal from './ApiKeyModal';
+import { logoBase64 } from '../assets/logo';
 
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
@@ -54,6 +49,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [aiSummary, setAiSummary] = useState('');
     const [isAiLoading, setIsAiLoading] = useState(false);
     const [aiError, setAiError] = useState('');
+    const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
 
     const isLostView = viewType === 'lost_brands' || viewType === 'lost_items';
     const isNewView = viewType === 'new_brands' || viewType === 'new_items';
@@ -357,26 +353,22 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             document.body.removeChild(link);
         }
     };
-
+    
     const handleGetAiSummary = async () => {
         setIsAiLoading(true);
         setAiSummary('');
         setAiError('');
 
+        const apiKey = localStorage.getItem('gemini_api_key');
+
+        if (!apiKey) {
+            setIsApiKeyModalOpen(true);
+            setIsAiLoading(false);
+            return;
+        }
+
         try {
-            const hasApiKey = await window.aistudio.hasSelectedApiKey();
-            if (!hasApiKey) {
-                await window.aistudio.openSelectKey();
-            }
-
-            // After potentially showing the dialog, check if we have a key.
-            if (!process.env.API_KEY) {
-                setAiError("An API key is required. Please select one to proceed.");
-                setIsAiLoading(false);
-                return;
-            }
-
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+            const ai = new GoogleGenAI({ apiKey });
             
             const dataForPrompt = sortedData.slice(0, 20).map(row => {
                 const { name, sales2024, sales2025, growth } = row;
@@ -400,14 +392,22 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             console.error("Error fetching AI summary:", error);
             const errorMessage = error instanceof Error ? error.message : "An unknown error occurred.";
             
-            if (errorMessage.includes("API key not valid") || errorMessage.includes("Requested entity was not found")) {
-                 setAiError("There was an issue with your API key. Click the button again to select a new one.");
+            if (errorMessage.includes("API key not valid") || errorMessage.includes("permission denied")) {
+                 localStorage.removeItem('gemini_api_key'); // Clear bad key
+                 setAiError("Your API key is invalid or has insufficient permissions. Please enter a new one.");
+                 setIsApiKeyModalOpen(true);
             } else {
                  setAiError(errorMessage);
             }
         } finally {
             setIsAiLoading(false);
         }
+    };
+    
+    const handleApiKeySave = (newKey: string) => {
+        localStorage.setItem('gemini_api_key', newKey);
+        setIsApiKeyModalOpen(false);
+        handleGetAiSummary(); // Retry after saving new key
     };
 
     if (!processedViewData) {
@@ -421,6 +421,11 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     return (
         <div className="flex flex-col gap-6">
+            <ApiKeyModal
+                isOpen={isApiKeyModalOpen}
+                onClose={() => setIsApiKeyModalOpen(false)}
+                onSave={handleApiKeySave}
+            />
             <Header />
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                 <h2 className="text-2xl font-bold text-white text-center sm:text-left">{title}</h2>
