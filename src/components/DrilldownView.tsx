@@ -3,6 +3,7 @@ import { useParams, useSearchParams, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend } from 'recharts';
 import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData } from '../types';
 import { processSalesData } from '../services/dataProcessor';
 import Header from './Header';
@@ -248,6 +249,31 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         }
         return sortableData;
     }, [finalData, sortConfig]);
+
+    const pieChartData = useMemo(() => {
+        const appropriateViews = ['divisions', 'branches', 'brands', 'items', 'pareto_branches', 'pareto_brands', 'pareto_items'];
+        if (!appropriateViews.includes(viewType!) || !dataForTable || dataForTable.length === 0) {
+            return null;
+        }
+
+        const sortedBySales = [...dataForTable].sort((a, b) => b.sales2025 - a.sales2025);
+
+        const topN = 5;
+        const topData = sortedBySales.slice(0, topN);
+        const otherData = sortedBySales.slice(topN);
+
+        if (otherData.length === 0) {
+            return topData.map(d => ({ name: d.name, value: d.sales2025 }));
+        }
+
+        const othersValue = otherData.reduce((acc, curr) => acc + curr.sales2025, 0);
+
+        return [
+            ...topData.map(d => ({ name: d.name, value: d.sales2025 })),
+            { name: 'Others', value: othersValue }
+        ].filter(d => d.value > 0);
+
+    }, [dataForTable, viewType]);
     
     const requestSort = (key: SortableKeys | 'no') => {
         if (key === 'no') return;
@@ -321,7 +347,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 head: head,
                 body: finalBody,
                 theme: 'striped',
-                headStyles: { fillColor: [14, 165, 233] }, // sky-500
+                headStyles: { fillColor: [52, 211, 153] }, // Green color
             });
             doc.save(`${filename}.pdf`);
         } else {
@@ -350,6 +376,32 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         </div>;
     }
 
+    const PIE_CHART_COLORS = ['#38bdf8', '#818cf8', '#34d399', '#fb7185', '#facc15', '#9ca3af'];
+    const RADIAN = Math.PI / 180;
+
+    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
+        if (percent < 0.05) return null;
+        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+        return (
+            <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="font-bold text-xs pointer-events-none">
+                {`${(percent * 100).toFixed(0)}%`}
+            </text>
+        );
+    };
+
+    const PieTooltip = ({ active, payload }: any) => {
+        if (active && payload && payload.length) {
+            return (
+                <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-3 rounded-lg shadow-lg">
+                    <p className="font-bold" style={{ color: payload[0].payload.fill }}>{`${payload[0].name}: ${formatNumberAbbreviated(payload[0].value)}`}</p>
+                </div>
+            );
+        }
+        return null;
+    };
+
     return (
         <div className="flex flex-col gap-6">
             <Header />
@@ -367,7 +419,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </div>
             )}
             
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {isLostView ? (
                     <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
                         <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
@@ -420,6 +472,31 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                         <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">{performanceMetric.title}</h3>
                         <div className="text-5xl font-extrabold text-green-400">{performanceMetric.value.toFixed(1)}%</div>
                         <div className="text-sm font-bold text-slate-400 mt-1">{performanceMetric.subtext}</div>
+                    </div>
+                )}
+                 {pieChartData && (
+                    <div className={`bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 ${!performanceMetric ? 'md:col-span-1 lg:col-span-2' : ''}`}>
+                        <h3 className="text-xl font-bold text-white mb-4 text-center">Top 5 Contribution (2025)</h3>
+                        <ResponsiveContainer width="100%" height={250}>
+                            <PieChart>
+                                <Pie
+                                    data={pieChartData}
+                                    dataKey="value"
+                                    nameKey="name"
+                                    cx="50%"
+                                    cy="50%"
+                                    outerRadius={80}
+                                    labelLine={false}
+                                    label={renderCustomizedLabel}
+                                >
+                                    {pieChartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
+                                    ))}
+                                </Pie>
+                                <Tooltip content={<PieTooltip />} />
+                                <Legend wrapperStyle={{fontSize: "12px", paddingTop: "20px"}} />
+                            </PieChart>
+                        </ResponsiveContainer>
                     </div>
                 )}
             </div>
