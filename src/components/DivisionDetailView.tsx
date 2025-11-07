@@ -1,10 +1,11 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { RawSalesDataRow } from '../types';
 import Header from './Header';
-import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
 const calculateGrowth = (current: number, previous: number) => 
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -168,7 +169,8 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     }, [divisionData, selectedDepartment]);
 
     const sortedTableData = useMemo(() => {
-        return [...(processedData?.tableData || [])].sort((a, b) => {
+        if (!processedData?.tableData) return [];
+        return [...processedData.tableData].sort((a, b) => {
             if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
             if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
@@ -192,6 +194,16 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     if (!processedData) return <div className="text-center py-10">No data available for this division or filter combination.</div>;
 
     const PIE_COLORS = ['#38bdf8', '#818cf8', '#34d399', '#fb7185', '#facc15', '#9ca3af'];
+    
+    const tableColumns: { key: keyof TableData; header: string; isNumeric?: boolean }[] = [
+        { key: 'department', header: 'Department' },
+        { key: 'category', header: 'Category' },
+        { key: 'sales2024', header: '2024 Sales', isNumeric: true },
+        { key: 'sales2025', header: '2025 Sales', isNumeric: true },
+        { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
+        { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
+        { key: 'growth', header: 'Growth %', isNumeric: true },
+    ];
 
     return (
         <div className="flex flex-col gap-6">
@@ -226,7 +238,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                     <ResponsiveContainer width="100%" height={300}>
                         <PieChart>
                             <Pie data={categoryChartData} dataKey="sales2025" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                                {categoryChartData.map((entry, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
+                                {categoryChartData.map((_, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
                             </Pie>
                             <Tooltip content={<CustomTooltip />} />
                             <Legend />
@@ -253,10 +265,10 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                     <table className="w-full text-left text-slate-300 table-sortable table-banded">
                         <thead className="text-xs text-slate-400 uppercase bg-slate-700/50">
                             <tr>
-                                {(Object.keys(sortConfig) as Array<keyof TableData>).map(key => (
-                                    <th key={key} scope="col" className="p-3 cursor-pointer" onClick={() => requestSort(key)}>
-                                        {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
-                                        {sortConfig.key === key ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
+                                {tableColumns.map(col => (
+                                    <th key={col.key} scope="col" className={`p-3 cursor-pointer ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key)}>
+                                        {col.header}
+                                        {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? ' ▲' : ' ▼') : ''}
                                     </th>
                                 ))}
                             </tr>
@@ -264,13 +276,25 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                         <tbody>
                             {sortedTableData.map((row, index) => (
                                 <tr key={index} className="hover:bg-slate-800/80 transition-colors text-sm">
-                                    <td className="p-3">{row.department}</td>
-                                    <td className="p-3">{row.category}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(row.sales2024)}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(row.sales2025)}</td>
-                                    <td className="p-3 text-right">{row.contribution2024.toFixed(2)}%</td>
-                                    <td className="p-3 text-right">{row.contribution2025.toFixed(2)}%</td>
-                                    <td className="p-3 text-right"><GrowthIndicator value={row.growth} /></td>
+                                   {tableColumns.map(col => (
+                                       <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
+                                            {(() => {
+                                                const value = row[col.key];
+                                                switch(col.key) {
+                                                    case 'sales2024':
+                                                    case 'sales2025':
+                                                        return formatNumberAbbreviated(value as number);
+                                                    case 'contribution2024':
+                                                    case 'contribution2025':
+                                                        return `${(value as number).toFixed(2)}%`;
+                                                    case 'growth':
+                                                        return <GrowthIndicator value={value as number} />;
+                                                    default:
+                                                        return value;
+                                                }
+                                            })()}
+                                       </td>
+                                   ))}
                                 </tr>
                             ))}
                         </tbody>
