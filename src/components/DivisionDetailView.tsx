@@ -1,8 +1,7 @@
 
-
 import React, { useMemo, useState } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import { useParams, Link } from 'react-router-dom';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
 import { RawSalesDataRow } from '../types';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
@@ -46,40 +45,24 @@ type TableData = {
     growth: number;
 };
 
+const DEPT_ROW_COLORS = [
+    'bg-sky-900/10',
+    'bg-indigo-900/10',
+    'bg-emerald-900/10',
+    'bg-rose-900/10',
+    'bg-amber-900/10',
+    'bg-violet-900/10'
+];
+
 const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) => {
     const { divisionName } = useParams<{ divisionName: string }>();
-    const [searchParams] = useSearchParams();
     const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
+    const [collapsedDepartments, setCollapsedDepartments] = useState<Set<string>>(new Set());
 
     const divisionData = useMemo(() => {
-        const filters = {
-            departments: searchParams.get('departments')?.split(',') || [],
-            categories: searchParams.get('categories')?.split(',') || [],
-            branches: searchParams.get('branches')?.split(',') || [],
-            brands: searchParams.get('brands')?.split(',') || [],
-        };
-        const searchTerm = searchParams.get('search')?.toLowerCase() || '';
-
-        return allRawData.filter(row => {
-            if (row['DIVISION'] !== divisionName) return false;
-
-            const { departments, categories, branches, brands } = filters;
-            const departmentMatch = departments.length === 0 || departments.includes(row['DEPARTMENT']);
-            const categoryMatch = categories.length === 0 || categories.includes(row['CATEGORY']);
-            const branchMatch = branches.length === 0 || branches.includes(row['BRANCH NAME']);
-            const brandMatch = brands.length === 0 || brands.includes(row['BRAND']);
-            if (!(departmentMatch && categoryMatch && branchMatch && brandMatch)) return false;
-            
-            if (searchTerm) {
-                 return (row['BRANCH NAME']?.toLowerCase().includes(searchTerm)) ||
-                        (row['BRAND']?.toLowerCase().includes(searchTerm)) ||
-                        (row['ITEM DESCRIPTION']?.toLowerCase().includes(searchTerm));
-            }
-
-            return true;
-        });
-    }, [allRawData, divisionName, searchParams]);
+        return allRawData.filter(row => row['DIVISION'] === divisionName);
+    }, [allRawData, divisionName]);
 
     const processedData = useMemo(() => {
         if (!divisionData.length) return null;
@@ -87,7 +70,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         let totalSales2024 = 0;
         let totalSales2025 = 0;
         const departments: { [key: string]: { s24: number, s25: number } } = {};
-        const categories: { [key: string]: { s24: number, s25: number } } = {};
         const tableMap = new Map<string, { department: string; category: string; s24: number; s25: number }>();
 
         divisionData.forEach(row => {
@@ -98,11 +80,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 departments[row.DEPARTMENT] = departments[row.DEPARTMENT] || { s24: 0, s25: 0 };
                 departments[row.DEPARTMENT].s24 += row.SALES2024;
                 departments[row.DEPARTMENT].s25 += row.SALES2025;
-            }
-            if (row.CATEGORY) {
-                 categories[row.CATEGORY] = categories[row.CATEGORY] || { s24: 0, s25: 0 };
-                 categories[row.CATEGORY].s24 += row.SALES2024;
-                 categories[row.CATEGORY].s25 += row.SALES2025;
             }
             
             const tableKey = `${row.DEPARTMENT}|${row.CATEGORY}`;
@@ -132,27 +109,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         return { totalSales2024, totalSales2025, departmentsData, tableData };
     }, [divisionData]);
 
-    const categoryChartData = useMemo(() => {
-        if (!processedData) return [];
-        const sourceData = selectedDepartment ? divisionData.filter(r => r['DEPARTMENT'] === selectedDepartment) : divisionData;
-        const totalSales2025 = sourceData.reduce((acc, row) => acc + row.SALES2025, 0);
-        
-        const categories: { [key: string]: { s24: number, s25: number } } = {};
-        sourceData.forEach(row => {
-            if (row.CATEGORY) {
-                categories[row.CATEGORY] = categories[row.CATEGORY] || { s24: 0, s25: 0 };
-                categories[row.CATEGORY].s24 += row.SALES2024;
-                categories[row.CATEGORY].s25 += row.SALES2025;
-            }
-        });
-        return Object.entries(categories).map(([name, { s24, s25 }]) => ({
-            name,
-            sales2024: s24,
-            sales2025: s25,
-            contribution2025: totalSales2025 > 0 ? (s25 / totalSales2025) * 100 : 0,
-        })).sort((a,b) => b.sales2025 - a.sales2025);
-    }, [divisionData, processedData, selectedDepartment]);
-
     const topBranchesData = useMemo(() => {
         const sourceData = selectedDepartment ? divisionData.filter(r => r['DEPARTMENT'] === selectedDepartment) : divisionData;
         const branches: { [key: string]: { s25: number } } = {};
@@ -168,14 +124,42 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         })).sort((a, b) => b.sales2025 - a.sales2025).slice(0, 10);
     }, [divisionData, selectedDepartment]);
 
-    const sortedTableData = useMemo(() => {
+    const groupedData = useMemo(() => {
         if (!processedData?.tableData) return [];
-        return [...processedData.tableData].sort((a, b) => {
-            if (a[sortConfig.key] < b[sortConfig.key]) return sortConfig.direction === 'asc' ? -1 : 1;
-            if (a[sortConfig.key] > b[sortConfig.key]) return sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
+
+        const groups: Record<string, TableData[]> = {};
+        for (const row of processedData.tableData) {
+            if (!groups[row.department]) groups[row.department] = [];
+            groups[row.department].push(row);
+        }
+
+        const result = Object.entries(groups).map(([departmentName, categories]) => {
+            const sortedCategories = [...categories].sort((a, b) => {
+                 const aVal = a[sortConfig.key];
+                 const bVal = b[sortConfig.key];
+                 if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
+                 if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+                 return 0;
+            });
+
+            const total = categories.reduce((acc, row) => {
+                acc.sales2024 += row.sales2024;
+                acc.sales2025 += row.sales2025;
+                return acc;
+            }, { sales2024: 0, sales2025: 0 });
+
+            const finalTotal: TableData = {
+                department: departmentName, category: 'TOTAL', sales2024: total.sales2024, sales2025: total.sales2025,
+                growth: calculateGrowth(total.sales2025, total.sales2024),
+                contribution2024: processedData.totalSales2024 > 0 ? (total.sales2024 / processedData.totalSales2024) * 100 : 0,
+                contribution2025: processedData.totalSales2025 > 0 ? (total.sales2025 / processedData.totalSales2025) * 100 : 0,
+            };
+            
+            return { departmentName, categories: sortedCategories, total: finalTotal };
         });
-    }, [processedData?.tableData, sortConfig]);
+
+        return result.sort((a, b) => b.total.sales2025 - a.total.sales2025);
+    }, [processedData, sortConfig]);
 
     const handleDepartmentClick = (payload: any) => {
         if (payload && payload.name) {
@@ -191,18 +175,24 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         setSortConfig({ key, direction });
     };
 
-    if (!processedData) return <div className="text-center py-10">No data available for this division or filter combination.</div>;
+    const toggleDepartmentCollapse = (deptName: string) => {
+        setCollapsedDepartments(prev => {
+            const newSet = new Set(prev);
+            if (newSet.has(deptName)) {
+                newSet.delete(deptName);
+            } else {
+                newSet.add(deptName);
+            }
+            return newSet;
+        });
+    };
 
-    const PIE_COLORS = ['#38bdf8', '#818cf8', '#34d399', '#fb7185', '#facc15', '#9ca3af'];
+    if (!processedData) return <div className="text-center py-10">No data available for this division or filter combination.</div>;
     
     const tableColumns: { key: keyof TableData; header: string; isNumeric?: boolean }[] = [
-        { key: 'department', header: 'Department' },
-        { key: 'category', header: 'Category' },
-        { key: 'sales2024', header: '2024 Sales', isNumeric: true },
-        { key: 'sales2025', header: '2025 Sales', isNumeric: true },
-        { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
-        { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
-        { key: 'growth', header: 'Growth %', isNumeric: true },
+        { key: 'category', header: 'Category' }, { key: 'sales2024', header: '2024 Sales', isNumeric: true },
+        { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
+        { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }, { key: 'growth', header: 'Growth %', isNumeric: true },
     ];
 
     return (
@@ -218,34 +208,21 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 </Link>
             </div>
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <ChartCard title="Department Sales & Contribution (2025)">
-                     <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={processedData.departmentsData} layout="vertical" margin={{ left: 80 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                            <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
-                            <YAxis type="category" dataKey="name" stroke="white" width={80} tick={{ fontSize: 12 }} />
-                            <Tooltip content={<CustomTooltip />} />
-                            <Bar dataKey="sales2025" fill="#34d399" className="cursor-pointer" onClick={(data) => handleDepartmentClick(data)}>
-                                {processedData.departmentsData.map((entry) => (
-                                    <Cell key={entry.name} fill={selectedDepartment === entry.name ? '#f59e0b' : '#34d399'} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-                <ChartCard title={selectedDepartment ? `Categories in ${selectedDepartment}` : 'All Categories Sales (2025)'}>
-                    <ResponsiveContainer width="100%" height={300}>
-                        <PieChart>
-                            <Pie data={categoryChartData} dataKey="sales2025" nameKey="name" cx="50%" cy="50%" outerRadius={100} label>
-                                {categoryChartData.map((_, index) => <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />)}
-                            </Pie>
-                            <Tooltip content={<CustomTooltip />} />
-                            <Legend />
-                        </PieChart>
-                    </ResponsiveContainer>
-                </ChartCard>
-            </div>
+            <ChartCard title="Department Sales & Contribution (2025)" className="lg:col-span-2">
+                 <ResponsiveContainer width="100%" height={Math.max(300, processedData.departmentsData.length * 35)}>
+                    <BarChart data={processedData.departmentsData} layout="vertical" margin={{ left: 100, right: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                        <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
+                        <YAxis type="category" dataKey="name" stroke="white" width={100} tick={{ fontSize: 12 }} interval={0} />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Bar dataKey="sales2025" fill="#34d399" className="cursor-pointer" onClick={(data) => handleDepartmentClick(data)}>
+                            {processedData.departmentsData.map((entry) => (
+                                <Cell key={entry.name} fill={selectedDepartment === entry.name ? '#f59e0b' : '#34d399'} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </ChartCard>
             
             <ChartCard title={selectedDepartment ? `Top 10 Branches in ${selectedDepartment}` : 'Top 10 Branches'}>
                 <ResponsiveContainer width="100%" height={400}>
@@ -262,9 +239,10 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             <div className="bg-slate-800/50 p-4 rounded-2xl shadow-lg border border-slate-700">
                 <h3 className="text-xl font-bold text-white mb-4 text-center">Detailed Department & Category Performance</h3>
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-slate-300 table-sortable table-banded">
+                    <table className="w-full text-left text-slate-300 table-sortable">
                         <thead className="text-xs text-slate-400 uppercase bg-slate-700/50">
                             <tr>
+                                <th className="p-3">Department</th>
                                 {tableColumns.map(col => (
                                     <th key={col.key} scope="col" className={`p-3 cursor-pointer ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key)}>
                                         {col.header}
@@ -273,31 +251,42 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                                 ))}
                             </tr>
                         </thead>
-                        <tbody>
-                            {sortedTableData.map((row, index) => (
-                                <tr key={index} className="hover:bg-slate-800/80 transition-colors text-sm">
-                                   {tableColumns.map(col => (
-                                       <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
-                                            {(() => {
-                                                const value = row[col.key];
-                                                switch(col.key) {
-                                                    case 'sales2024':
-                                                    case 'sales2025':
-                                                        return formatNumberAbbreviated(value as number);
-                                                    case 'contribution2024':
-                                                    case 'contribution2025':
-                                                        return `${(value as number).toFixed(2)}%`;
-                                                    case 'growth':
-                                                        return <GrowthIndicator value={value as number} />;
-                                                    default:
-                                                        return value;
-                                                }
-                                            })()}
-                                       </td>
-                                   ))}
+                        {groupedData.map((group, deptIndex) => (
+                             <tbody key={group.departmentName} className={DEPT_ROW_COLORS[deptIndex % DEPT_ROW_COLORS.length]}>
+                                {group.categories.map((row, catIndex) => (
+                                    <tr key={`${group.departmentName}-${catIndex}`} className="hover:bg-slate-700/50 transition-colors text-sm">
+                                       <td className="p-3 whitespace-nowrap">{catIndex === 0 ? row.department : ''}</td>
+                                       {tableColumns.map(col => (
+                                           <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
+                                                {(() => {
+                                                    const value = row[col.key];
+                                                    switch(col.key) {
+                                                        case 'sales2024':
+                                                        case 'sales2025':
+                                                            return formatNumberAbbreviated(value as number);
+                                                        case 'contribution2024':
+                                                        case 'contribution2025':
+                                                            return `${(value as number).toFixed(2)}%`;
+                                                        case 'growth':
+                                                            return <GrowthIndicator value={value as number} />;
+                                                        default:
+                                                            return value;
+                                                    }
+                                                })()}
+                                           </td>
+                                       ))}
+                                    </tr>
+                                ))}
+                                <tr className="bg-slate-700/40 font-bold text-white text-sm">
+                                    <td className="p-3 whitespace-nowrap" colSpan={2}>{group.departmentName} TOTAL</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2024)}</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2025)}</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{group.total.contribution2024.toFixed(2)}%</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{group.total.contribution2025.toFixed(2)}%</td>
+                                    <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={group.total.growth} /></td>
                                 </tr>
-                            ))}
-                        </tbody>
+                            </tbody>
+                        ))}
                     </table>
                 </div>
             </div>
