@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
@@ -82,6 +82,7 @@ const DEPT_ROW_COLORS = [
 const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) => {
     const { divisionName } = useParams<{ divisionName: string }>();
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
+    const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
 
     const allBranchesList = useMemo(() => {
         return [...new Set(allRawData.map(r => r['BRANCH NAME']))].filter(Boolean);
@@ -90,6 +91,13 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     const divisionData = useMemo(() => {
         return allRawData.filter(row => row['DIVISION'] === divisionName);
     }, [allRawData, divisionName]);
+
+    const handleDepartmentClick = (data: any) => {
+        if (data && data.name) {
+            const departmentName = data.name;
+            setSelectedDepartment(prev => (prev === departmentName ? null : departmentName));
+        }
+    };
 
     const processedData = useMemo(() => {
         if (!divisionData.length) return null;
@@ -133,11 +141,18 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
 
         return { totalSales2024, totalSales2025, departmentsData, tableData, grandTotal };
     }, [divisionData]);
+    
+    const departmentFilteredDivisionData = useMemo(() => {
+        if (!selectedDepartment) return divisionData;
+        return divisionData.filter(row => row['DEPARTMENT'] === selectedDepartment);
+    }, [divisionData, selectedDepartment]);
+
 
     const allBranchesData = useMemo(() => {
         if (!processedData) return [];
+        // Use division total for consistent contribution %
         const { totalSales2025 } = processedData;
-        const sourceData = divisionData;
+        const sourceData = departmentFilteredDivisionData; 
         
         const salesByBranch: { [key: string]: { s24: number, s25: number } } = {};
         sourceData.forEach(row => {
@@ -156,8 +171,17 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 contribution2025: totalSales2025 > 0 ? (sales.s25 / totalSales2025) * 100 : 0,
             };
         });
-        return allBranchesSales.sort((a, b) => b.sales2025 - a.sales2025);
-    }, [divisionData, allBranchesList, processedData]);
+
+        const sortedBranches = allBranchesSales.sort((a, b) => b.sales2025 - a.sales2025);
+        
+        if (selectedDepartment) {
+            // Only show branches that have sales for the selected department
+            return sortedBranches.filter(b => b.sales2024 !== 0 || b.sales2025 !== 0);
+        }
+
+        return sortedBranches;
+
+    }, [departmentFilteredDivisionData, allBranchesList, processedData, selectedDepartment]);
 
     const groupedData = useMemo(() => {
         if (!processedData?.tableData) return [];
@@ -190,20 +214,28 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         return result.sort((a, b) => b.total.sales2025 - a.total.sales2025);
     }, [processedData, sortConfig]);
 
+    const finalGroupedData = useMemo(() => {
+        if (!selectedDepartment) return groupedData;
+        return groupedData.filter(group => group.departmentName === selectedDepartment);
+    }, [groupedData, selectedDepartment]);
+
     const handleExport = (format: 'csv' | 'pdf') => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
-        const title = `Division Analysis: ${divisionName}`;
+        const title = `Division Analysis: ${divisionName}${selectedDepartment ? ` - ${selectedDepartment}`: ''}`;
         const head = [['Department', 'Category', '2024 Sales', '2025 Sales', 'Contrib % 2024', 'Contrib % 2025', 'Growth %']];
         
         const body: (string|number)[][] = [];
-        body.push(['GRAND TOTAL', '---', 
-            formatNumberAbbreviated(processedData!.grandTotal.sales2024), 
-            formatNumberAbbreviated(processedData!.grandTotal.sales2025), 
-            '100.00%', '100.00%', 
-            `${processedData!.grandTotal.growth.toFixed(2)}%`
-        ]);
+        
+        if (!selectedDepartment && processedData) {
+            body.push(['GRAND TOTAL', '---', 
+                formatNumberAbbreviated(processedData.grandTotal.sales2024), 
+                formatNumberAbbreviated(processedData.grandTotal.sales2025), 
+                '100.00%', '100.00%', 
+                `${processedData.grandTotal.growth.toFixed(2)}%`
+            ]);
+        }
 
-        groupedData.forEach(group => {
+        finalGroupedData.forEach(group => {
             body.push([group.departmentName, 'TOTAL', 
                 formatNumberAbbreviated(group.total.sales2024), formatNumberAbbreviated(group.total.sales2025), 
                 `${group.total.contribution2024.toFixed(2)}%`, `${group.total.contribution2025.toFixed(2)}%`, 
@@ -258,7 +290,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 </Link>
             </div>
             
-            <ChartCard title="Department Sales Performance" className="lg:col-span-2">
+            <ChartCard title="Department Sales Performance (Click to Filter)" className="lg:col-span-2">
                  <ResponsiveContainer width="100%" height={Math.max(300, processedData.departmentsData.length * 40)}>
                     <BarChart data={processedData.departmentsData} layout="vertical" margin={{ left: 100, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -266,13 +298,21 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                         <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={15} />} interval={0} />
                         <Tooltip content={<EnhancedTooltip />} cursor={{ fill: 'rgba(100, 116, 139, 0.2)' }}/>
                         <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                        <Bar dataKey="sales2024" name="2024 Sales" fill="#38bdf8" />
-                        <Bar dataKey="sales2025" name="2025 Sales" fill="#34d399" />
+                        <Bar dataKey="sales2024" name="2024 Sales" onClick={handleDepartmentClick}>
+                            {processedData.departmentsData.map((entry, index) => (
+                                <Cell key={`cell-24-${index}`} cursor="pointer" fill="#38bdf8" opacity={!selectedDepartment || selectedDepartment === entry.name ? 1 : 0.3} />
+                            ))}
+                        </Bar>
+                        <Bar dataKey="sales2025" name="2025 Sales" onClick={handleDepartmentClick}>
+                             {processedData.departmentsData.map((entry, index) => (
+                                <Cell key={`cell-25-${index}`} cursor="pointer" fill="#34d399" opacity={!selectedDepartment || selectedDepartment === entry.name ? 1 : 0.3} />
+                            ))}
+                        </Bar>
                     </BarChart>
                 </ResponsiveContainer>
             </ChartCard>
             
-            <ChartCard title={'Branch Performance'}>
+            <ChartCard title={`Branch Performance${selectedDepartment ? ` for ${selectedDepartment}` : ''}`}>
                 <ResponsiveContainer width="100%" height={branchChartHeight}>
                     <BarChart layout="vertical" data={allBranchesData} margin={{ left: 120, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -288,7 +328,9 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
 
             <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
                  <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-700">
-                    <h3 className="text-xl font-bold text-white text-center">Detailed Department & Category Performance</h3>
+                    <h3 className="text-xl font-bold text-white text-center">
+                        Detailed Performance {selectedDepartment ? ` for ${selectedDepartment}` : ' (All Departments)'}
+                    </h3>
                     <div className="flex items-center gap-2">
                         <button onClick={() => handleExport('csv')} className="px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">Export CSV</button>
                         <button onClick={() => handleExport('pdf')} className="px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">Export PDF</button>
@@ -307,15 +349,17 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                             </tr>
                         </thead>
                         <tbody>
-                             <tr className="bg-sky-900/60 font-bold text-white sticky top-[41px] z-10 backdrop-blur-sm">
-                                <td className="p-3 whitespace-nowrap" colSpan={2}>GRAND TOTAL</td>
-                                <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2024)}</td>
-                                <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2025)}</td>
-                                <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={100} /></td>
-                                <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={100} /></td>
-                                <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={processedData.grandTotal.growth} /></td>
-                            </tr>
-                            {groupedData.map((group, deptIndex) => (
+                             {!selectedDepartment && (
+                                <tr className="bg-sky-900/60 font-bold text-white sticky top-[41px] z-10 backdrop-blur-sm">
+                                    <td className="p-3 whitespace-nowrap" colSpan={2}>GRAND TOTAL</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2024)}</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2025)}</td>
+                                    <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={100} /></td>
+                                    <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={100} /></td>
+                                    <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={processedData.grandTotal.growth} /></td>
+                                </tr>
+                             )}
+                            {finalGroupedData.map((group, deptIndex) => (
                                 <React.Fragment key={group.departmentName}>
                                     <tr className="bg-slate-700/60 font-bold text-white text-sm">
                                         <td className="p-3 whitespace-nowrap" colSpan={2}>{group.departmentName} TOTAL</td>
