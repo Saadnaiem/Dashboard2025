@@ -1,7 +1,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { RawSalesDataRow } from '../types';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
@@ -58,7 +58,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     const { divisionName } = useParams<{ divisionName: string }>();
     const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
-    const [collapsedDepartments, setCollapsedDepartments] = useState<Set<string>>(new Set());
 
     const divisionData = useMemo(() => {
         return allRawData.filter(row => row['DIVISION'] === divisionName);
@@ -173,18 +172,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             direction = 'desc';
         }
         setSortConfig({ key, direction });
-    };
-
-    const toggleDepartmentCollapse = (deptName: string) => {
-        setCollapsedDepartments(prev => {
-            const newSet = new Set(prev);
-            if (newSet.has(deptName)) {
-                newSet.delete(deptName);
-            } else {
-                newSet.add(deptName);
-            }
-            return newSet;
-        });
     };
 
     if (!processedData) return <div className="text-center py-10">No data available for this division or filter combination.</div>;
