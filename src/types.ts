@@ -2,14 +2,14 @@
 export interface RawSalesDataRow {
     [key: string]: any;
     'DIVISION': string;
-    'DEPARTMENT'?: string;
+    'DEPARTMENT': string;
     'SALES2024': number;
     'SALES2025': number;
-    'BRANCH CODE'?: string;
+    'BRANCH CODE': string;
     'BRANCH NAME': string;
-    'CATEGORY'?: string;
+    'CATEGORY': string;
     'BRAND': string;
-    'ITEM CODE'?: string;
+    'ITEM CODE': string;
     'ITEM DESCRIPTION': string;
 }
 

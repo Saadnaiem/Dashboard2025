@@ -244,9 +244,9 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                 currentFilterValues.length === 1 &&
                 currentFilterValues[0] === value
             ) {
-                onFilterChange({ divisions: [], branches: [], brands: [], items: [] });
+                onFilterChange({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
             } else {
-                onFilterChange({ divisions: [], branches: [], brands: [], items: [], [filterKey]: [value] });
+                onFilterChange({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [], [filterKey]: [value] });
             }
         }
     }, [onFilterChange, filters]);
@@ -258,9 +258,9 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             const currentFilterValues = filters.divisions;
 
             if (Array.isArray(currentFilterValues) && currentFilterValues.length === 1 && currentFilterValues[0] === divisionName) {
-                onFilterChange({ divisions: [], branches: [], brands: [], items: [] });
+                onFilterChange({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
             } else {
-                onFilterChange({ divisions: [divisionName], branches: [], brands: [], items: [] });
+                onFilterChange({ divisions: [divisionName], departments: [], categories: [], branches: [], brands: [], items: [] });
             }
         }
     }, [activeIndex, data.salesByDivision, onFilterChange, filters]);
