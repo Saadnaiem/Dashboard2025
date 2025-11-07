@@ -42,13 +42,15 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [searchParams] = useSearchParams();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' } | null>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
-    const [localFilters, setLocalFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
+    const [localFilters, setLocalFilters] = useState<FilterState>({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
     
     const isLostView = viewType === 'lost_brands' || viewType === 'lost_items';
     const isNewView = viewType === 'new_brands' || viewType === 'new_items';
 
     const globalFilters: FilterState = useMemo(() => ({
         divisions: searchParams.get('divisions')?.split(',') || [],
+        departments: searchParams.get('departments')?.split(',') || [],
+        categories: searchParams.get('categories')?.split(',') || [],
         branches: searchParams.get('branches')?.split(',') || [],
         brands: searchParams.get('brands')?.split(',') || [],
         items: searchParams.get('items')?.split(',') || [],
@@ -59,6 +61,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     useEffect(() => {
         setLocalFilters({
             divisions: searchParams.get('divisions_local')?.split(',').filter(Boolean) || [],
+            departments: searchParams.get('departments_local')?.split(',').filter(Boolean) || [],
+            categories: searchParams.get('categories_local')?.split(',').filter(Boolean) || [],
             branches: searchParams.get('branches_local')?.split(',').filter(Boolean) || [],
             brands: searchParams.get('brands_local')?.split(',').filter(Boolean) || [],
             items: [],
@@ -69,12 +73,14 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const globallyFilteredRawData = useMemo(() => {
         const lowercasedTerm = globalSearchTerm.toLowerCase();
         return allRawData.filter(row => {
-            const { divisions, branches, brands, items } = globalFilters;
+            const { divisions, departments, categories, branches, brands, items } = globalFilters;
             const divisionMatch = divisions.length === 0 || divisions.includes(row['DIVISION']);
+            const departmentMatch = departments.length === 0 || departments.includes(row['DEPARTMENT']);
+            const categoryMatch = categories.length === 0 || categories.includes(row['CATEGORY']);
             const branchMatch = branches.length === 0 || branches.includes(row['BRANCH NAME']);
             const brandMatch = brands.length === 0 || brands.includes(row['BRAND']);
             const itemMatch = items.length === 0 || items.includes(row['ITEM DESCRIPTION']);
-            const dropdownMatch = divisionMatch && branchMatch && brandMatch && itemMatch;
+            const dropdownMatch = divisionMatch && departmentMatch && categoryMatch && branchMatch && brandMatch && itemMatch;
 
             if (!dropdownMatch) return false;
 
@@ -301,6 +307,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const getContextString = () => {
         const parts = [];
         if(globalFilters.divisions.length) parts.push(`Division: ${globalFilters.divisions.join(', ')}`);
+        if(globalFilters.departments.length) parts.push(`Department: ${globalFilters.departments.join(', ')}`);
+        if(globalFilters.categories.length) parts.push(`Category: ${globalFilters.categories.join(', ')}`);
         if(globalFilters.brands.length) parts.push(`Brand: ${globalFilters.brands.join(', ')}`);
         if(globalFilters.branches.length) parts.push(`Branch: ${globalFilters.branches.join(', ')}`);
         if(globalSearchTerm) parts.push(`Search: "${globalSearchTerm}"`);

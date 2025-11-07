@@ -17,7 +17,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, onLogout, searchTerm, onSearchChange }) => {
     const handleReset = () => {
-        onFilterChange({ divisions: [], branches: [], brands: [], items: [] });
+        onFilterChange({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
         onSearchChange('');
     };
 

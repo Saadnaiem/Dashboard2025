@@ -78,11 +78,23 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
             </div>
 
             {showFilters && (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t border-slate-700">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mt-6 pt-6 border-t border-slate-700">
                     <div>
                         <label htmlFor="divisionFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Division</label>
                         <select id="divisionFilter" className="w-full" multiple size={5} value={filters.divisions} onChange={(e) => handleSelectChange(e, 'divisions')}>
                             {options.divisions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="departmentFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Department</label>
+                        <select id="departmentFilter" className="w-full" multiple size={5} value={filters.departments} onChange={(e) => handleSelectChange(e, 'departments')}>
+                            {options.departments.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                    </div>
+                    <div>
+                        <label htmlFor="categoryFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Category</label>
+                        <select id="categoryFilter" className="w-full" multiple size={5} value={filters.categories} onChange={(e) => handleSelectChange(e, 'categories')}>
+                            {options.categories.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                         </select>
                     </div>
                     <div>

@@ -83,6 +83,8 @@ export interface ProcessedData {
 
     filterOptions: {
         divisions: string[];
+        departments: string[];
+        categories: string[];
         branches: string[];
         brands: string[];
     };
@@ -90,6 +92,8 @@ export interface ProcessedData {
 
 export interface FilterState {
     divisions: string[];
+    departments: string[];
+    categories: string[];
     branches: string[];
     brands: string[];
     items: string[];

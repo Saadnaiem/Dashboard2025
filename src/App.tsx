@@ -40,7 +40,7 @@ const App: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [allData, setAllData] = useState<RawSalesDataRow[]>([]);
     const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
-    const [filters, setFilters] = useState<FilterState>({ divisions: [], branches: [], brands: [], items: [] });
+    const [filters, setFilters] = useState<FilterState>({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
     const [searchTerm, setSearchTerm] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
     const navigate = useNavigate();
@@ -124,12 +124,14 @@ const App: React.FC = () => {
 
         const finalFilteredRows = allData.filter(row => {
             // Dropdown filters
-            const { divisions, branches, brands, items } = filters;
+            const { divisions, departments, categories, branches, brands, items } = filters;
             const divisionMatch = divisions.length === 0 || divisions.includes(row['DIVISION']);
+            const departmentMatch = departments.length === 0 || departments.includes(row['DEPARTMENT']);
+            const categoryMatch = categories.length === 0 || categories.includes(row['CATEGORY']);
             const branchMatch = branches.length === 0 || branches.includes(row['BRANCH NAME']);
             const brandMatch = brands.length === 0 || brands.includes(row['BRAND']);
             const itemMatch = items.length === 0 || items.includes(row['ITEM DESCRIPTION']);
-            const dropdownMatch = divisionMatch && branchMatch && brandMatch && itemMatch;
+            const dropdownMatch = divisionMatch && departmentMatch && categoryMatch && branchMatch && brandMatch && itemMatch;
 
             if (!dropdownMatch) return false;
 

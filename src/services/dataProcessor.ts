@@ -245,6 +245,8 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
         lostItemsList: lostItemsList.sort((a,b) => b.sales2024 - a.sales2024),
         filterOptions: existingFilterOptions || {
             divisions: [...new Set(data.map(r => r['DIVISION']))].filter(Boolean).sort(),
+            departments: [...new Set(data.map(r => r['DEPARTMENT']))].filter(Boolean).sort(),
+            categories: [...new Set(data.map(r => r['CATEGORY']))].filter(Boolean).sort(),
             branches: [...new Set(data.map(r => r['BRANCH NAME']))].filter(Boolean).sort(),
             brands: [...new Set(data.map(r => r['BRAND']))].filter(Boolean).sort(),
         },
