@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -81,6 +81,7 @@ const DEPT_ROW_COLORS = [
 
 const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) => {
     const { divisionName } = useParams<{ divisionName: string }>();
+    const navigate = useNavigate();
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
     const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
 
@@ -98,6 +99,13 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             setSelectedDepartment(prev => (prev === departmentName ? null : departmentName));
         }
     };
+    
+    const handleRowClick = (departmentName: string, categoryName: string) => {
+        if (categoryName && departmentName && divisionName) {
+            navigate(`/division/${encodeURIComponent(divisionName)}/${encodeURIComponent(departmentName)}/${encodeURIComponent(categoryName)}`);
+        }
+    };
+
 
     const processedData = useMemo(() => {
         if (!divisionData.length) return null;
@@ -370,7 +378,13 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                                         <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={group.total.growth} /></td>
                                     </tr>
                                     {group.categories.map((row, catIndex) => (
-                                        <tr key={`${group.departmentName}-${catIndex}`} className={`hover:bg-slate-700/50 transition-colors text-sm ${DEPT_ROW_COLORS[deptIndex % DEPT_ROW_COLORS.length]}`}>
+                                        <tr 
+                                            key={`${group.departmentName}-${catIndex}`} 
+                                            className={`hover:bg-slate-700/50 transition-colors text-sm cursor-pointer ${DEPT_ROW_COLORS[deptIndex % DEPT_ROW_COLORS.length]}`}
+                                            onClick={() => handleRowClick(group.departmentName, row.category)}
+                                            role="link"
+                                            aria-label={`View items for category ${row.category} in department ${group.departmentName}`}
+                                        >
                                            <td className="p-3 whitespace-nowrap border-l-4 border-transparent"></td>
                                            {tableColumns.map(col => (
                                                <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>

@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -12,6 +10,7 @@ import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 import DivisionDetailView from './components/DivisionDetailView';
+import ItemDetailView from './components/ItemDetailView';
 
 const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions']): ProcessedData => ({
     totalSales2024: 0, totalSales2025: 0, salesGrowthPercentage: 0, salesByDivision: [], salesByBrand: [], salesByBranch: [], salesByItem: [],
@@ -218,6 +217,10 @@ const App: React.FC = () => {
                     <Route 
                         path="/division/:divisionName" 
                         element={<DivisionDetailView allRawData={allData} />} 
+                    />
+                    <Route
+                        path="/division/:divisionName/:departmentName/:categoryName"
+                        element={<ItemDetailView allRawData={allData} />}
                     />
                     <Route 
                         path="/details/:viewType" 
