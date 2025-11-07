@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -46,18 +45,22 @@ type TableData = {
 };
 
 const DEPT_ROW_COLORS = [
-    'bg-sky-900/10',
-    'bg-indigo-900/10',
-    'bg-emerald-900/10',
-    'bg-rose-900/10',
-    'bg-amber-900/10',
-    'bg-violet-900/10'
+    'bg-sky-900/20',
+    'bg-indigo-900/20',
+    'bg-emerald-900/20',
+    'bg-rose-900/20',
+    'bg-amber-900/20',
+    'bg-violet-900/20'
 ];
 
 const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) => {
     const { divisionName } = useParams<{ divisionName: string }>();
     const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
+
+    const allBranchesList = useMemo(() => {
+        return [...new Set(allRawData.map(r => r['BRANCH NAME']))].filter(Boolean);
+    }, [allRawData]);
 
     const divisionData = useMemo(() => {
         return allRawData.filter(row => row['DIVISION'] === divisionName);
@@ -105,23 +108,34 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             growth: calculateGrowth(d.s25, d.s24),
         }));
 
-        return { totalSales2024, totalSales2025, departmentsData, tableData };
+        const grandTotal = {
+            sales2024: totalSales2024,
+            sales2025: totalSales2025,
+            growth: calculateGrowth(totalSales2025, totalSales2024),
+            contribution2024: 100,
+            contribution2025: 100
+        };
+
+        return { totalSales2024, totalSales2025, departmentsData, tableData, grandTotal };
     }, [divisionData]);
 
-    const topBranchesData = useMemo(() => {
+    const allBranchesData = useMemo(() => {
         const sourceData = selectedDepartment ? divisionData.filter(r => r['DEPARTMENT'] === selectedDepartment) : divisionData;
-        const branches: { [key: string]: { s25: number } } = {};
+        
+        const salesByBranch: { [key: string]: number } = {};
         sourceData.forEach(row => {
             if (row['BRANCH NAME']) {
-                branches[row['BRANCH NAME']] = branches[row['BRANCH NAME']] || { s25: 0 };
-                branches[row['BRANCH NAME']].s25 += row.SALES2025;
+                salesByBranch[row['BRANCH NAME']] = (salesByBranch[row['BRANCH NAME']] || 0) + row.SALES2025;
             }
         });
-        return Object.entries(branches).map(([name, { s25 }]) => ({
-            name,
-            sales2025: s25,
-        })).sort((a, b) => b.sales2025 - a.sales2025).slice(0, 10);
-    }, [divisionData, selectedDepartment]);
+
+        const allBranchesSales = allBranchesList.map(branchName => ({
+            name: branchName,
+            sales2025: salesByBranch[branchName] || 0,
+        }));
+
+        return allBranchesSales.sort((a, b) => b.sales2025 - a.sales2025);
+    }, [divisionData, selectedDepartment, allBranchesList]);
 
     const groupedData = useMemo(() => {
         if (!processedData?.tableData) return [];
@@ -182,6 +196,8 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }, { key: 'growth', header: 'Growth %', isNumeric: true },
     ];
 
+    const branchChartHeight = Math.max(400, allBranchesData.length * 25);
+
     return (
         <div className="flex flex-col gap-6">
             <Header />
@@ -196,11 +212,11 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             </div>
             
             <ChartCard title="Department Sales & Contribution (2025)" className="lg:col-span-2">
-                 <ResponsiveContainer width="100%" height={Math.max(300, processedData.departmentsData.length * 35)}>
-                    <BarChart data={processedData.departmentsData} layout="vertical" margin={{ left: 100, right: 20 }}>
+                 <ResponsiveContainer width="100%" height={Math.max(300, processedData.departmentsData.length * 30)}>
+                    <BarChart data={processedData.departmentsData} layout="vertical" margin={{ left: 120, right: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
-                        <YAxis type="category" dataKey="name" stroke="white" width={100} tick={{ fontSize: 12 }} interval={0} />
+                        <YAxis type="category" dataKey="name" stroke="white" width={120} tick={{ fontSize: 12 }} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
                         <Bar dataKey="sales2025" fill="#34d399" className="cursor-pointer" onClick={(data) => handleDepartmentClick(data)}>
                             {processedData.departmentsData.map((entry) => (
@@ -211,12 +227,12 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 </ResponsiveContainer>
             </ChartCard>
             
-            <ChartCard title={selectedDepartment ? `Top 10 Branches in ${selectedDepartment}` : 'Top 10 Branches'}>
-                <ResponsiveContainer width="100%" height={400}>
-                    <BarChart data={topBranchesData} margin={{ bottom: 100 }}>
+            <ChartCard title={selectedDepartment ? `Branch Performance in ${selectedDepartment}` : 'Branch Performance'}>
+                <ResponsiveContainer width="100%" height={branchChartHeight}>
+                    <BarChart layout="vertical" data={allBranchesData} margin={{ left: 120, right: 20 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis dataKey="name" stroke="white" angle={-45} textAnchor="end" interval={0} tick={{ fontSize: 12 }} />
-                        <YAxis stroke="white" tickFormatter={formatNumberAbbreviated} />
+                        <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
+                        <YAxis type="category" dataKey="name" stroke="white" width={120} tick={{ fontSize: 12 }} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
                         <Bar dataKey="sales2025" fill="#818cf8" />
                     </BarChart>
@@ -227,7 +243,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 <h3 className="text-xl font-bold text-white mb-4 text-center">Detailed Department & Category Performance</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="text-xs text-slate-400 uppercase bg-slate-700/50">
+                        <thead className="text-xs text-slate-400 uppercase bg-slate-700/50 sticky top-0 z-20">
                             <tr>
                                 <th className="p-3">Department</th>
                                 {tableColumns.map(col => (
@@ -238,42 +254,52 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                                 ))}
                             </tr>
                         </thead>
-                        {groupedData.map((group, deptIndex) => (
-                             <tbody key={group.departmentName} className={DEPT_ROW_COLORS[deptIndex % DEPT_ROW_COLORS.length]}>
-                                {group.categories.map((row, catIndex) => (
-                                    <tr key={`${group.departmentName}-${catIndex}`} className="hover:bg-slate-700/50 transition-colors text-sm">
-                                       <td className="p-3 whitespace-nowrap">{catIndex === 0 ? row.department : ''}</td>
-                                       {tableColumns.map(col => (
-                                           <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
-                                                {(() => {
-                                                    const value = row[col.key];
-                                                    switch(col.key) {
-                                                        case 'sales2024':
-                                                        case 'sales2025':
-                                                            return formatNumberAbbreviated(value as number);
-                                                        case 'contribution2024':
-                                                        case 'contribution2025':
-                                                            return `${(value as number).toFixed(2)}%`;
-                                                        case 'growth':
-                                                            return <GrowthIndicator value={value as number} />;
-                                                        default:
-                                                            return value;
-                                                    }
-                                                })()}
-                                           </td>
-                                       ))}
+                        <tbody>
+                             <tr className="bg-sky-900/60 font-bold text-white sticky top-[41px] z-10 backdrop-blur-sm">
+                                <td className="p-3 whitespace-nowrap" colSpan={2}>GRAND TOTAL</td>
+                                <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2024)}</td>
+                                <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2025)}</td>
+                                <td className="p-3 whitespace-nowrap text-right">100.00%</td>
+                                <td className="p-3 whitespace-nowrap text-right">100.00%</td>
+                                <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={processedData.grandTotal.growth} /></td>
+                            </tr>
+                            {groupedData.map((group, deptIndex) => (
+                                <React.Fragment key={group.departmentName}>
+                                    <tr className="bg-slate-700/60 font-bold text-white text-sm">
+                                        <td className="p-3 whitespace-nowrap" colSpan={2}>{group.departmentName} TOTAL</td>
+                                        <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2024)}</td>
+                                        <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2025)}</td>
+                                        <td className="p-3 whitespace-nowrap text-right">{group.total.contribution2024.toFixed(2)}%</td>
+                                        <td className="p-3 whitespace-nowrap text-right">{group.total.contribution2025.toFixed(2)}%</td>
+                                        <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={group.total.growth} /></td>
                                     </tr>
-                                ))}
-                                <tr className="bg-slate-700/40 font-bold text-white text-sm">
-                                    <td className="p-3 whitespace-nowrap" colSpan={2}>{group.departmentName} TOTAL</td>
-                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2024)}</td>
-                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2025)}</td>
-                                    <td className="p-3 whitespace-nowrap text-right">{group.total.contribution2024.toFixed(2)}%</td>
-                                    <td className="p-3 whitespace-nowrap text-right">{group.total.contribution2025.toFixed(2)}%</td>
-                                    <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={group.total.growth} /></td>
-                                </tr>
-                            </tbody>
-                        ))}
+                                    {group.categories.map((row, catIndex) => (
+                                        <tr key={`${group.departmentName}-${catIndex}`} className={`hover:bg-slate-700/50 transition-colors text-sm ${DEPT_ROW_COLORS[deptIndex % DEPT_ROW_COLORS.length]}`}>
+                                           <td className="p-3 whitespace-nowrap"></td>
+                                           {tableColumns.map(col => (
+                                               <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
+                                                    {(() => {
+                                                        const value = row[col.key];
+                                                        switch(col.key) {
+                                                            case 'sales2024':
+                                                            case 'sales2025':
+                                                                return formatNumberAbbreviated(value as number);
+                                                            case 'contribution2024':
+                                                            case 'contribution2025':
+                                                                return `${(value as number).toFixed(2)}%`;
+                                                            case 'growth':
+                                                                return <GrowthIndicator value={value as number} />;
+                                                            default:
+                                                                return value;
+                                                        }
+                                                    })()}
+                                               </td>
+                                           ))}
+                                        </tr>
+                                    ))}
+                                </React.Fragment>
+                            ))}
+                        </tbody>
                     </table>
                 </div>
             </div>
