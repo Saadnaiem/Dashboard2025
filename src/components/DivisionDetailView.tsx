@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
@@ -24,8 +24,8 @@ const EnhancedTooltip: React.FC<any> = ({ active, payload, label }) => {
         return (
             <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-3 rounded-lg shadow-lg text-sm">
                 <p className="font-bold text-green-300 mb-2">{label || data.name}</p>
-                {data.sales2025 !== undefined && <p className="text-green-400">2025 Sales: {formatNumberAbbreviated(data.sales2025)}</p>}
                 {data.sales2024 !== undefined && <p className="text-sky-400">2024 Sales: {formatNumberAbbreviated(data.sales2024)}</p>}
+                {data.sales2025 !== undefined && <p className="text-green-400">2025 Sales: {formatNumberAbbreviated(data.sales2025)}</p>}
                 {data.growth !== undefined && <div className="flex items-center gap-1">Growth: <GrowthIndicator value={data.growth} /></div>}
                 {data.contribution2025 !== undefined && <p className="text-slate-300">Contrib %: {data.contribution2025.toFixed(2)}%</p>}
             </div>
@@ -81,7 +81,6 @@ const DEPT_ROW_COLORS = [
 
 const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) => {
     const { divisionName } = useParams<{ divisionName: string }>();
-    const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
 
     const allBranchesList = useMemo(() => {
@@ -138,7 +137,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     const allBranchesData = useMemo(() => {
         if (!processedData) return [];
         const { totalSales2025 } = processedData;
-        const sourceData = selectedDepartment ? divisionData.filter(r => r['DEPARTMENT'] === selectedDepartment) : divisionData;
+        const sourceData = divisionData;
         
         const salesByBranch: { [key: string]: { s24: number, s25: number } } = {};
         sourceData.forEach(row => {
@@ -158,7 +157,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             };
         });
         return allBranchesSales.sort((a, b) => b.sales2025 - a.sales2025);
-    }, [divisionData, selectedDepartment, allBranchesList, processedData]);
+    }, [divisionData, allBranchesList, processedData]);
 
     const groupedData = useMemo(() => {
         if (!processedData?.tableData) return [];
@@ -259,29 +258,30 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 </Link>
             </div>
             
-            <ChartCard title="Department Sales & Contribution (2025)" className="lg:col-span-2">
+            <ChartCard title="Department Sales Performance" className="lg:col-span-2">
                  <ResponsiveContainer width="100%" height={Math.max(300, processedData.departmentsData.length * 40)}>
                     <BarChart data={processedData.departmentsData} layout="vertical" margin={{ left: 100, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
                         <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={15} />} interval={0} />
                         <Tooltip content={<EnhancedTooltip />} cursor={{ fill: 'rgba(100, 116, 139, 0.2)' }}/>
-                        <Bar dataKey="sales2025" fill="#34d399" className="cursor-pointer" onClick={(data) => setSelectedDepartment(prev => prev === data.name ? null : data.name)}>
-                            {processedData.departmentsData.map((entry) => ( <Cell key={entry.name} fill={selectedDepartment === entry.name ? '#f59e0b' : '#34d399'} /> ))}
-                        </Bar>
+                        <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                        <Bar dataKey="sales2024" name="2024 Sales" fill="#38bdf8" />
+                        <Bar dataKey="sales2025" name="2025 Sales" fill="#34d399" />
                     </BarChart>
                 </ResponsiveContainer>
             </ChartCard>
             
-            <ChartCard title={selectedDepartment ? `Branch Performance in ${selectedDepartment}` : 'Branch Performance'}>
+            <ChartCard title={'Branch Performance'}>
                 <ResponsiveContainer width="100%" height={branchChartHeight}>
                     <BarChart layout="vertical" data={allBranchesData} margin={{ left: 120, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
                         <YAxis type="category" dataKey="name" stroke="white" width={120} tick={<CustomYAxisTick maxChars={18} />} interval={0} />
                         <Tooltip content={<EnhancedTooltip />} cursor={{ fill: 'rgba(100, 116, 139, 0.2)' }} />
-                        <Bar dataKey="sales2025" name="2025 Sales" fill="#818cf8" />
+                        <Legend wrapperStyle={{ paddingTop: '20px' }} />
                         <Bar dataKey="sales2024" name="2024 Sales" fill="#38bdf8" />
+                        <Bar dataKey="sales2025" name="2025 Sales" fill="#34d399" />
                     </BarChart>
                 </ResponsiveContainer>
             </ChartCard>
