@@ -11,6 +11,7 @@ import DrilldownView from './components/DrilldownView';
 import LoginPage from './components/LoginPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
+import DivisionDetailView from './components/DivisionDetailView';
 
 const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions']): ProcessedData => ({
     totalSales2024: 0, totalSales2025: 0, salesGrowthPercentage: 0, salesByDivision: [], salesByBrand: [], salesByBranch: [], salesByItem: [],
@@ -213,6 +214,10 @@ const App: React.FC = () => {
                                 onSearchChange={setSearchTerm}
                             />
                         } 
+                    />
+                    <Route 
+                        path="/division/:divisionName" 
+                        element={<DivisionDetailView allRawData={allData} />} 
                     />
                     <Route 
                         path="/details/:viewType" 

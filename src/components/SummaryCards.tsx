@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ProcessedData, FilterState } from '../types';
@@ -43,13 +44,14 @@ interface SummaryCardsProps {
 }
 
 const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }) => {
-    const buildLink = (basePath: string) => {
+    const buildLink = (basePath: string, excludeKeys: (keyof FilterState)[] = []) => {
         const params = new URLSearchParams();
         if (searchTerm) {
             params.set('search', searchTerm);
         }
 
         (Object.keys(filters) as Array<keyof FilterState>).forEach(key => {
+            if (excludeKeys.includes(key)) return;
             const value = filters[key];
             if (Array.isArray(value) && value.length > 0) {
                 params.set(key, value.join(','));
@@ -59,6 +61,12 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
         const queryString = params.toString();
         return queryString ? `${basePath}?${queryString}` : basePath;
     };
+
+    const isSingleDivisionFiltered = filters.divisions.length === 1;
+
+    const topDivisionLink = isSingleDivisionFiltered
+        ? buildLink(`/division/${filters.divisions[0]}`, ['divisions'])
+        : buildLink('/details/divisions');
 
     return (
         <div className="flex flex-col gap-8">
@@ -71,7 +79,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                         <GrowthIndicator value={data.salesGrowthPercentage} className="text-xl" />
                     </SummaryCard>
                     
-                    <SummaryCard title="Top Division" icon="🏆" to={buildLink('/details/divisions')}>
+                    <SummaryCard title="Top Division" icon="🏆" to={topDivisionLink}>
                          {data.topDivision ? (
                             <>
                                 <div className="text-xl font-bold text-sky-400 truncate" title={data.topDivision.name}>{data.topDivision.name}</div>
