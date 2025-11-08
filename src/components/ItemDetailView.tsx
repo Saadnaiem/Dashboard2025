@@ -55,21 +55,42 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
 
     const itemsData = useMemo(() => {
         if (!divisionName || !departmentName || !categoryName) return [];
-        
+
         const filteredRaw = allRawData.filter(row =>
             row.DIVISION === divisionName &&
             row.DEPARTMENT === departmentName &&
             row.CATEGORY === categoryName
         );
 
-        return filteredRaw.map(row => ({
-            code: row['ITEM CODE'],
-            name: row['ITEM DESCRIPTION'],
-            sales2024: row.SALES2024,
-            sales2025: row.SALES2025,
-            growth: calculateGrowth(row.SALES2025, row.SALES2024),
-            contribution2024: divisionTotalSales.s24 > 0 ? (row.SALES2024 / divisionTotalSales.s24) * 100 : 0,
-            contribution2025: divisionTotalSales.s25 > 0 ? (row.SALES2025 / divisionTotalSales.s25) * 100 : 0,
+        const aggregatedItems = new Map<string, { code: string; name: string; sales2024: number; sales2025: number; }>();
+
+        filteredRaw.forEach(row => {
+            const itemCode = row['ITEM CODE'];
+            const itemName = row['ITEM DESCRIPTION'];
+
+            if (!itemCode) return;
+
+            if (aggregatedItems.has(itemCode)) {
+                const existing = aggregatedItems.get(itemCode)!;
+                existing.sales2024 += row.SALES2024;
+                existing.sales2025 += row.SALES2025;
+            } else {
+                aggregatedItems.set(itemCode, {
+                    code: itemCode,
+                    name: itemName,
+                    sales2024: row.SALES2024,
+                    sales2025: row.SALES2025,
+                });
+            }
+        });
+
+        const uniqueItemsArray = Array.from(aggregatedItems.values());
+
+        return uniqueItemsArray.map(item => ({
+            ...item,
+            growth: calculateGrowth(item.sales2025, item.sales2024),
+            contribution2024: divisionTotalSales.s24 > 0 ? (item.sales2024 / divisionTotalSales.s24) * 100 : 0,
+            contribution2025: divisionTotalSales.s25 > 0 ? (item.sales2025 / divisionTotalSales.s25) * 100 : 0,
         }));
     }, [allRawData, divisionName, departmentName, categoryName, divisionTotalSales]);
 
