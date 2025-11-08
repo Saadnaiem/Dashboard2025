@@ -43,15 +43,19 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
 
-    const divisionTotalSales = useMemo(() => {
+    const categoryTotalSales = useMemo(() => {
         return allRawData
-            .filter(row => row.DIVISION === divisionName)
+            .filter(row =>
+                row.DIVISION === divisionName &&
+                row.DEPARTMENT === departmentName &&
+                row.CATEGORY === categoryName
+            )
             .reduce((acc, row) => {
                 acc.s24 += row.SALES2024;
                 acc.s25 += row.SALES2025;
                 return acc;
             }, { s24: 0, s25: 0 });
-    }, [allRawData, divisionName]);
+    }, [allRawData, divisionName, departmentName, categoryName]);
 
     const itemsData = useMemo(() => {
         if (!divisionName || !departmentName || !categoryName) return [];
@@ -89,10 +93,10 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
         return uniqueItemsArray.map(item => ({
             ...item,
             growth: calculateGrowth(item.sales2025, item.sales2024),
-            contribution2024: divisionTotalSales.s24 > 0 ? (item.sales2024 / divisionTotalSales.s24) * 100 : 0,
-            contribution2025: divisionTotalSales.s25 > 0 ? (item.sales2025 / divisionTotalSales.s25) * 100 : 0,
+            contribution2024: categoryTotalSales.s24 > 0 ? (item.sales2024 / categoryTotalSales.s24) * 100 : 0,
+            contribution2025: categoryTotalSales.s25 > 0 ? (item.sales2025 / categoryTotalSales.s25) * 100 : 0,
         }));
-    }, [allRawData, divisionName, departmentName, categoryName, divisionTotalSales]);
+    }, [allRawData, divisionName, departmentName, categoryName, categoryTotalSales]);
 
     const filteredAndSortedData = useMemo(() => {
         const lowercasedTerm = localSearchTerm.toLowerCase();
@@ -147,7 +151,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
         { key: 'name', header: 'Item Description' },
         { key: 'sales2024', header: '2024 Sales', isNumeric: true },
         { key: 'sales2025', header: '2025 Sales', isNumeric: true },
-        { key: 'contribution2025', header: 'Contrib % (Division)', isNumeric: true },
+        { key: 'contribution2025', header: 'Contrib % (Category)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
     ];
     
