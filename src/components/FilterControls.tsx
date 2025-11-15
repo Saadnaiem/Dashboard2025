@@ -15,22 +15,76 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
     const [showFilters, setShowFilters] = useState(false);
     const filterRef = useRef<HTMLDivElement>(null);
 
+    const [searchTerms, setSearchTerms] = useState({
+        divisions: '',
+        departments: '',
+        categories: '',
+        branches: '',
+        brands: '',
+    });
+
     useOnClickOutside(filterRef, () => setShowFilters(false));
 
     const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>, filterKey: keyof FilterState) => {
         const selectedOptions = Array.from(e.target.selectedOptions, (opt: HTMLOptionElement) => opt.value);
         onFilterChange({ ...filters, [filterKey]: selectedOptions });
-        setShowFilters(false);
     };
 
     const handleReset = () => {
         onReset();
+        setSearchTerms({
+            divisions: '',
+            departments: '',
+            categories: '',
+            branches: '',
+            brands: '',
+        });
         setShowFilters(false);
     };
     
-    // FIX: Cast the result of Object.values(filters) to string[][] to correctly type `val` in the `reduce` function.
+    const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>, filterKey: keyof typeof searchTerms) => {
+        setSearchTerms(prev => ({ ...prev, [filterKey]: e.target.value }));
+    };
+
     const activeFilterCount = (Object.values(filters) as string[][]).reduce((acc, val) => acc + val.length, 0);
     const totalActiveIndicators = activeFilterCount + (searchTerm ? 1 : 0);
+
+    const FilterBlock = ({
+        filterKey,
+        label,
+    }: {
+        filterKey: keyof FilterState & keyof typeof searchTerms,
+        label: string,
+    }) => {
+        const currentOptions = options[filterKey] || [];
+        const filteredOptions = currentOptions.filter(opt =>
+            opt.toLowerCase().includes(searchTerms[filterKey].toLowerCase())
+        );
+
+        return (
+            <div>
+                <label htmlFor={`${filterKey}Filter`} className="block text-sm font-bold text-slate-300 mb-2 ml-1">{label}</label>
+                <input
+                    type="text"
+                    placeholder={`Search ${label}...`}
+                    value={searchTerms[filterKey]}
+                    onChange={(e) => handleSearchChange(e, filterKey)}
+                    className="w-full bg-slate-900 border border-slate-600 rounded-md py-1 px-3 mb-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    aria-label={`Search for a ${label}`}
+                />
+                <select 
+                    id={`${filterKey}Filter`} 
+                    className="w-full" 
+                    multiple 
+                    size={5} 
+                    value={filters[filterKey]} 
+                    onChange={(e) => handleSelectChange(e, filterKey)}
+                >
+                    {filteredOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                </select>
+            </div>
+        );
+    };
 
     return (
         <div ref={filterRef} className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
@@ -79,36 +133,11 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
 
             {showFilters && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mt-6 pt-6 border-t border-slate-700">
-                    <div>
-                        <label htmlFor="divisionFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Division</label>
-                        <select id="divisionFilter" className="w-full" multiple size={5} value={filters.divisions} onChange={(e) => handleSelectChange(e, 'divisions')}>
-                            {options.divisions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="departmentFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Department</label>
-                        <select id="departmentFilter" className="w-full" multiple size={5} value={filters.departments} onChange={(e) => handleSelectChange(e, 'departments')}>
-                            {options.departments.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="categoryFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Category</label>
-                        <select id="categoryFilter" className="w-full" multiple size={5} value={filters.categories} onChange={(e) => handleSelectChange(e, 'categories')}>
-                            {options.categories.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="branchFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Branch</label>
-                        <select id="branchFilter" className="w-full" multiple size={5} value={filters.branches} onChange={(e) => handleSelectChange(e, 'branches')}>
-                            {options.branches.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
-                    <div>
-                        <label htmlFor="brandFilter" className="block text-sm font-bold text-slate-300 mb-2 ml-1">Brand</label>
-                        <select id="brandFilter" className="w-full" multiple size={5} value={filters.brands} onChange={(e) => handleSelectChange(e, 'brands')}>
-                            {options.brands.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                        </select>
-                    </div>
+                    <FilterBlock filterKey="divisions" label="Division" />
+                    <FilterBlock filterKey="departments" label="Department" />
+                    <FilterBlock filterKey="categories" label="Category" />
+                    <FilterBlock filterKey="branches" label="Branch" />
+                    <FilterBlock filterKey="brands" label="Brand" />
                 </div>
             )}
         </div>
