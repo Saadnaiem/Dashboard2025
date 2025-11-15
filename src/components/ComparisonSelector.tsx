@@ -13,6 +13,7 @@ const entityTypes: { key: ComparisonEntityType; label: string }[] = [
     { key: 'divisions', label: 'Division' },
     { key: 'departments', label: 'Department' },
     { key: 'categories', label: 'Category' },
+    { key: 'brands', label: 'Brand' },
 ];
 
 const ComparisonSelector: React.FC<ComparisonSelectorProps> = ({ options, onClose, onSelect }) => {

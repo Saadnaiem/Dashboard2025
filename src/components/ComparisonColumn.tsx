@@ -16,8 +16,8 @@ const calculateGrowth = (current: number, previous: number) =>
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
 
 const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
-    <div className={`bg-slate-700/50 p-3 rounded-lg text-center h-full flex flex-col justify-center ${className}`}>
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1" title={title}>{title}</h4>
+    <div className={`bg-slate-700/50 p-2 rounded-lg text-center h-full flex flex-col justify-center ${className}`}>
+        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 truncate" title={title}>{title}</h4>
         <div className="text-white">{children}</div>
     </div>
 );
@@ -137,49 +137,37 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
     const entityTypeLabel = entity.type.slice(0, -1);
 
     return (
-        <div className="bg-slate-800/50 p-4 rounded-2xl shadow-lg border border-slate-700 flex flex-col gap-4 h-full">
-            <div className="flex items-start justify-between">
-                <div>
-                    <span className="text-xs uppercase font-bold text-sky-400">{entityTypeLabel}</span>
-                    <h3 className="text-lg font-extrabold text-white truncate" title={entity.name}>{entity.name}</h3>
-                </div>
-                {onRemove && <button onClick={onRemove} className="filter-pill-remove" aria-label={`Remove ${entity.name}`}>&times;</button>}
+        <div className="bg-slate-800/50 p-3 rounded-xl shadow-lg border border-slate-700 flex flex-col md:flex-row items-center gap-4 w-full hover:border-sky-600 transition-colors">
+            <div className="flex-shrink-0 w-full md:w-48 text-center md:text-left">
+                <span className="text-xs uppercase font-bold text-sky-400">{entityTypeLabel}</span>
+                <h3 className="text-base font-extrabold text-white truncate" title={entity.name}>{entity.name}</h3>
             </div>
-            <div className="grid grid-cols-2 gap-3 flex-grow">
-                <KPICard title="Total Sales (2025)" className="col-span-2">
-                    <p className="text-3xl font-bold">{formatNumberAbbreviated(stats.sales2025)}</p>
-                    <p className="text-sm text-slate-400">2024: {formatNumberAbbreviated(stats.sales2024)}</p>
+            <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 w-full">
+                <KPICard title="Sales (2025)">
+                    <p className="text-lg font-bold">{formatNumberAbbreviated(stats.sales2025)}</p>
                 </KPICard>
                 <KPICard title="YoY Growth %">
-                    <GrowthIndicator value={stats.growth} className="text-2xl" />
+                    <GrowthIndicator value={stats.growth} className="text-lg" />
                 </KPICard>
-                <KPICard title={`Contrib. to ${parentTypeLabel} Sales`}>
-                    <p className="text-2xl font-bold">{stats.contribution.toFixed(2)}%</p>
+                <KPICard title={`Contrib%`}>
+                    <p className="text-lg font-bold">{stats.contribution.toFixed(1)}%</p>
                 </KPICard>
                  <KPICard title="Active Items">
-                    <p className="text-xl font-bold">
+                    <p className="text-lg font-bold">
                         {formatNumber(stats.itemCount2025)}
-                        <span className="text-base text-slate-400"> / {formatNumber(stats.totalItemsForEntity)}</span>
                     </p>
-                    <GrowthIndicator value={stats.itemCount2025 - stats.itemCount2024} unit="" />
                 </KPICard>
-                 <KPICard title={`Assortment Share of ${parentTypeLabel}`}>
-                    <p className="text-xl font-bold">{stats.assortmentShare.toFixed(2)}%</p>
-                    <p className="text-sm text-slate-400">{stats.itemCount2025} of {formatNumber(parentTypeLabel === 'Company' ? processedData.itemCount2025 : 0)} items</p>
+                 <KPICard title={`Assortment Share`}>
+                    <p className="text-lg font-bold">{stats.assortmentShare.toFixed(1)}%</p>
                 </KPICard>
-                 <KPICard title="Avg Sales / Item">
-                    <p className="text-2xl font-bold">{formatNumberAbbreviated(stats.avgSalesPerItem)}</p>
+                 <KPICard title="Avg Sales/Item">
+                    <p className="text-lg font-bold">{formatNumberAbbreviated(stats.avgSalesPerItem)}</p>
                 </KPICard>
-                <KPICard title="Pareto Items (Top 20%)">
-                    <p className="text-sm">Top <b>{formatNumber(stats.pareto.topCount)}</b> items generate <b>{stats.pareto.salesPercent.toFixed(1)}%</b> of this entity's sales.</p>
+                <KPICard title="New Items">
+                    <p className="text-lg font-bold text-green-400">{formatNumber(stats.newItems.count)}</p>
                 </KPICard>
-                <KPICard title="New Items (2025)">
-                    <p className="text-xl font-bold text-green-400">{formatNumber(stats.newItems.count)}</p>
-                    <p className="text-xs text-slate-400">Sales: {formatNumberAbbreviated(stats.newItems.sales)}</p>
-                </KPICard>
-                <KPICard title="Lost Items (2024)">
-                    <p className="text-xl font-bold text-rose-400">{formatNumber(stats.lostItems.count)}</p>
-                    <p className="text-xs text-slate-400">Sales: {formatNumberAbbreviated(stats.lostItems.sales2024)}</p>
+                <KPICard title="Lost Items">
+                    <p className="text-lg font-bold text-rose-400">{formatNumber(stats.lostItems.count)}</p>
                 </KPICard>
             </div>
         </div>

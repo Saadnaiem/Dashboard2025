@@ -46,6 +46,11 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                 childKey = 'BRAND';
                 childType = 'brands';
                 break;
+            case 'brands':
+                parentKey = 'BRAND';
+                childKey = 'ITEM DESCRIPTION';
+                childType = 'items';
+                break;
             default:
                 setSelectedEntities([]);
                 return;
@@ -63,7 +68,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
 
         const sortedChildren = Array.from(childSales.entries())
             .sort(([, salesA], [, salesB]) => salesB - salesA)
-            .slice(0, 8)
             .map(([name]) => name);
 
         const newEntities: ComparisonEntity[] = sortedChildren.map(name => ({
@@ -114,14 +118,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             return { entity, data: filtered };
         });
     }, [selectedEntities, allRawData, globalFilters]);
-    
-    const getGridColsClass = (count: number) => {
-        if (count <= 4) return 'xl:grid-cols-4';
-        if (count <= 6) return 'xl:grid-cols-6';
-        return 'xl:grid-cols-8';
-    };
-    
-    const gridColsClass = getGridColsClass(selectedEntities.length);
 
     const getChildTypeLabel = () => {
         if (!parentEntity) return '';
@@ -129,6 +125,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             case 'divisions': return 'Departments';
             case 'departments': return 'Categories';
             case 'categories': return 'Brands';
+            case 'brands': return 'Items';
             default: return 'Components';
         }
     };
@@ -174,11 +171,11 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                     <>
                         <div className="text-center">
                             <h2 className="text-xl text-white font-bold">
-                                Comparing Top {selectedEntities.length} {getChildTypeLabel()} for <span className="text-sky-400">{parentEntity.name}</span>
+                                Comparing all {selectedEntities.length} {getChildTypeLabel()} for <span className="text-sky-400">{parentEntity.name}</span>
                             </h2>
-                            <p className="text-sm text-slate-400">(Sorted by 2025 Sales)</p>
+                            <p className="text-sm text-slate-400">Sorted by 2025 Sales</p>
                         </div>
-                        <div className={`grid grid-cols-1 md:grid-cols-2 ${gridColsClass} gap-6 items-start`}>
+                        <div className="flex flex-col gap-3">
                             {comparisonData.map(({ entity, data }) => (
                                 <ComparisonColumn
                                     key={`${entity.type}-${entity.name}`}
