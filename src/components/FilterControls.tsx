@@ -1,6 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { FilterState, ProcessedData } from '../types';
 import useOnClickOutside from '../hooks/useOnClickOutside';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface FilterControlsProps {
     options: ProcessedData['filterOptions'];
@@ -22,6 +23,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
         branches: '',
         brands: '',
     });
+    
+    const debouncedSearchTerms = useDebounce(searchTerms, 250);
 
     useOnClickOutside(filterRef, () => setShowFilters(false));
 
@@ -68,9 +71,17 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
         label: string,
     }) => {
         const currentOptions = options[filterKey] || [];
-        const filteredOptions = currentOptions.filter(opt =>
-            opt.toLowerCase().includes(searchTerms[filterKey].toLowerCase())
-        );
+        
+        const filteredOptions = useMemo(() => {
+            const searchTerm = debouncedSearchTerms[filterKey].toLowerCase();
+            if (!searchTerm) {
+                return currentOptions;
+            }
+            return currentOptions.filter(opt =>
+                opt.toLowerCase().includes(searchTerm)
+            );
+        }, [currentOptions, debouncedSearchTerms[filterKey]]);
+
 
         const handleCheckboxChange = (option: string) => {
             const currentSelection = filters[filterKey] || [];
