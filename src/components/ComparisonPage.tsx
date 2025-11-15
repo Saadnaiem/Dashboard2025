@@ -126,6 +126,9 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
     }, [comparisonData, allRawData, drilldownPath]);
 
     const aggregatedItemsData = useMemo(() => {
+        if (drilldownPath.length === 0) {
+            return [];
+        }
         if (comparisonDataForTable.length === 0) return [];
 
         const itemsMap = new Map<string, {
@@ -175,7 +178,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             parentEntity: Array.from(item.parentEntities).join(' | '),
         }));
 
-    }, [comparisonDataForTable]);
+    }, [comparisonDataForTable, drilldownPath]);
 
 
     const handleDrilldown = (entity: ComparisonEntity) => {
@@ -272,12 +275,14 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                         ))}
                     </div>
 
-                    <div className="mt-8">
-                        <ComparisonItemsTable
-                            itemsData={aggregatedItemsData}
-                            comparisonData={comparisonDataForTable}
-                        />
-                    </div>
+                    {drilldownPath.length > 0 && (
+                        <div className="mt-8">
+                            <ComparisonItemsTable
+                                itemsData={aggregatedItemsData}
+                                comparisonData={comparisonDataForTable}
+                            />
+                        </div>
+                    )}
                 </>
             ) : (
                  <div className="text-center py-20 bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700">
