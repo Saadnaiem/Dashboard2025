@@ -3,6 +3,7 @@ import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Toolti
 import { ProcessedData, FilterState } from '../types';
 import { useWindowSize } from '../hooks/useWindowSize';
 import { CustomYAxisTick } from './charts/CustomYAxisTick';
+import { usePagination } from '../hooks/usePagination';
 
 // New unified color palette
 const COLORS = {
@@ -280,10 +281,10 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             .map(item => ({ ...item, growth: calculateGrowth(item.sales2025, item.sales2024) }))
             .sort((a, b) => b.sales2025 - a.sales2025),
     [data.top50Items]);
-
-    const barHeight = isMobile ? 22 : 25;
-    const allBranchesChartHeight = Math.max(400, allBranchesSorted.length * barHeight);
-    const top50ItemsChartHeight = Math.max(400, top50ItemsSorted.length * barHeight);
+    
+    const ITEMS_PER_PAGE = 15;
+    const paginatedItems = usePagination(top50ItemsSorted, ITEMS_PER_PAGE);
+    const paginatedBranches = usePagination(allBranchesSorted, ITEMS_PER_PAGE);
 
     const divisionPieProps: any = {
         activeIndex,
@@ -379,10 +380,10 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             </ChartCard>
 
             <ChartCard title="Top 50 Items by 2025 Sales" className="lg:col-span-2">
-                 <ResponsiveContainer width="100%" height={top50ItemsChartHeight}>
+                 <ResponsiveContainer width="100%" height={500}>
                     <BarChart 
                         layout="vertical"
-                        data={top50ItemsSorted} 
+                        data={paginatedItems.paginatedData} 
                         margin={isMobile 
                             ? { top: 20, right: 80, bottom: 20, left: 120 } 
                             : { left: 250, top: 20, right: 80, bottom: 20 }
@@ -401,13 +402,20 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
+                {paginatedItems.totalPages > 1 && (
+                    <div className="pagination-controls">
+                        <button onClick={paginatedItems.prevPage} disabled={!paginatedItems.canGoPrev} className="pagination-button">Previous</button>
+                        <span className="pagination-info">Page {paginatedItems.currentPage} of {paginatedItems.totalPages}</span>
+                        <button onClick={paginatedItems.nextPage} disabled={!paginatedItems.canGoNext} className="pagination-button">Next</button>
+                    </div>
+                )}
             </ChartCard>
             
             <ChartCard title="All Branches Performance & Growth %" className="lg:col-span-2">
-                <ResponsiveContainer width="100%" height={allBranchesChartHeight}>
+                <ResponsiveContainer width="100%" height={500}>
                     <BarChart 
                         layout="vertical"
-                        data={allBranchesSorted} 
+                        data={paginatedBranches.paginatedData} 
                         margin={isMobile 
                             ? { top: 20, right: 80, bottom: 20, left: 100 } 
                             : { left: 150, top: 20, right: 80, bottom: 20 }
@@ -426,6 +434,13 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
+                {paginatedBranches.totalPages > 1 && (
+                    <div className="pagination-controls">
+                        <button onClick={paginatedBranches.prevPage} disabled={!paginatedBranches.canGoPrev} className="pagination-button">Previous</button>
+                        <span className="pagination-info">Page {paginatedBranches.currentPage} of {paginatedBranches.totalPages}</span>
+                        <button onClick={paginatedBranches.nextPage} disabled={!paginatedBranches.canGoNext} className="pagination-button">Next</button>
+                    </div>
+                )}
             </ChartCard>
         </div>
     );

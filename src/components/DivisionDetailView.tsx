@@ -8,6 +8,7 @@ import { RawSalesDataRow } from '../types';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import { CustomYAxisTick } from './charts/CustomYAxisTick';
+import { usePagination } from '../hooks/usePagination';
 
 const calculateGrowth = (current: number, previous: number) => 
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -263,9 +264,13 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         }
     };
 
+    const ITEMS_PER_PAGE_DEPTS = 10;
+    const ITEMS_PER_PAGE_BRANCHES = 15;
+    const paginatedDepartments = usePagination(processedData?.departmentsData || [], ITEMS_PER_PAGE_DEPTS);
+    const paginatedBranches = usePagination(allBranchesData, ITEMS_PER_PAGE_BRANCHES);
+
     if (!processedData) return <div className="text-center py-10">No data available for this division or filter combination.</div>;
     
-    const branchChartHeight = Math.max(400, allBranchesData.length * 25);
     const tableColumns: { key: keyof TableData; header: string; isNumeric?: boolean }[] = [
         { key: 'category', header: 'Category' }, { key: 'sales2024', header: '2024 Sales', isNumeric: true },
         { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
@@ -286,30 +291,37 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             </div>
             
             <ChartCard title="Department Sales Performance (Click to Filter)" className="lg:col-span-2">
-                 <ResponsiveContainer width="100%" height={Math.max(300, processedData.departmentsData.length * 40)}>
-                    <BarChart data={processedData.departmentsData} layout="vertical" margin={{ left: 100, right: 20 }} barCategoryGap="25%">
+                 <ResponsiveContainer width="100%" height={400}>
+                    <BarChart data={paginatedDepartments.paginatedData} layout="vertical" margin={{ left: 100, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
                         <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={15} />} interval={0} />
                         <Tooltip content={<EnhancedTooltip />} cursor={{ fill: 'rgba(100, 116, 139, 0.2)' }}/>
                         <Legend wrapperStyle={{ paddingTop: '20px' }} />
                         <Bar dataKey="sales2024" name="2024 Sales" onClick={handleDepartmentClick}>
-                            {processedData.departmentsData.map((entry, index) => (
+                            {paginatedDepartments.paginatedData.map((entry, index) => (
                                 <Cell key={`cell-24-${index}`} cursor="pointer" fill="#38bdf8" opacity={!selectedDepartment || selectedDepartment === entry.name ? 1 : 0.3} />
                             ))}
                         </Bar>
                         <Bar dataKey="sales2025" name="2025 Sales" onClick={handleDepartmentClick}>
-                             {processedData.departmentsData.map((entry, index) => (
+                             {paginatedDepartments.paginatedData.map((entry, index) => (
                                 <Cell key={`cell-25-${index}`} cursor="pointer" fill="#34d399" opacity={!selectedDepartment || selectedDepartment === entry.name ? 1 : 0.3} />
                             ))}
                         </Bar>
                     </BarChart>
                 </ResponsiveContainer>
+                 {paginatedDepartments.totalPages > 1 && (
+                    <div className="pagination-controls">
+                        <button onClick={paginatedDepartments.prevPage} disabled={!paginatedDepartments.canGoPrev} className="pagination-button">Previous</button>
+                        <span className="pagination-info">Page {paginatedDepartments.currentPage} of {paginatedDepartments.totalPages}</span>
+                        <button onClick={paginatedDepartments.nextPage} disabled={!paginatedDepartments.canGoNext} className="pagination-button">Next</button>
+                    </div>
+                )}
             </ChartCard>
             
             <ChartCard title={`Branch Performance${selectedDepartment ? ` for ${selectedDepartment}` : ''}`}>
-                <ResponsiveContainer width="100%" height={branchChartHeight}>
-                    <BarChart layout="vertical" data={allBranchesData} margin={{ left: 120, right: 20 }} barCategoryGap="25%">
+                <ResponsiveContainer width="100%" height={500}>
+                    <BarChart layout="vertical" data={paginatedBranches.paginatedData} margin={{ left: 120, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                         <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
                         <YAxis type="category" dataKey="name" stroke="white" width={120} tick={<CustomYAxisTick maxChars={18} />} interval={0} />
@@ -319,6 +331,13 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                         <Bar dataKey="sales2025" name="2025 Sales" fill="#34d399" />
                     </BarChart>
                 </ResponsiveContainer>
+                {paginatedBranches.totalPages > 1 && (
+                    <div className="pagination-controls">
+                        <button onClick={paginatedBranches.prevPage} disabled={!paginatedBranches.canGoPrev} className="pagination-button">Previous</button>
+                        <span className="pagination-info">Page {paginatedBranches.currentPage} of {paginatedBranches.totalPages}</span>
+                        <button onClick={paginatedBranches.nextPage} disabled={!paginatedBranches.canGoNext} className="pagination-button">Next</button>
+                    </div>
+                )}
             </ChartCard>
 
             <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
