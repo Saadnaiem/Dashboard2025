@@ -11,6 +11,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
 import DivisionDetailView from './components/DivisionDetailView';
 import ItemDetailView from './components/ItemDetailView';
+import BrandDetailView from './components/BrandDetailView';
 
 const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions']): ProcessedData => ({
     totalSales2024: 0, totalSales2025: 0, salesGrowthPercentage: 0, salesByDivision: [], salesByBrand: [], salesByBranch: [], salesByItem: [],
@@ -223,6 +224,10 @@ const App: React.FC = () => {
                     <Route
                         path="/division/:divisionName/:departmentName/:categoryName"
                         element={<ItemDetailView allRawData={allData} />}
+                    />
+                     <Route 
+                        path="/brand/:brandName" 
+                        element={<BrandDetailView allRawData={allData} />} 
                     />
                     <Route 
                         path="/details/:viewType" 

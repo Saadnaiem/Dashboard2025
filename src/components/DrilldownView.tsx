@@ -624,9 +624,26 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                         const value = row[col.key as keyof typeof row];
                                         const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle} ${isItemNameCol ? 'item-name-cell' : ''}`;
 
+                                        const brandViews = ['brands', 'pareto_brands', 'new_brands', 'lost_brands'];
+                                        const isBrandLink = viewType && brandViews.includes(viewType) && col.key === 'name';
+
                                         return (
                                             <td key={col.key} className={tdClassName} title={isItemNameCol ? String(value) : undefined}>
                                                 {(() => {
+                                                    if (isBrandLink) {
+                                                        const brandName = String(value);
+                                                        const linkParams = new URLSearchParams(searchParams);
+                                                        linkParams.delete('search_local');
+                                                        return (
+                                                            <Link 
+                                                                to={`/brand/${encodeURIComponent(brandName)}?${linkParams.toString()}`} 
+                                                                className="text-sky-400 hover:underline font-semibold"
+                                                                title={`View items for ${brandName}`}
+                                                            >
+                                                                {brandName}
+                                                            </Link>
+                                                        );
+                                                    }
                                                     if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
                                                     if (col.key === 'growth') return <GrowthIndicator value={value} />;
                                                     if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
