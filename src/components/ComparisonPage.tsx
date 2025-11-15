@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { ProcessedData, RawSalesDataRow, FilterState } from '../types';
 import ComparisonSelector from './ComparisonSelector';
 import ComparisonColumn from './ComparisonColumn';
@@ -16,25 +16,72 @@ interface ComparisonPageProps {
 }
 
 const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedData, globalFilters }) => {
+    const [parentEntity, setParentEntity] = useState<ComparisonEntity | null>(null);
     const [selectedEntities, setSelectedEntities] = useState<ComparisonEntity[]>([]);
     const [isSelectorOpen, setSelectorOpen] = useState(false);
 
-    const handleAddEntities = (newEntities: ComparisonEntity[]) => {
-        setSelectedEntities(prev => {
-            const combined = [...prev, ...newEntities];
-            // Remove duplicates
-            const unique = combined.filter((entity, index, self) =>
-                index === self.findIndex((e) => (
-                    e.type === entity.type && e.name === entity.name
-                ))
-            );
-            return unique.slice(0, 4);
+    useEffect(() => {
+        if (!parentEntity || allRawData.length === 0) {
+            setSelectedEntities([]);
+            return;
+        }
+
+        let parentKey: keyof RawSalesDataRow;
+        let childKey: keyof RawSalesDataRow;
+        let childType: ComparisonEntityType;
+
+        switch (parentEntity.type) {
+            case 'divisions':
+                parentKey = 'DIVISION';
+                childKey = 'DEPARTMENT';
+                childType = 'departments';
+                break;
+            case 'departments':
+                parentKey = 'DEPARTMENT';
+                childKey = 'CATEGORY';
+                childType = 'categories';
+                break;
+            case 'categories':
+                parentKey = 'CATEGORY';
+                childKey = 'BRAND';
+                childType = 'brands';
+                break;
+            default:
+                setSelectedEntities([]);
+                return;
+        }
+
+        const parentData = allRawData.filter(row => row[parentKey] === parentEntity.name);
+        const childSales = new Map<string, number>();
+        parentData.forEach(row => {
+            const childName = row[childKey];
+            if (childName) {
+                const currentSales = childSales.get(childName) || 0;
+                childSales.set(childName, currentSales + row.SALES2025);
+            }
         });
+
+        const sortedChildren = Array.from(childSales.entries())
+            .sort(([, salesA], [, salesB]) => salesB - salesA)
+            .slice(0, 8)
+            .map(([name]) => name);
+
+        const newEntities: ComparisonEntity[] = sortedChildren.map(name => ({
+            type: childType,
+            name,
+        }));
+        
+        setSelectedEntities(newEntities);
+
+    }, [parentEntity, allRawData]);
+    
+    const handleSelectParent = (entity: ComparisonEntity) => {
+        setParentEntity(entity);
         setSelectorOpen(false);
     };
 
-    const handleRemoveEntity = (index: number) => {
-        setSelectedEntities(selectedEntities.filter((_, i) => i !== index));
+    const handleClear = () => {
+        setParentEntity(null);
     };
 
     const comparisonData = useMemo(() => {
@@ -48,13 +95,12 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                 case 'brands': key = 'BRAND'; break;
                 case 'branches': key = 'BRANCH NAME'; break;
                 case 'items': key = 'ITEM DESCRIPTION'; break;
+                default: key = 'DIVISION'; // Fallback
             }
 
             const filtered = allRawData.filter(row => {
-                // Match the specific entity for this column
                 if (row[key] !== name) return false;
                 
-                // Apply global filters
                 const { divisions, departments, categories, branches, brands, items } = globalFilters;
                 const divisionMatch = divisions.length === 0 || divisions.includes(row['DIVISION']);
                 const departmentMatch = departments.length === 0 || departments.includes(row['DEPARTMENT']);
@@ -68,52 +114,94 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             return { entity, data: filtered };
         });
     }, [selectedEntities, allRawData, globalFilters]);
+    
+    const getGridColsClass = (count: number) => {
+        if (count <= 4) return 'xl:grid-cols-4';
+        if (count <= 6) return 'xl:grid-cols-6';
+        return 'xl:grid-cols-8';
+    };
+    
+    const gridColsClass = getGridColsClass(selectedEntities.length);
+
+    const getChildTypeLabel = () => {
+        if (!parentEntity) return '';
+        switch (parentEntity.type) {
+            case 'divisions': return 'Departments';
+            case 'departments': return 'Categories';
+            case 'categories': return 'Brands';
+            default: return 'Components';
+        }
+    };
+
 
     return (
         <div className="flex flex-col gap-8">
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-extrabold text-white">Comparison Hub</h1>
-                    <p className="text-slate-400">Select up to 4 entities to compare side-by-side.</p>
+                    <p className="text-slate-400">Select a parent entity to automatically compare its components.</p>
                 </div>
-                <button
-                    onClick={() => setSelectorOpen(true)}
-                    disabled={selectedEntities.length >= 4}
-                    className="px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" /></svg>
-                    Add Entity to Compare
-                </button>
+                <div className="flex items-center gap-4">
+                    {parentEntity && (
+                        <button
+                            onClick={handleClear}
+                            className="px-6 py-3 bg-rose-600 text-white font-bold rounded-lg shadow-md hover:bg-rose-700 transition-all flex items-center gap-2"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            Clear
+                        </button>
+                    )}
+                    <button
+                        onClick={() => setSelectorOpen(true)}
+                        className="px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                        Select Parent
+                    </button>
+                </div>
             </div>
 
             {isSelectorOpen && (
                 <ComparisonSelector
                     options={processedData.filterOptions}
                     onClose={() => setSelectorOpen(false)}
-                    onAdd={handleAddEntities}
-                    existingCount={selectedEntities.length}
+                    onSelect={handleSelectParent}
                 />
             )}
 
-            {selectedEntities.length > 0 ? (
-                <div className={`grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-start`}>
-                    {comparisonData.map(({ entity, data }, index) => (
-                        <ComparisonColumn
-                            key={`${entity.type}-${entity.name}`}
-                            entity={entity}
-                            data={data}
-                            onRemove={() => handleRemoveEntity(index)}
-                            allRawData={allRawData}
-                            processedData={processedData}
-                            globalFilters={globalFilters}
-                        />
-                    ))}
-                </div>
+            {parentEntity ? (
+                selectedEntities.length > 0 ? (
+                    <>
+                        <div className="text-center">
+                            <h2 className="text-xl text-white font-bold">
+                                Comparing Top {selectedEntities.length} {getChildTypeLabel()} for <span className="text-sky-400">{parentEntity.name}</span>
+                            </h2>
+                            <p className="text-sm text-slate-400">(Sorted by 2025 Sales)</p>
+                        </div>
+                        <div className={`grid grid-cols-1 md:grid-cols-2 ${gridColsClass} gap-6 items-start`}>
+                            {comparisonData.map(({ entity, data }) => (
+                                <ComparisonColumn
+                                    key={`${entity.type}-${entity.name}`}
+                                    entity={entity}
+                                    data={data}
+                                    allRawData={allRawData}
+                                    processedData={processedData}
+                                    globalFilters={globalFilters}
+                                />
+                            ))}
+                        </div>
+                    </>
+                ) : (
+                    <div className="text-center py-20 bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700">
+                        <h3 className="mt-2 text-lg font-medium text-white">No components found for "{parentEntity.name}".</h3>
+                        <p className="mt-1 text-sm text-slate-400">This entity may be empty or filtered out by global filters.</p>
+                    </div>
+                )
             ) : (
                  <div className="text-center py-20 bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700">
                     <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M17 14v6m-3-3h6M6 10h2a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2zm10 0h2a2 2 0 002-2V6a2 2 0 00-2-2h-2a2 2 0 00-2 2v2a2 2 0 002 2zM6 20h2a2 2 0 002-2v-2a2 2 0 00-2-2H6a2 2 0 00-2 2v2a2 2 0 002 2z" /></svg>
-                    <h3 className="mt-2 text-lg font-medium text-white">No entities selected</h3>
-                    <p className="mt-1 text-sm text-slate-400">Click "Add Entity to Compare" to get started.</p>
+                    <h3 className="mt-2 text-lg font-medium text-white">No parent entity selected</h3>
+                    <p className="mt-1 text-sm text-slate-400">Click "Select Parent" to get started.</p>
                 </div>
             )}
         </div>

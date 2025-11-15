@@ -1,103 +1,95 @@
 import React, { useState, useMemo } from 'react';
 import { ProcessedData } from '../types';
 import { ComparisonEntity, ComparisonEntityType } from './ComparisonPage';
-import ComparisonFilterBlock from './ComparisonFilterBlock';
+import { useDebounce } from '../hooks/useDebounce';
 
 interface ComparisonSelectorProps {
     options: ProcessedData['filterOptions'];
     onClose: () => void;
-    onAdd: (entities: ComparisonEntity[]) => void;
-    existingCount: number;
+    onSelect: (entity: ComparisonEntity) => void;
 }
 
 const entityTypes: { key: ComparisonEntityType; label: string }[] = [
     { key: 'divisions', label: 'Division' },
     { key: 'departments', label: 'Department' },
     { key: 'categories', label: 'Category' },
-    { key: 'brands', label: 'Brand' },
-    { key: 'branches', label: 'Branch' },
 ];
 
-const ComparisonSelector: React.FC<ComparisonSelectorProps> = ({ options, onClose, onAdd, existingCount }) => {
-    const [selections, setSelections] = useState<Partial<Record<ComparisonEntityType, string[]>>>({});
+const ComparisonSelector: React.FC<ComparisonSelectorProps> = ({ options, onClose, onSelect }) => {
+    const [selectedType, setSelectedType] = useState<ComparisonEntityType>('divisions');
+    const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 250);
 
-    const totalSelected = useMemo(() => {
-        // FIX: Explicitly typed 'curr' to 'string[] | undefined' to resolve TypeScript's inference of 'unknown' from Object.values(), allowing safe access to the 'length' property.
-        return Object.values(selections).reduce((acc, curr: string[] | undefined) => acc + (curr?.length || 0), 0);
-    }, [selections]);
+    const currentOptions = useMemo(() => {
+        const opts = options[selectedType] || [];
+        const lowercasedTerm = debouncedSearchTerm.toLowerCase();
+        if (!lowercasedTerm) return opts;
+        return opts.filter(opt => opt.toLowerCase().includes(lowercasedTerm));
+    }, [options, selectedType, debouncedSearchTerm]);
 
-    const canAddCount = 4 - existingCount;
-    const canAdd = totalSelected > 0 && totalSelected <= canAddCount;
-
-    const handleSelectionChange = (type: ComparisonEntityType, newSelected: string[]) => {
-        setSelections(prev => ({ ...prev, [type]: newSelected }));
+    const handleSelect = (name: string) => {
+        onSelect({ type: selectedType, name });
     };
 
-    const handleAddClick = () => {
-        if (!canAdd) return;
-        
-        const newEntities: ComparisonEntity[] = [];
-        (Object.keys(selections) as ComparisonEntityType[]).forEach(type => {
-            selections[type]?.forEach(name => {
-                newEntities.push({ type, name });
-            });
-        });
-        onAdd(newEntities);
-    };
-    
     return (
-        <div 
+        <div
             className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50"
             aria-labelledby="modal-title"
             role="dialog"
             aria-modal="true"
             onClick={onClose}
         >
-            <div 
-                className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 w-full max-w-7xl m-4 transform transition-all flex flex-col h-[80vh]"
+            <div
+                className="bg-slate-800 rounded-2xl shadow-xl border border-slate-700 w-full max-w-2xl m-4 transform transition-all flex flex-col h-[70vh]"
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="p-4 border-b border-slate-700 text-center relative">
                     <h3 className="text-xl font-bold text-white" id="modal-title">
-                        Select Entities to Compare
+                        Select an Entity to Analyze
                     </h3>
-                    <p className="text-sm text-slate-400">You can add up to {canAddCount} more entities.</p>
-                     <button onClick={onClose} className="absolute top-3 right-3 text-slate-400 hover:text-white">
+                    <p className="text-sm text-slate-400">A comparison of its components will be generated automatically.</p>
+                    <button onClick={onClose} className="absolute top-3 right-3 text-slate-400 hover:text-white">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                <div className="flex-1 p-4 overflow-y-auto">
-                    <div className="comparison-selector-grid">
+
+                <div className="p-4">
+                    <div className="flex items-center justify-center gap-2 mb-4 p-1 bg-slate-700/50 rounded-lg">
                         {entityTypes.map(({ key, label }) => (
-                            <ComparisonFilterBlock
+                            <button
                                 key={key}
-                                label={label}
-                                options={options[key] || []}
-                                selectedOptions={selections[key] || []}
-                                onSelectionChange={(newSelection) => handleSelectionChange(key, newSelection)}
-                            />
+                                onClick={() => setSelectedType(key)}
+                                className={`px-4 py-2 rounded-md font-bold text-sm w-full transition-colors ${selectedType === key ? 'bg-sky-600 text-white shadow' : 'text-slate-300 hover:bg-slate-600/50'}`}
+                            >
+                                {label}
+                            </button>
                         ))}
                     </div>
+                    <input
+                        type="text"
+                        placeholder={`Search for a ${entityTypes.find(e => e.key === selectedType)?.label}...`}
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-600 rounded-md py-2 px-3 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                        autoFocus
+                    />
                 </div>
-                <div className="bg-slate-700/50 px-6 py-4 flex flex-col sm:flex-row justify-end items-center gap-4 rounded-b-2xl">
-                    <div className="text-sm font-semibold text-slate-300">
-                        {totalSelected} / {canAddCount} selected
+
+                <div className="flex-1 px-4 pb-4 overflow-y-auto">
+                    <div className="w-full h-full overflow-y-auto bg-slate-900 border-2 border-slate-600 rounded-lg p-2 space-y-1 comparison-selector-list">
+                        {currentOptions.map(option => (
+                            <button
+                                key={option}
+                                onClick={() => handleSelect(option)}
+                                className="w-full text-left flex items-center p-2 rounded-md hover:bg-slate-700 cursor-pointer transition-colors duration-150"
+                            >
+                                <span className="text-slate-300 text-sm truncate">{option}</span>
+                            </button>
+                        ))}
+                        {currentOptions.length === 0 && (
+                            <p className="text-slate-500 text-sm text-center p-4">No matches found.</p>
+                        )}
                     </div>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className="w-full sm:w-auto inline-flex justify-center rounded-md border border-slate-600 shadow-sm px-4 py-2 bg-slate-800 text-base font-medium text-slate-300 hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500 focus:ring-offset-slate-800"
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="button"
-                        onClick={handleAddClick}
-                        disabled={!canAdd}
-                        className="w-full sm:w-auto inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-sky-600 text-base font-medium text-white hover:bg-sky-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-sky-500 focus:ring-offset-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        Add {totalSelected} Entities
-                    </button>
                 </div>
             </div>
         </div>

@@ -6,7 +6,7 @@ import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils
 interface ComparisonColumnProps {
     entity: ComparisonEntity;
     data: RawSalesDataRow[];
-    onRemove: () => void;
+    onRemove?: () => void;
     allRawData: RawSalesDataRow[];
     processedData: ProcessedData;
     globalFilters: FilterState;
@@ -143,7 +143,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                     <span className="text-xs uppercase font-bold text-sky-400">{entityTypeLabel}</span>
                     <h3 className="text-lg font-extrabold text-white truncate" title={entity.name}>{entity.name}</h3>
                 </div>
-                <button onClick={onRemove} className="filter-pill-remove" aria-label={`Remove ${entity.name}`}>&times;</button>
+                {onRemove && <button onClick={onRemove} className="filter-pill-remove" aria-label={`Remove ${entity.name}`}>&times;</button>}
             </div>
             <div className="grid grid-cols-2 gap-3 flex-grow">
                 <KPICard title="Total Sales (2025)" className="col-span-2">
