@@ -189,6 +189,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                              <tr className="bg-sky-900/60 font-bold text-white text-sm sticky top-[41px] z-10 backdrop-blur-sm">
                                 <td className="p-3"></td>
                                 <td className="p-3 font-bold" colSpan={2}>TOTAL ({filteredAndSortedData.length} items)</td>
+                                <td className="p-3"></td>
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2024)}</td>
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2025)}</td>
                                 <td className="p-3"></td>
