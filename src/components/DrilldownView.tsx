@@ -258,30 +258,40 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     }, [finalData, sortConfig]);
 
     const pieChartData = useMemo(() => {
-        const appropriateViews = ['divisions', 'branches', 'brands', 'items', 'pareto_branches', 'pareto_brands', 'pareto_items'];
+        // All views now get a pie chart summary.
+        const appropriateViews = [
+            'divisions', 'branches', 'brands', 'items', 
+            'pareto_branches', 'pareto_brands', 'pareto_items',
+            'new_brands', 'lost_brands', 'new_items', 'lost_items'
+        ];
+        
         if (!processedViewData || !viewType || !appropriateViews.includes(viewType) || !dataForTable || dataForTable.length === 0) {
             return null;
         }
     
-        const sortedBySales = [...dataForTable].sort((a, b) => b.sales2025 - a.sales2025);
+        const salesKey = isLostView ? 'sales2024' : 'sales2025';
+        const contributionKey = isLostView ? 'contribution2024' : 'contribution2025';
+        const totalSalesForView = isLostView ? processedViewData.totalSales2024 : processedViewData.totalSales2025;
+
+        const sortedBySales = [...dataForTable].sort((a, b) => b[salesKey] - a[salesKey]);
     
         const topN = 5;
         const topData = sortedBySales.slice(0, topN);
         const otherData = sortedBySales.slice(topN);
     
         if (otherData.length === 0) {
-            return topData.map(d => ({ ...d, value: d.sales2025 }));
+            return topData.map(d => ({ ...d, value: d[salesKey] }));
         }
     
-        const othersValue = otherData.reduce((acc, curr) => acc + curr.sales2025, 0);
-        const othersContribution = processedViewData.totalSales2025 > 0 ? (othersValue / processedViewData.totalSales2025) * 100 : 0;
+        const othersValue = otherData.reduce((acc, curr) => acc + curr[salesKey], 0);
+        const othersContribution = totalSalesForView > 0 ? (othersValue / totalSalesForView) * 100 : 0;
     
         return [
-            ...topData.map(d => ({ ...d, value: d.sales2025 })),
-            { name: 'Others', value: othersValue, sales2025: othersValue, contribution2025: othersContribution }
+            ...topData.map(d => ({ ...d, value: d[salesKey] })),
+            { name: 'Others', value: othersValue, [salesKey]: othersValue, [contributionKey]: othersContribution }
         ].filter(d => d.value > 0);
     
-    }, [dataForTable, viewType, processedViewData]);
+    }, [dataForTable, viewType, processedViewData, isLostView]);
 
     const barChartData = useMemo(() => {
         if (!isNewView && !isLostView) return null;
@@ -417,12 +427,13 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const PieTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
             const data = payload[0].payload;
+            const contribution = data.contribution2025 ?? data.contribution2024;
             return (
                 <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-3 rounded-lg shadow-lg">
                     <p className="font-bold" style={{ color: payload[0].payload.fill }}>{`${data.name}: ${formatNumberAbbreviated(data.value)}`}</p>
-                    {data.contribution2025 !== undefined && (
+                    {contribution !== undefined && (
                         <p className="text-slate-300 text-sm">
-                            Contribution: {data.contribution2025.toFixed(2)}%
+                            Contribution: {contribution.toFixed(2)}%
                         </p>
                     )}
                 </div>
@@ -532,7 +543,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </div>
                  {pieChartData && (
                     <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 lg:col-span-2 hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                        <h3 className="text-xl font-bold text-white mb-4 text-center">Top 5 Contribution (2025)</h3>
+                        <h3 className="text-xl font-bold text-white mb-4 text-center">Top 5 Contribution ({isLostView ? '2024' : '2025'})</h3>
                         <ResponsiveContainer width="100%" height={400}>
                             <PieChart>
                                 <Pie
