@@ -76,7 +76,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
         return Array.from(breakdownMap.entries())
             .map(([name, sales2025]) => ({ name, sales2025 }))
             .sort((a, b) => b.sales2025 - a.sales2025)
-            .slice(0, 5);
+            .slice(0, 10); // Cap at top 10 for performance and clarity
     }, [entity, data]);
 
     const entityTypeLabel = entity.type.slice(0, -1);
@@ -104,8 +104,8 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                     <p className="text-2xl font-bold">{stats.contribution.toFixed(2)}%</p>
                 </KPICard>
             </div>
-             <div className="flex-1 min-h-[300px]">
-                <h4 className="text-sm font-bold text-slate-300 text-center mb-2">Top 5 Contributors (2025 Sales)</h4>
+             <div className="flex-1 h-[350px]">
+                <h4 className="text-sm font-bold text-slate-300 text-center mb-2">Top {breakdownData.length} Contributors (2025 Sales)</h4>
                 {breakdownData.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart layout="vertical" data={breakdownData} margin={{ top: 5, right: 20, left: 80, bottom: 5 }}>

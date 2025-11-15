@@ -20,10 +20,17 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
     const [selectedEntities, setSelectedEntities] = useState<ComparisonEntity[]>([]);
     const [isSelectorOpen, setSelectorOpen] = useState(false);
 
-    const handleAddEntity = (entity: ComparisonEntity) => {
-        if (selectedEntities.length < 4 && !selectedEntities.some(e => e.type === entity.type && e.name === entity.name)) {
-            setSelectedEntities([...selectedEntities, entity]);
-        }
+    const handleAddEntities = (newEntities: ComparisonEntity[]) => {
+        setSelectedEntities(prev => {
+            const combined = [...prev, ...newEntities];
+            // Remove duplicates
+            const unique = combined.filter((entity, index, self) =>
+                index === self.findIndex((e) => (
+                    e.type === entity.type && e.name === entity.name
+                ))
+            );
+            return unique.slice(0, 4);
+        });
         setSelectorOpen(false);
     };
 
@@ -111,7 +118,8 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                 <ComparisonSelector
                     options={processedData.filterOptions}
                     onClose={() => setSelectorOpen(false)}
-                    onSelect={handleAddEntity}
+                    onAdd={handleAddEntities}
+                    existingCount={selectedEntities.length}
                 />
             )}
 
