@@ -182,8 +182,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                                     entity={entity}
                                     data={data}
                                     allRawData={allRawData}
-                                    processedData={processedData}
-                                    globalFilters={globalFilters}
                                 />
                             ))}
                         </div>

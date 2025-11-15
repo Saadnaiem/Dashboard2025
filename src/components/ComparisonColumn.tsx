@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { RawSalesDataRow, ProcessedData, FilterState } from '../types';
+import { RawSalesDataRow } from '../types';
 import { ComparisonEntity } from './ComparisonPage';
 import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
@@ -7,8 +7,6 @@ interface ComparisonColumnProps {
     entity: ComparisonEntity;
     data: RawSalesDataRow[];
     allRawData: RawSalesDataRow[];
-    processedData: ProcessedData;
-    globalFilters: FilterState;
 }
 
 const calculateGrowth = (current: number, previous: number) =>
@@ -22,7 +20,7 @@ const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: 
 );
 
 
-const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRawData, processedData, globalFilters }) => {
+const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRawData }) => {
 
     const { stats, parentTypeLabel } = useMemo(() => {
         const defaultStats = {
