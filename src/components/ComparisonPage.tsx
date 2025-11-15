@@ -105,6 +105,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                             onRemove={() => handleRemoveEntity(index)}
                             allRawData={allRawData}
                             processedData={processedData}
+                            globalFilters={globalFilters}
                         />
                     ))}
                 </div>
