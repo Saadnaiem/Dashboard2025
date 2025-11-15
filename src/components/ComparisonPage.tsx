@@ -3,6 +3,7 @@ import { ProcessedData, RawSalesDataRow } from '../types';
 import ComparisonSelector from './ComparisonSelector';
 import ComparisonColumn from './ComparisonColumn';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import ComparisonItemsTable from './ComparisonItemsTable';
 
 export type ComparisonEntityType = 'divisions' | 'departments' | 'categories' | 'brands' | 'branches' | 'items';
 export interface ComparisonEntity {
@@ -111,6 +112,71 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         return { totalSales: s25, totalEntities: comparisonData.length, growth };
     }, [comparisonData, allRawData, drilldownPath, childType]);
 
+    const comparisonDataForTable = useMemo(() => {
+        return comparisonData.map(entity => {
+            let currentData = allRawData;
+            drilldownPath.forEach(pathEntity => {
+                const pathKey = pathEntity.type === 'divisions' ? 'DIVISION' : pathEntity.type === 'departments' ? 'DEPARTMENT' : pathEntity.type === 'categories' ? 'CATEGORY' : 'BRAND';
+                currentData = currentData.filter(row => row[pathKey] === pathEntity.name);
+            });
+            const key = entity.type === 'divisions' ? 'DIVISION' : entity.type === 'departments' ? 'DEPARTMENT' : entity.type === 'categories' ? 'CATEGORY' : entity.type === 'brands' ? 'BRAND' : 'ITEM DESCRIPTION';
+            const entityData = currentData.filter(row => row[key] === entity.name);
+            return { entity, data: entityData };
+        });
+    }, [comparisonData, allRawData, drilldownPath]);
+
+    const aggregatedItemsData = useMemo(() => {
+        if (comparisonDataForTable.length === 0) return [];
+
+        const itemsMap = new Map<string, {
+            code: string;
+            name: string;
+            sales2024: number;
+            sales2025: number;
+            parentEntities: Set<string>;
+        }>();
+
+        const allRelevantRows = comparisonDataForTable.flatMap(c => c.data);
+        const uniqueRows = Array.from(new Map(allRelevantRows.map(row => [`${row['ITEM CODE']}-${row['BRANCH NAME']}-${row['SALES2024']}-${row['SALES2025']}`, row])).values());
+
+        // FIX: Explicitly typed the `row` parameter as `RawSalesDataRow` to resolve a TypeScript error where it was being inferred as `unknown`, causing subsequent property access to fail.
+        uniqueRows.forEach((row: RawSalesDataRow) => {
+            const itemCode = row['ITEM CODE'];
+            const itemName = row['ITEM DESCRIPTION'];
+            if (!itemCode || !itemName) return;
+
+            if (!itemsMap.has(itemCode)) {
+                itemsMap.set(itemCode, {
+                    code: itemCode,
+                    name: itemName,
+                    sales2024: 0,
+                    sales2025: 0,
+                    parentEntities: new Set(),
+                });
+            }
+            const item = itemsMap.get(itemCode)!;
+            item.sales2024 += row.SALES2024;
+            item.sales2025 += row.SALES2025;
+        });
+
+        comparisonDataForTable.forEach(({ entity, data }) => {
+            const parentEntityLabel = `${entity.type.slice(0, 4)}: ${entity.name}`;
+            const itemCodesInData = new Set(data.map(r => r['ITEM CODE']).filter(Boolean));
+            // FIX: Explicitly typed the `itemCode` parameter as `string` to fix a type inference issue where it was treated as `unknown`, preventing its use in `Map` methods.
+            itemCodesInData.forEach((itemCode: string) => {
+                if (itemsMap.has(itemCode)) {
+                    itemsMap.get(itemCode)!.parentEntities.add(parentEntityLabel);
+                }
+            });
+        });
+
+        return Array.from(itemsMap.values()).map(item => ({
+            ...item,
+            parentEntity: Array.from(item.parentEntities).join(' | '),
+        }));
+
+    }, [comparisonDataForTable]);
+
 
     const handleDrilldown = (entity: ComparisonEntity) => {
         if (entity.type === 'items') return; // Cannot drill down further than items
@@ -204,6 +270,13 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                                 drilldownPath={drilldownPath}
                             />
                         ))}
+                    </div>
+
+                    <div className="mt-8">
+                        <ComparisonItemsTable
+                            itemsData={aggregatedItemsData}
+                            comparisonData={comparisonDataForTable}
+                        />
                     </div>
                 </>
             ) : (
