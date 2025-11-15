@@ -33,7 +33,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
             newItems: { count: 0, sales: 0 },
             lostItems: { count: 0, sales2024: 0 },
             avgSalesPerItem: 0,
-            availability2024: 0, availability2025: 0,
+            assortmentShare2024: 0, assortmentShare2025: 0,
         };
 
         if (data.length === 0) {
@@ -100,11 +100,12 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                 .map(row => row['ITEM DESCRIPTION'])
         ).size;
         
-        const availability2024 = processedData.itemCount2024 > 0 
+        // Corrected calculation for Assortment Share %, using year-specific company-wide totals.
+        const assortmentShare2024 = processedData.itemCount2024 > 0 
             ? (items24.size / processedData.itemCount2024) * 100 
             : 0;
             
-        const availability2025 = processedData.itemCount2025 > 0 
+        const assortmentShare2025 = processedData.itemCount2025 > 0 
             ? (items25.size / processedData.itemCount2025) * 100 
             : 0;
 
@@ -120,8 +121,8 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
             newItems: { count: newItemsCount, sales: newItemsSales },
             lostItems: { count: lostItemsCount, sales2024: lostItemsSales2024 },
             avgSalesPerItem: items25.size > 0 ? totalSales2025 / items25.size : 0,
-            availability2024,
-            availability2025,
+            assortmentShare2024,
+            assortmentShare2025,
         };
     }, [data, allRawData, entity, processedData]);
 
@@ -155,9 +156,9 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                     </p>
                     <GrowthIndicator value={stats.itemCount2025 - stats.itemCount2024} unit="" />
                 </KPICard>
-                 <KPICard title="Availability %">
-                    <p className="text-xl font-bold">{stats.availability2025.toFixed(2)}%</p>
-                    <p className="text-sm text-slate-400">2024: {stats.availability2024.toFixed(2)}%</p>
+                 <KPICard title="Assortment Share %">
+                    <p className="text-xl font-bold">{stats.assortmentShare2025.toFixed(2)}%</p>
+                    <p className="text-sm text-slate-400">2024: {stats.assortmentShare2024.toFixed(2)}%</p>
                 </KPICard>
                  <KPICard title="Avg Sales / Item">
                     <p className="text-2xl font-bold">{formatNumberAbbreviated(stats.avgSalesPerItem)}</p>

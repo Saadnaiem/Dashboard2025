@@ -23,7 +23,7 @@ const ComparisonSelector: React.FC<ComparisonSelectorProps> = ({ options, onClos
 
     const totalSelected = useMemo(() => {
         // FIX: Explicitly typed 'curr' to 'string[] | undefined' to resolve TypeScript's inference of 'unknown' from Object.values(), allowing safe access to the 'length' property.
-        return Object.values(selections).reduce((acc, curr) => acc + (curr?.length || 0), 0);
+        return Object.values(selections).reduce((acc, curr: string[] | undefined) => acc + (curr?.length || 0), 0);
     }, [selections]);
 
     const canAddCount = 4 - existingCount;
