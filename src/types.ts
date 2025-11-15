@@ -66,7 +66,9 @@ export interface ProcessedData {
     
     newEntities: {
         branches: { count: number; sales: number; percentOfTotal: number };
+        // FIX: Changed literal type `0` to `number` for `sales` and `percentOfTotal` to allow assignment of calculated numeric values.
         brands: { count: number; sales: number; percentOfTotal: number };
+        // FIX: Changed literal type `0` to `number` for `sales` and `percentOfTotal` to allow assignment of calculated numeric values.
         items: { count: number; sales: number; percentOfTotal: number };
     };
 
@@ -87,6 +89,7 @@ export interface ProcessedData {
         categories: string[];
         branches: string[];
         brands: string[];
+        items: string[];
     };
 }
 

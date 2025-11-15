@@ -13,6 +13,7 @@ import MainLayout from './components/MainLayout';
 import DivisionDetailView from './components/DivisionDetailView';
 import ItemDetailView from './components/ItemDetailView';
 import BrandDetailView from './components/BrandDetailView';
+import ComparisonPage from './components/ComparisonPage';
 
 const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions']): ProcessedData => ({
     totalSales2024: 0, totalSales2025: 0, salesGrowthPercentage: 0, salesByDivision: [], salesByBrand: [], salesByBranch: [], salesByItem: [],
@@ -218,6 +219,10 @@ const App: React.FC = () => {
                                 onSearchChange={setSearchTerm}
                             />
                         } 
+                    />
+                    <Route
+                        path="/compare"
+                        element={<ComparisonPage allRawData={allData} processedData={processedData!} globalFilters={filters} />}
                     />
                     <Route 
                         path="/division/:divisionName" 

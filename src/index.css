@@ -91,3 +91,17 @@ body {
     overflow: hidden;
     text-overflow: ellipsis;
 }
+
+/* Comparison Page Selector Styles */
+.comparison-selector-list::-webkit-scrollbar {
+    width: 6px;
+}
+.comparison-selector-list::-webkit-scrollbar-track {
+    @apply bg-slate-700 rounded-lg;
+}
+.comparison-selector-list::-webkit-scrollbar-thumb {
+    @apply bg-slate-500 rounded-full;
+}
+.comparison-selector-list::-webkit-scrollbar-thumb:hover {
+    @apply bg-slate-400;
+}

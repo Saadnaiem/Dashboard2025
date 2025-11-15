@@ -249,6 +249,8 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
             categories: [...new Set(data.map(r => r['CATEGORY']))].filter(Boolean).sort(),
             branches: [...new Set(data.map(r => r['BRANCH NAME']))].filter(Boolean).sort(),
             brands: [...new Set(data.map(r => r['BRAND']))].filter(Boolean).sort(),
+            // FIX: Added the missing 'items' property to match the `filterOptions` type definition, resolving a type error.
+            items: [...new Set(data.map(r => r['ITEM DESCRIPTION']))].filter(Boolean).sort(),
         },
     };
 };
