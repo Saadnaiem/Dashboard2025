@@ -24,7 +24,7 @@ type ItemData = {
     growth: number;
 };
 
-type SortableKeys = keyof ItemData;
+type SortableKeys = keyof ItemData | 'no';
 
 const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
     if (isNaN(value)) return <span className="text-right block w-full">-</span>;
@@ -128,9 +128,12 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             )
             : itemsData;
 
+        if (!sortConfig) return filtered;
+
         return [...filtered].sort((a, b) => {
-            const aVal = a[sortConfig.key];
-            const bVal = b[sortConfig.key];
+            if (sortConfig.key === 'no') return 0;
+            const aVal = a[sortConfig.key as keyof ItemData];
+            const bVal = b[sortConfig.key as keyof ItemData];
             if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
             if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
             return 0;
@@ -159,6 +162,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
     }, [filteredAndSortedData]);
 
     const requestSort = (key: SortableKeys) => {
+        if (key === 'no') return;
         let direction: 'asc' | 'desc' = 'asc';
         if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
             direction = 'desc';
@@ -167,11 +171,13 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
     };
 
     const columns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
+        { key: 'no', header: 'No.', isNumeric: false },
         { key: 'code', header: 'Item Code (ERP)' },
         { key: 'name', header: 'Item Description' },
         { key: 'sales2024', header: '2024 Sales', isNumeric: true },
+        { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
         { key: 'sales2025', header: '2025 Sales', isNumeric: true },
-        { key: 'contribution2025', header: 'Contrib % (Brand)', isNumeric: true },
+        { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
     ];
     
@@ -180,22 +186,30 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
         const title = `Item Analysis for Brand: ${brandName}`;
         const head = [columns.map(c => c.header)];
         
-        const body = filteredAndSortedData.map(item => [
-            item.code, item.name, 
-            formatNumberAbbreviated(item.sales2024),
-            formatNumberAbbreviated(item.sales2025),
-            `${item.contribution2025.toFixed(2)}%`,
-            `${item.growth.toFixed(2)}%`
-        ]);
+        const body = filteredAndSortedData.map((item, index) => {
+            return columns.map(col => {
+                if (col.key === 'no') return index + 1;
+                const value = item[col.key as keyof typeof item];
+                switch(col.key) {
+                    case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                    case 'contribution2024': case 'contribution2025': return `${(value as number).toFixed(2)}%`;
+                    case 'growth': return `${(value as number).toFixed(2)}%`;
+                    default: return value;
+                }
+            });
+        });
 
         if (totalRow) {
-             body.unshift([
-                totalRow.code, totalRow.name,
-                formatNumberAbbreviated(totalRow.sales2024),
-                formatNumberAbbreviated(totalRow.sales2025),
-                `${totalRow.contribution2025.toFixed(2)}%`,
-                `${totalRow.growth.toFixed(2)}%`
-             ]);
+             body.unshift(columns.map(col => {
+                 const value = totalRow[col.key as keyof typeof totalRow];
+                 switch(col.key) {
+                     case 'no': return 'TOTAL';
+                     case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                     case 'contribution2024': case 'contribution2025': return `${(value as number).toFixed(2)}%`;
+                     case 'growth': return `${(value as number).toFixed(2)}%`;
+                     default: return value;
+                 }
+             }));
         }
         
         const filename = `brand_analysis_${brandName}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -272,8 +286,8 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                         <thead className="text-xs text-slate-400 uppercase bg-slate-700/50 sticky top-0 z-10">
                             <tr>
                                 {columns.map(col => (
-                                    <th key={col.key} scope="col" className="p-3 cursor-pointer" onClick={() => requestSort(col.key)}>
-                                        {col.header} {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                    <th key={col.key} scope="col" className={`p-3 ${col.key !== 'no' ? 'cursor-pointer' : ''} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>
+                                        {col.header} {sortConfig && sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                                     </th>
                                 ))}
                             </tr>
@@ -281,12 +295,20 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                         <tbody>
                              {totalRow && (
                                 <tr className="bg-sky-900/60 font-bold text-white text-sm">
-                                    <td className="p-3">{totalRow.code}</td>
-                                    <td className="p-3">{totalRow.name}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2024)}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2025)}</td>
-                                    <td className="p-3 text-right"><ContributionCell value={totalRow.contribution2025} /></td>
-                                    <td className="p-3 text-right"><GrowthIndicator value={totalRow.growth} /></td>
+                                    {columns.map(col => (
+                                        <td key={`total-${col.key}`} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
+                                            {(() => {
+                                                const value = totalRow[col.key as keyof typeof totalRow];
+                                                switch (col.key) {
+                                                    case 'no': return '';
+                                                    case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                                                    case 'contribution2024': case 'contribution2025': return <ContributionCell value={value as number} />;
+                                                    case 'growth': return <GrowthIndicator value={value as number} />;
+                                                    default: return value;
+                                                }
+                                            })()}
+                                        </td>
+                                    ))}
                                 </tr>
                              )}
                             {filteredAndSortedData.map((item, index) => (
@@ -294,9 +316,13 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                                     {columns.map(col => (
                                         <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
                                             {(() => {
-                                                const value = item[col.key];
+                                                if (col.key === 'no') {
+                                                    return index + 1;
+                                                }
+                                                const value = item[col.key as keyof typeof item];
                                                 switch (col.key) {
                                                     case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                                                    case 'contribution2024': return <ContributionCell value={value as number} />;
                                                     case 'contribution2025': return <ContributionCell value={value as number} />;
                                                     case 'growth': return <GrowthIndicator value={value as number} />;
                                                     default: return value;
