@@ -31,7 +31,6 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
             pareto: { topCount: 0, salesPercent: 0 },
             newItems: { count: 0, sales: 0 },
             lostItems: { count: 0, sales2024: 0 },
-            avgSalesPerItem: 0,
             assortmentShare: 0,
         };
 
@@ -101,7 +100,6 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
             pareto: { topCount: count, salesPercent: paretoSalesPercent },
             newItems: { count: newItemsCount, sales: newItemsSales },
             lostItems: { count: lostItemsCount, sales2024: lostItemsSales2024 },
-            avgSalesPerItem: items25.size > 0 ? totalSales2025 / items25.size : 0,
             assortmentShare: parentItems25 > 0 ? (items25.size / parentItems25) * 100 : 0,
         };
         return { stats: finalStats, parentTypeLabel };
@@ -137,7 +135,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
             <div className="flex-shrink-0 w-full md:w-48 text-center md:text-left">
                 {renderEntityName()}
             </div>
-            <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 w-full">
+            <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 w-full">
                 <KPICard title="Sales (2025)">
                     <p className="text-lg font-bold">{formatNumberAbbreviated(stats.sales2025)}</p>
                 </KPICard>
@@ -152,11 +150,8 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
                         {formatNumber(stats.itemCount2025)}
                     </p>
                 </KPICard>
-                 <KPICard title={`Share of ${parentTypeLabel} Assortment`}>
+                 <KPICard title={`Share of ${parentTypeLabel} Assortment`} className="sm:col-span-2 lg:col-span-1">
                     <p className="text-lg font-bold">{stats.assortmentShare.toFixed(1)}%</p>
-                </KPICard>
-                 <KPICard title="Avg Sales/Item">
-                    <p className="text-lg font-bold">{formatNumberAbbreviated(stats.avgSalesPerItem)}</p>
                 </KPICard>
                 <KPICard title="New Items">
                     <p className="text-lg font-bold text-green-400">{formatNumber(stats.newItems.count)}</p>
