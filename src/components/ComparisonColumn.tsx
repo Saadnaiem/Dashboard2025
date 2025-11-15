@@ -6,7 +6,6 @@ import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils
 interface ComparisonColumnProps {
     entity: ComparisonEntity;
     data: RawSalesDataRow[];
-    onRemove?: () => void;
     allRawData: RawSalesDataRow[];
     processedData: ProcessedData;
     globalFilters: FilterState;
@@ -23,7 +22,7 @@ const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: 
 );
 
 
-const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRemove, allRawData, processedData, globalFilters }) => {
+const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRawData, processedData, globalFilters }) => {
 
     const { stats, parentTypeLabel } = useMemo(() => {
         const defaultStats = {
@@ -131,7 +130,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
 
         return { stats: finalStats, parentTypeLabel };
 
-    }, [data, allRawData, entity, processedData, globalFilters]);
+    }, [data, allRawData, entity]);
 
 
     const entityTypeLabel = entity.type.slice(0, -1);
@@ -149,7 +148,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                 <KPICard title="YoY Growth %">
                     <GrowthIndicator value={stats.growth} className="text-lg" />
                 </KPICard>
-                <KPICard title={`Contrib%`}>
+                <KPICard title={`Contrib% to ${parentTypeLabel}`}>
                     <p className="text-lg font-bold">{stats.contribution.toFixed(1)}%</p>
                 </KPICard>
                  <KPICard title="Active Items">
@@ -157,7 +156,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                         {formatNumber(stats.itemCount2025)}
                     </p>
                 </KPICard>
-                 <KPICard title={`Assortment Share`}>
+                 <KPICard title={`Share of ${parentTypeLabel} Assortment`}>
                     <p className="text-lg font-bold">{stats.assortmentShare.toFixed(1)}%</p>
                 </KPICard>
                  <KPICard title="Avg Sales/Item">
