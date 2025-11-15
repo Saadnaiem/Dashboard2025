@@ -1,4 +1,5 @@
-import React, { useState, useRef } from 'react';
+import React, 'react';
+import { useMemo, useState, useRef } from 'react';
 import { FilterState, ProcessedData } from '../types';
 import useOnClickOutside from '../hooks/useOnClickOutside';
 
@@ -39,6 +40,22 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
     
     const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>, filterKey: keyof typeof searchTerms) => {
         setSearchTerms(prev => ({ ...prev, [filterKey]: e.target.value }));
+    };
+    
+    const activeFilters = useMemo(() => {
+        return (Object.keys(filters) as Array<keyof FilterState>)
+            .flatMap(key => {
+                if (key === 'items') return []; // Don't show individual items as pills
+                return filters[key].map(value => ({ type: key, value }));
+            });
+    }, [filters]);
+
+    const handleRemoveFilter = (type: keyof FilterState, value: string) => {
+        const newFilters = {
+            ...filters,
+            [type]: filters[type].filter(item => item !== value),
+        };
+        onFilterChange(newFilters);
     };
 
     const activeFilterCount = (Object.values(filters) as string[][]).reduce((acc, val) => acc + val.length, 0);
@@ -151,6 +168,34 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                     </button>
                 </div>
             </div>
+            
+            {activeFilters.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-slate-700">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold text-slate-400 mr-2">Active Filters:</span>
+                        {activeFilters.map(({ type, value }) => (
+                            <span key={`${type}-${value}`} className="filter-pill" title={`${type}: ${value}`}>
+                                <span className="filter-pill-type">{type.slice(0, -1)}:</span>
+                                {value}
+                                <button
+                                    onClick={() => handleRemoveFilter(type, value)}
+                                    className="filter-pill-remove"
+                                    aria-label={`Remove ${value} from ${type} filter`}
+                                >
+                                    &times;
+                                </button>
+                            </span>
+                        ))}
+                        <button
+                            onClick={handleReset}
+                            className="text-sm text-rose-400 hover:text-rose-300 font-semibold transition-colors underline"
+                        >
+                            Clear all
+                        </button>
+                    </div>
+                </div>
+            )}
+
 
             {showFilters && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mt-6 pt-6 border-t border-slate-700">
