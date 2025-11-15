@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { ProcessedData, RawSalesDataRow } from '../types';
 import ComparisonSelector from './ComparisonSelector';
@@ -128,6 +127,10 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         setSelectorOpen(false);
     };
 
+    const handleBack = () => {
+        setDrilldownPath(prev => prev.slice(0, prev.length - 1));
+    };
+
     const getChildTypeLabel = () => {
         if (!childType) return 'Items';
         return childType.charAt(0).toUpperCase() + childType.slice(1);
@@ -141,13 +144,26 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                     <h1 className="text-2xl font-extrabold text-white">Comparison Hub</h1>
                     <p className="text-slate-400">Drill down through your business hierarchy.</p>
                 </div>
-                 <button
-                    onClick={() => setSelectorOpen(true)}
-                    className="px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
-                    Start New Analysis
-                </button>
+                <div className="flex items-center gap-2">
+                    {drilldownPath.length > 0 && (
+                        <button
+                            onClick={handleBack}
+                            className="px-4 py-3 bg-slate-600 text-white font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2"
+                        >
+                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                            Back
+                        </button>
+                    )}
+                     <button
+                        onClick={() => setSelectorOpen(true)}
+                        className="px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
+                        Start New Analysis
+                    </button>
+                </div>
             </div>
 
             {isSelectorOpen && (
@@ -185,6 +201,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                                 entity={entity}
                                 allRawData={allRawData}
                                 onDrilldown={handleDrilldown}
+                                drilldownPath={drilldownPath}
                             />
                         ))}
                     </div>

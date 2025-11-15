@@ -7,6 +7,7 @@ interface ComparisonColumnProps {
     entity: ComparisonEntity;
     allRawData: RawSalesDataRow[];
     onDrilldown: (entity: ComparisonEntity) => void;
+    drilldownPath: ComparisonEntity[];
 }
 
 const calculateGrowth = (current: number, previous: number) =>
@@ -20,7 +21,7 @@ const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: 
 );
 
 
-const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData, onDrilldown }) => {
+const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData, onDrilldown, drilldownPath }) => {
 
     const { stats, parentTypeLabel } = useMemo(() => {
         const defaultStats = {
@@ -33,9 +34,15 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
             avgSalesPerItem: 0,
             assortmentShare: 0,
         };
+
+        let contextualData = allRawData;
+        drilldownPath.forEach(pathEntity => {
+            const pathKey: keyof RawSalesDataRow = pathEntity.type === 'divisions' ? 'DIVISION' : pathEntity.type === 'departments' ? 'DEPARTMENT' : pathEntity.type === 'categories' ? 'CATEGORY' : 'BRAND';
+            contextualData = contextualData.filter(row => row[pathKey] === pathEntity.name);
+        });
         
         const key: keyof RawSalesDataRow = entity.type === 'divisions' ? 'DIVISION' : entity.type === 'departments' ? 'DEPARTMENT' : entity.type === 'categories' ? 'CATEGORY' : entity.type === 'brands' ? 'BRAND' : entity.type === 'branches' ? 'BRANCH NAME' : 'ITEM DESCRIPTION';
-        const data = allRawData.filter(row => row[key] === entity.name);
+        const data = contextualData.filter(row => row[key] === entity.name);
 
         if (data.length === 0) {
             return { stats: defaultStats, parentTypeLabel: 'Total' };
@@ -60,29 +67,13 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
 
         let parentData: RawSalesDataRow[] = allRawData;
         let parentTypeLabel = 'Company';
-        const firstValidRow = data.find(r => r);
+        const parentEntity = drilldownPath.length > 0 ? drilldownPath[drilldownPath.length - 1] : null;
 
-        if (firstValidRow) {
-            switch (entity.type) {
-                case 'departments': case 'branches':
-                    parentTypeLabel = 'Division';
-                    parentData = allRawData.filter(r => r.DIVISION === firstValidRow.DIVISION);
-                    break;
-                case 'brands': case 'categories':
-                    parentTypeLabel = 'Department';
-                    parentData = allRawData.filter(r => r.DEPARTMENT === firstValidRow.DEPARTMENT);
-                    break;
-                case 'items':
-                    parentTypeLabel = 'Brand';
-                    parentData = allRawData.filter(r => r.BRAND === firstValidRow.BRAND);
-                    break;
-                case 'divisions': default:
-                    parentData = allRawData; parentTypeLabel = 'Company'; break;
-            }
+        if (parentEntity) {
+            parentData = contextualData; // The parent's scope is the current context
+            parentTypeLabel = parentEntity.type.charAt(0).toUpperCase() + parentEntity.type.slice(1, -1);
         }
         
-        if (parentData.length === 0) { parentData = allRawData; parentTypeLabel = 'Company'; }
-
         const parentSales2025 = parentData.reduce((sum, row) => sum + row.SALES2025, 0);
         const parentItems25 = new Set(parentData.filter(r => r.SALES2025 > 0 && r['ITEM DESCRIPTION']).map(r => r['ITEM DESCRIPTION'])).size;
 
@@ -99,7 +90,8 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
             if(s24 > 0 && s25 === 0) { lostItemsCount++; lostItemsSales2024 += s24; }
         });
 
-        const totalItemsForEntity = new Set(allRawData.filter(row => row[key] === entity.name && row['ITEM DESCRIPTION']).map(row => row['ITEM DESCRIPTION'])).size;
+        // This calculation should now be correct as it's based on the already-scoped `data`
+        const totalItemsForEntity = new Set(data.filter(row => row['ITEM DESCRIPTION']).map(row => row['ITEM DESCRIPTION'])).size;
 
         const finalStats = {
             sales2024: totalSales2024, sales2025: totalSales2025,
@@ -113,7 +105,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
             assortmentShare: parentItems25 > 0 ? (items25.size / parentItems25) * 100 : 0,
         };
         return { stats: finalStats, parentTypeLabel };
-    }, [entity, allRawData]);
+    }, [entity, allRawData, drilldownPath]);
 
     const entityTypeLabel = entity.type.slice(0, -1);
     const isDrillable = entity.type !== 'items';
@@ -122,7 +114,7 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
         const content = (
              <>
                 <span className="text-xs uppercase font-bold text-sky-400">{entityTypeLabel}</span>
-                <h3 className="text-base font-extrabold text-white truncate">{entity.name}</h3>
+                <h3 className="text-base font-extrabold text-white truncate" title={entity.name}>{entity.name}</h3>
              </>
         );
 
