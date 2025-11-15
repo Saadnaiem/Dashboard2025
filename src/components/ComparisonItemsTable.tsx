@@ -201,20 +201,25 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                         {filteredAndSortedData.map((item, index) => (
                             <tr key={item.code + item.parentEntity} className="hover:bg-slate-700/50 transition-colors text-sm">
                                 <td className="p-3 text-slate-400">{index + 1}</td>
-                                {columns.map(col => (
-                                     <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
-                                        {(() => {
-                                            const value = item[col.key as keyof typeof item];
-                                            switch (col.key) {
-                                                case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
-                                                case 'contribution2025': return <ContributionCell value={value as number} />;
-                                                case 'growth': return <GrowthIndicator value={value as number} />;
-                                                case 'parentEntity': return <span className="text-xs text-slate-400 truncate" title={value as string}>{value as string}</span>;
-                                                default: return <span title={value as string}>{value as string}</span>;
-                                            }
-                                        })()}
-                                    </td>
-                                ))}
+                                {columns.map(col => {
+                                     const isItemNameCol = col.key === 'name';
+                                     const value = item[col.key as keyof typeof item];
+                                     const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${isItemNameCol ? 'item-name-cell' : ''}`;
+
+                                     return (
+                                         <td key={col.key} className={tdClassName} title={isItemNameCol ? value as string : undefined}>
+                                            {(() => {
+                                                switch (col.key) {
+                                                    case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                                                    case 'contribution2025': return <ContributionCell value={value as number} />;
+                                                    case 'growth': return <GrowthIndicator value={value as number} />;
+                                                    case 'parentEntity': return <span className="text-xs text-slate-400 truncate" title={value as string}>{value as string}</span>;
+                                                    default: return value as string;
+                                                }
+                                            })()}
+                                        </td>
+                                     );
+                                })}
                             </tr>
                         ))}
                     </tbody>
