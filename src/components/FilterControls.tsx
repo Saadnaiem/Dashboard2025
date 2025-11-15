@@ -1,5 +1,4 @@
-import React, 'react';
-import { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { FilterState, ProcessedData } from '../types';
 import useOnClickOutside from '../hooks/useOnClickOutside';
 
