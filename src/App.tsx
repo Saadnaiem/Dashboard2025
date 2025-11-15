@@ -139,6 +139,8 @@ const App: React.FC = () => {
             if (searchTerm) {
                 return (
                     (row['DIVISION']?.toLowerCase().includes(lowercasedTerm)) ||
+                    (row['DEPARTMENT']?.toLowerCase().includes(lowercasedTerm)) ||
+                    (row['CATEGORY']?.toLowerCase().includes(lowercasedTerm)) ||
                     (row['BRANCH NAME']?.toLowerCase().includes(lowercasedTerm)) ||
                     (row['BRAND']?.toLowerCase().includes(lowercasedTerm)) ||
                     (row['ITEM DESCRIPTION']?.toLowerCase().includes(lowercasedTerm))

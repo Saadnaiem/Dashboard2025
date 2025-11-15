@@ -25,11 +25,6 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
 
     useOnClickOutside(filterRef, () => setShowFilters(false));
 
-    const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>, filterKey: keyof FilterState) => {
-        const selectedOptions = Array.from(e.target.selectedOptions, (opt: HTMLOptionElement) => opt.value);
-        onFilterChange({ ...filters, [filterKey]: selectedOptions });
-    };
-
     const handleReset = () => {
         onReset();
         setSearchTerms({
@@ -61,10 +56,19 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
             opt.toLowerCase().includes(searchTerms[filterKey].toLowerCase())
         );
 
+        const handleCheckboxChange = (option: string) => {
+            const currentSelection = filters[filterKey] || [];
+            const newSelection = currentSelection.includes(option)
+                ? currentSelection.filter(item => item !== option)
+                : [...currentSelection, option];
+            onFilterChange({ ...filters, [filterKey]: newSelection });
+        };
+
         return (
             <div>
-                <label htmlFor={`${filterKey}Filter`} className="block text-sm font-bold text-slate-300 mb-2 ml-1">{label}</label>
+                <label htmlFor={`${filterKey}Search`} className="block text-sm font-bold text-slate-300 mb-2 ml-1">{label} <span className="text-slate-400 font-normal">({(filters[filterKey] || []).length} selected)</span></label>
                 <input
+                    id={`${filterKey}Search`}
                     type="text"
                     placeholder={`Search ${label}...`}
                     value={searchTerms[filterKey]}
@@ -72,16 +76,33 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                     className="w-full bg-slate-900 border border-slate-600 rounded-md py-1 px-3 mb-2 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
                     aria-label={`Search for a ${label}`}
                 />
-                <select 
+                <div 
                     id={`${filterKey}Filter`} 
-                    className="w-full" 
-                    multiple 
-                    size={5} 
-                    value={filters[filterKey]} 
-                    onChange={(e) => handleSelectChange(e, filterKey)}
+                    className="w-full h-40 overflow-y-auto bg-slate-900 border-2 border-slate-600 rounded-lg p-2 space-y-1 filter-list"
+                    role="listbox"
+                    aria-multiselectable="true"
                 >
-                    {filteredOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
+                    {filteredOptions.map(opt => (
+                        <label 
+                            key={opt} 
+                            className="flex items-center space-x-3 p-1 rounded-md hover:bg-slate-700 cursor-pointer transition-colors duration-150"
+                            role="option"
+                            aria-selected={filters[filterKey]?.includes(opt)}
+                        >
+                            <input
+                                type="checkbox"
+                                value={opt}
+                                checked={filters[filterKey]?.includes(opt)}
+                                onChange={() => handleCheckboxChange(opt)}
+                                className="form-checkbox"
+                            />
+                            <span className="text-slate-300 text-sm truncate select-none" title={opt}>{opt}</span>
+                        </label>
+                    ))}
+                    {filteredOptions.length === 0 && (
+                        <p className="text-slate-500 text-sm text-center p-2">No matches found.</p>
+                    )}
+                </div>
             </div>
         );
     };
@@ -92,7 +113,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                  <div className="relative w-full md:max-w-md">
                     <input
                         type="text"
-                        placeholder="Global search (Divisions, Branches, Brands...)"
+                        placeholder="Global search (Divisions, Depts, Cats...)"
                         value={searchTerm}
                         onChange={(e) => onSearchChange(e.target.value)}
                         className="w-full bg-slate-700 border border-slate-600 rounded-lg py-3 pl-10 pr-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
