@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo } from 'react';
-import { ProcessedData, RawSalesDataRow, FilterState } from '../types';
+import { ProcessedData, RawSalesDataRow } from '../types';
 import ComparisonSelector from './ComparisonSelector';
 import ComparisonColumn from './ComparisonColumn';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
@@ -13,7 +14,6 @@ export interface ComparisonEntity {
 interface ComparisonPageProps {
     allRawData: RawSalesDataRow[];
     processedData: ProcessedData;
-    globalFilters: FilterState;
 }
 
 const HIERARCHY: ComparisonEntityType[] = ['divisions', 'departments', 'categories', 'brands', 'items'];
@@ -49,12 +49,11 @@ const Breadcrumbs: React.FC<{ path: ComparisonEntity[], onNavigate: (index: numb
     </nav>
 );
 
-const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedData, globalFilters }) => {
+const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedData }) => {
     const [drilldownPath, setDrilldownPath] = useState<ComparisonEntity[]>([]);
     const [isSelectorOpen, setSelectorOpen] = useState(false);
 
     const currentLevel = drilldownPath.length;
-    const parentEntity = drilldownPath.length > 0 ? drilldownPath[drilldownPath.length - 1] : null;
     const childType = HIERARCHY[currentLevel];
 
     const comparisonData = useMemo(() => {

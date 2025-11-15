@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Papa from 'papaparse';
@@ -222,7 +223,7 @@ const App: React.FC = () => {
                     />
                     <Route
                         path="/compare"
-                        element={<ComparisonPage allRawData={allData} processedData={processedData!} globalFilters={filters} />}
+                        element={<ComparisonPage allRawData={allData} processedData={processedData!} />}
                     />
                     <Route 
                         path="/division/:divisionName" 
