@@ -109,3 +109,24 @@ body {
 .comparison-selector-list::-webkit-scrollbar-thumb:hover {
     @apply bg-slate-400;
 }
+
+/* Breadcrumb Styles */
+.breadcrumb {
+    @apply flex items-center gap-2 flex-wrap;
+}
+
+.breadcrumb-item {
+    @apply text-sm font-semibold text-slate-400;
+}
+
+.breadcrumb-link {
+    @apply hover:text-sky-400 hover:underline;
+}
+
+.breadcrumb-separator {
+    @apply text-slate-500;
+}
+
+.breadcrumb-current {
+    @apply text-white font-bold;
+}

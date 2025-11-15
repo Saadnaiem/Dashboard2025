@@ -5,8 +5,8 @@ import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils
 
 interface ComparisonColumnProps {
     entity: ComparisonEntity;
-    data: RawSalesDataRow[];
     allRawData: RawSalesDataRow[];
+    onDrilldown: (entity: ComparisonEntity) => void;
 }
 
 const calculateGrowth = (current: number, previous: number) =>
@@ -20,7 +20,7 @@ const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: 
 );
 
 
-const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRawData }) => {
+const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData, onDrilldown }) => {
 
     const { stats, parentTypeLabel } = useMemo(() => {
         const defaultStats = {
@@ -33,6 +33,9 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRa
             avgSalesPerItem: 0,
             assortmentShare: 0,
         };
+        
+        const key: keyof RawSalesDataRow = entity.type === 'divisions' ? 'DIVISION' : entity.type === 'departments' ? 'DEPARTMENT' : entity.type === 'categories' ? 'CATEGORY' : entity.type === 'brands' ? 'BRAND' : entity.type === 'branches' ? 'BRANCH NAME' : 'ITEM DESCRIPTION';
+        const data = allRawData.filter(row => row[key] === entity.name);
 
         if (data.length === 0) {
             return { stats: defaultStats, parentTypeLabel: 'Total' };
@@ -55,20 +58,17 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRa
         const items24 = new Set(Object.entries(items).filter(([,d]) => d.s24 > 0).map(([name]) => name));
         const items25 = new Set(Object.entries(items).filter(([,d]) => d.s25 > 0).map(([name]) => name));
 
-        // --- Hierarchy-aware Parent Calculation ---
         let parentData: RawSalesDataRow[] = allRawData;
         let parentTypeLabel = 'Company';
         const firstValidRow = data.find(r => r);
 
         if (firstValidRow) {
             switch (entity.type) {
-                case 'departments':
-                case 'branches':
+                case 'departments': case 'branches':
                     parentTypeLabel = 'Division';
                     parentData = allRawData.filter(r => r.DIVISION === firstValidRow.DIVISION);
                     break;
-                case 'brands':
-                case 'categories':
+                case 'brands': case 'categories':
                     parentTypeLabel = 'Department';
                     parentData = allRawData.filter(r => r.DEPARTMENT === firstValidRow.DEPARTMENT);
                     break;
@@ -76,20 +76,12 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRa
                     parentTypeLabel = 'Brand';
                     parentData = allRawData.filter(r => r.BRAND === firstValidRow.BRAND);
                     break;
-                case 'divisions':
-                default:
-                    // Parent is the whole company, so use allRawData
-                    parentData = allRawData;
-                    parentTypeLabel = 'Company';
-                    break;
+                case 'divisions': default:
+                    parentData = allRawData; parentTypeLabel = 'Company'; break;
             }
         }
         
-        // If global filters make parentData empty, fall back to all data to avoid division by zero
-        if (parentData.length === 0) {
-            parentData = allRawData;
-            parentTypeLabel = 'Company';
-        }
+        if (parentData.length === 0) { parentData = allRawData; parentTypeLabel = 'Company'; }
 
         const parentSales2025 = parentData.reduce((sum, row) => sum + row.SALES2025, 0);
         const parentItems25 = new Set(parentData.filter(r => r.SALES2025 > 0 && r['ITEM DESCRIPTION']).map(r => r['ITEM DESCRIPTION'])).size;
@@ -101,43 +93,57 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, allRa
         const salesFromTop20Percent = sortedItems.slice(0, count).reduce((sum, sales) => sum + sales, 0);
         const paretoSalesPercent = totalSales2025 > 0 ? (salesFromTop20Percent / totalSales2025) * 100 : 0;
 
-        let newItemsCount = 0, newItemsSales = 0;
-        let lostItemsCount = 0, lostItemsSales2024 = 0;
-        Object.entries(items).forEach(([, {s24, s25}]) => {
+        let newItemsCount = 0, newItemsSales = 0, lostItemsCount = 0, lostItemsSales2024 = 0;
+        Object.values(items).forEach(({s24, s25}) => {
             if(s25 > 0 && s24 === 0) { newItemsCount++; newItemsSales += s25; }
             if(s24 > 0 && s25 === 0) { lostItemsCount++; lostItemsSales2024 += s24; }
         });
 
-        const key: keyof RawSalesDataRow = entity.type === 'divisions' ? 'DIVISION' : entity.type === 'departments' ? 'DEPARTMENT' : entity.type === 'categories' ? 'CATEGORY' : entity.type === 'brands' ? 'BRAND' : entity.type === 'branches' ? 'BRANCH NAME' : 'ITEM DESCRIPTION';
         const totalItemsForEntity = new Set(allRawData.filter(row => row[key] === entity.name && row['ITEM DESCRIPTION']).map(row => row['ITEM DESCRIPTION'])).size;
 
         const finalStats = {
-            sales2024: totalSales2024,
-            sales2025: totalSales2025,
+            sales2024: totalSales2024, sales2025: totalSales2025,
             growth: calculateGrowth(totalSales2025, totalSales2024),
-            itemCount2024: items24.size,
-            itemCount2025: items25.size,
-            totalItemsForEntity,
-            contribution: parentSales2025 > 0 ? (totalSales2025 / parentSales2025) * 100 : 0,
+            itemCount2024: items24.size, itemCount2025: items25.size,
+            totalItemsForEntity, contribution: parentSales2025 > 0 ? (totalSales2025 / parentSales2025) * 100 : 0,
             pareto: { topCount: count, salesPercent: paretoSalesPercent },
             newItems: { count: newItemsCount, sales: newItemsSales },
             lostItems: { count: lostItemsCount, sales2024: lostItemsSales2024 },
             avgSalesPerItem: items25.size > 0 ? totalSales2025 / items25.size : 0,
             assortmentShare: parentItems25 > 0 ? (items25.size / parentItems25) * 100 : 0,
         };
-
         return { stats: finalStats, parentTypeLabel };
-
-    }, [data, allRawData, entity]);
-
+    }, [entity, allRawData]);
 
     const entityTypeLabel = entity.type.slice(0, -1);
+    const isDrillable = entity.type !== 'items';
+
+    const renderEntityName = () => {
+        const content = (
+             <>
+                <span className="text-xs uppercase font-bold text-sky-400">{entityTypeLabel}</span>
+                <h3 className="text-base font-extrabold text-white truncate">{entity.name}</h3>
+             </>
+        );
+
+        if (isDrillable) {
+            return (
+                 <button 
+                    onClick={() => onDrilldown(entity)} 
+                    className="text-left w-full h-full p-2 rounded-lg hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    title={`Drill down into ${entity.name}`}
+                >
+                    {content}
+                 </button>
+            );
+        }
+        return <div className="p-2" title={entity.name}>{content}</div>;
+    };
 
     return (
-        <div className="bg-slate-800/50 p-3 rounded-xl shadow-lg border border-slate-700 flex flex-col md:flex-row items-center gap-4 w-full hover:border-sky-600 transition-colors">
+        <div className="bg-slate-800/50 p-2 rounded-xl shadow-lg border border-slate-700 flex flex-col md:flex-row items-center gap-3 w-full hover:border-sky-600 transition-colors">
             <div className="flex-shrink-0 w-full md:w-48 text-center md:text-left">
-                <span className="text-xs uppercase font-bold text-sky-400">{entityTypeLabel}</span>
-                <h3 className="text-base font-extrabold text-white truncate" title={entity.name}>{entity.name}</h3>
+                {renderEntityName()}
             </div>
             <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2 w-full">
                 <KPICard title="Sales (2025)">
