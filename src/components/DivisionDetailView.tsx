@@ -214,7 +214,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         return groupedData.filter(group => group.departmentName === selectedDepartment);
     }, [groupedData, selectedDepartment]);
 
-    const handleExport = (format: 'csv' | 'pdf' => {
+    const handleExport = (format: 'csv' | 'pdf') => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
         const title = `Division Analysis: ${divisionName}${selectedDepartment ? ` - ${selectedDepartment}`: ''}`;
         const head = [['Department', 'Category', '2024 Sales', '2025 Sales', 'Contrib % 2024', 'Contrib % 2025', 'Growth %']];
