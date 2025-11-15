@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { RawSalesDataRow } from '../types';
+import { RawSalesDataRow, ProcessedData } from '../types';
 import { ComparisonEntity } from './ComparisonPage';
 import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
@@ -8,6 +8,7 @@ interface ComparisonColumnProps {
     data: RawSalesDataRow[];
     onRemove: () => void;
     allRawData: RawSalesDataRow[];
+    processedData: ProcessedData;
 }
 
 const calculateGrowth = (current: number, previous: number) =>
@@ -21,19 +22,22 @@ const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: 
 );
 
 
-const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRemove, allRawData }) => {
+const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRemove, allRawData, processedData }) => {
 
     const stats = useMemo(() => {
+        const defaultStats = {
+            sales2024: 0, sales2025: 0, growth: 0,
+            itemCount2024: 0, itemCount2025: 0, totalItemsForEntity: 0,
+            contribution: 0,
+            pareto: { topCount: 0, salesPercent: 0 },
+            newItems: { count: 0, sales: 0 },
+            lostItems: { count: 0, sales2024: 0 },
+            avgSalesPerItem: 0,
+            availability2024: 0, availability2025: 0,
+        };
+
         if (data.length === 0) {
-            return {
-                sales2024: 0, sales2025: 0, growth: 0,
-                itemCount2024: 0, itemCount2025: 0,
-                contribution: 0,
-                pareto: { topCount: 0, salesPercent: 0 },
-                newItems: { count: 0, sales: 0 },
-                lostItems: { count: 0, sales2024: 0 },
-                avgSalesPerItem: 0,
-            };
+            return defaultStats;
         }
 
         const items: { [key: string]: { s24: number, s25: number } } = {};
@@ -80,19 +84,46 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
         
         const totalSalesAllData2025 = allRawData.reduce((sum, row) => sum + row.SALES2025, 0);
 
+        let key: keyof RawSalesDataRow;
+        switch (entity.type) {
+            case 'divisions': key = 'DIVISION'; break;
+            case 'departments': key = 'DEPARTMENT'; break;
+            case 'categories': key = 'CATEGORY'; break;
+            case 'brands': key = 'BRAND'; break;
+            case 'branches': key = 'BRANCH NAME'; break;
+            case 'items': key = 'ITEM DESCRIPTION'; break;
+        }
+
+        const totalItemsForEntity = new Set(
+            allRawData
+                .filter(row => row[key] === entity.name && row['ITEM DESCRIPTION'])
+                .map(row => row['ITEM DESCRIPTION'])
+        ).size;
+        
+        const availability2024 = processedData.itemCount2024 > 0 
+            ? (items24.size / processedData.itemCount2024) * 100 
+            : 0;
+            
+        const availability2025 = processedData.itemCount2025 > 0 
+            ? (items25.size / processedData.itemCount2025) * 100 
+            : 0;
+
         return {
             sales2024: totalSales2024,
             sales2025: totalSales2025,
             growth: calculateGrowth(totalSales2025, totalSales2024),
             itemCount2024: items24.size,
             itemCount2025: items25.size,
+            totalItemsForEntity,
             contribution: totalSalesAllData2025 > 0 ? (totalSales2025 / totalSalesAllData2025) * 100 : 0,
             pareto: { topCount: count, salesPercent: paretoSalesPercent },
             newItems: { count: newItemsCount, sales: newItemsSales },
             lostItems: { count: lostItemsCount, sales2024: lostItemsSales2024 },
             avgSalesPerItem: items25.size > 0 ? totalSales2025 / items25.size : 0,
+            availability2024,
+            availability2025,
         };
-    }, [data, allRawData]);
+    }, [data, allRawData, entity, processedData]);
 
 
     const entityTypeLabel = entity.type.slice(0, -1);
@@ -118,13 +149,20 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                     <p className="text-2xl font-bold">{stats.contribution.toFixed(2)}%</p>
                 </KPICard>
                  <KPICard title="Active Items">
-                    <p className="text-2xl font-bold">{formatNumber(stats.itemCount2025)}</p>
+                    <p className="text-xl font-bold">
+                        {formatNumber(stats.itemCount2025)}
+                        <span className="text-base text-slate-400"> / {formatNumber(stats.totalItemsForEntity)}</span>
+                    </p>
                     <GrowthIndicator value={stats.itemCount2025 - stats.itemCount2024} unit="" />
+                </KPICard>
+                 <KPICard title="Availability %">
+                    <p className="text-xl font-bold">{stats.availability2025.toFixed(2)}%</p>
+                    <p className="text-sm text-slate-400">2024: {stats.availability2024.toFixed(2)}%</p>
                 </KPICard>
                  <KPICard title="Avg Sales / Item">
                     <p className="text-2xl font-bold">{formatNumberAbbreviated(stats.avgSalesPerItem)}</p>
                 </KPICard>
-                 <KPICard title="Pareto Items (Top 20%)" className="col-span-2">
+                <KPICard title="Pareto Items (Top 20%)">
                     <p className="text-sm">Top <b>{formatNumber(stats.pareto.topCount)}</b> items generate <b>{stats.pareto.salesPercent.toFixed(1)}%</b> of this entity's sales.</p>
                 </KPICard>
                 <KPICard title="New Items (2025)">
