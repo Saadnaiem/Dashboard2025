@@ -1,83 +1,99 @@
 import React, { useMemo } from 'react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Cell } from 'recharts';
 import { RawSalesDataRow } from '../types';
 import { ComparisonEntity } from './ComparisonPage';
 import { formatNumber, formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
-import { CustomYAxisTick } from './charts/CustomYAxisTick';
 
 interface ComparisonColumnProps {
     entity: ComparisonEntity;
     data: RawSalesDataRow[];
     onRemove: () => void;
-    allRawData: RawSalesDataRow[]; // For calculating total for contribution
+    allRawData: RawSalesDataRow[];
 }
 
 const calculateGrowth = (current: number, previous: number) =>
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
 
-const KPICard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-slate-700/50 p-4 rounded-lg text-center">
-        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">{title}</h4>
+const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
+    <div className={`bg-slate-700/50 p-3 rounded-lg text-center h-full flex flex-col justify-center ${className}`}>
+        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">{title}</h4>
         <div className="text-white">{children}</div>
     </div>
 );
 
-const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
-        return (
-            <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-3 rounded-lg shadow-lg text-sm">
-                <p className="font-bold text-green-300 mb-1">{label}</p>
-                <p className="text-teal-400">2025 Sales: {formatNumberAbbreviated(payload[0].value)}</p>
-            </div>
-        );
-    }
-    return null;
-};
 
 const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRemove, allRawData }) => {
 
     const stats = useMemo(() => {
-        const result = data.reduce((acc, row) => {
-            acc.sales2024 += row.SALES2024;
-            acc.sales2025 += row.SALES2025;
-            if(row.SALES2025 > 0) acc.activeItems.add(row['ITEM DESCRIPTION']);
-            return acc;
-        }, { sales2024: 0, sales2025: 0, activeItems: new Set<string>() });
-
-        const totalSales2025 = allRawData.reduce((sum, row) => sum + row.SALES2025, 0);
-
-        return {
-            ...result,
-            growth: calculateGrowth(result.sales2025, result.sales2024),
-            itemCount: result.activeItems.size,
-            contribution: totalSales2025 > 0 ? (result.sales2025 / totalSales2025) * 100 : 0
-        };
-    }, [data, allRawData]);
-
-    const breakdownData = useMemo(() => {
-        if (!entity || data.length === 0) return [];
-        
-        let breakdownKey: keyof RawSalesDataRow;
-        switch (entity.type) {
-            case 'divisions': breakdownKey = 'DEPARTMENT'; break;
-            case 'departments': breakdownKey = 'CATEGORY'; break;
-            case 'categories': breakdownKey = 'BRAND'; break;
-            default: breakdownKey = 'ITEM DESCRIPTION'; // Brands, Branches, Items break down to items
+        if (data.length === 0) {
+            return {
+                sales2024: 0, sales2025: 0, growth: 0,
+                itemCount2024: 0, itemCount2025: 0,
+                contribution: 0,
+                pareto: { topCount: 0, salesPercent: 0 },
+                newItems: { count: 0, sales: 0 },
+                lostItems: { count: 0, sales2024: 0 },
+                avgSalesPerItem: 0,
+            };
         }
 
-        const breakdownMap = new Map<string, number>();
+        const items: { [key: string]: { s24: number, s25: number } } = {};
+        let totalSales2024 = 0;
+        let totalSales2025 = 0;
+        
         data.forEach(row => {
-            const key = row[breakdownKey];
-            if (key) {
-                breakdownMap.set(key, (breakdownMap.get(key) || 0) + row.SALES2025);
+            const item = row['ITEM DESCRIPTION'];
+            const s24 = row['SALES2024'];
+            const s25 = row['SALES2025'];
+
+            totalSales2024 += s24;
+            totalSales2025 += s25;
+
+            if (item) {
+                items[item] = items[item] || { s24: 0, s25: 0 };
+                items[item].s24 += s24;
+                items[item].s25 += s25;
             }
         });
 
-        return Array.from(breakdownMap.entries())
-            .map(([name, sales2025]) => ({ name, sales2025 }))
-            .sort((a, b) => b.sales2025 - a.sales2025)
-            .slice(0, 10); // Cap at top 10 for performance and clarity
-    }, [entity, data]);
+        const sortedItems = Object.values(items)
+            .map(item => item.s25)
+            .filter(sales => sales > 0)
+            .sort((a, b) => b - a);
+
+        const totalItemContributors = sortedItems.length;
+        const top20PercentCount = totalItemContributors > 0 ? Math.max(1, Math.ceil(totalItemContributors * 0.20)) : 0;
+        const count = Math.min(top20PercentCount, totalItemContributors);
+        const salesFromTop20Percent = sortedItems.slice(0, count).reduce((sum, sales) => sum + sales, 0);
+        const paretoSalesPercent = totalSales2025 > 0 ? (salesFromTop20Percent / totalSales2025) * 100 : 0;
+
+        let newItemsCount = 0, newItemsSales = 0;
+        let lostItemsCount = 0, lostItemsSales2024 = 0;
+        let items24 = new Set<string>();
+        let items25 = new Set<string>();
+
+        Object.entries(items).forEach(([name, {s24, s25}]) => {
+            if(s24 > 0) items24.add(name);
+            if(s25 > 0) items25.add(name);
+            if(s25 > 0 && s24 === 0) { newItemsCount++; newItemsSales += s25; }
+            if(s24 > 0 && s25 === 0) { lostItemsCount++; lostItemsSales2024 += s24; }
+        });
+        
+        const totalSalesAllData2025 = allRawData.reduce((sum, row) => sum + row.SALES2025, 0);
+
+        return {
+            sales2024: totalSales2024,
+            sales2025: totalSales2025,
+            growth: calculateGrowth(totalSales2025, totalSales2024),
+            itemCount2024: items24.size,
+            itemCount2025: items25.size,
+            contribution: totalSalesAllData2025 > 0 ? (totalSales2025 / totalSalesAllData2025) * 100 : 0,
+            pareto: { topCount: count, salesPercent: paretoSalesPercent },
+            newItems: { count: newItemsCount, sales: newItemsSales },
+            lostItems: { count: lostItemsCount, sales2024: lostItemsSales2024 },
+            avgSalesPerItem: items25.size > 0 ? totalSales2025 / items25.size : 0,
+        };
+    }, [data, allRawData]);
+
 
     const entityTypeLabel = entity.type.slice(0, -1);
 
@@ -90,38 +106,35 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, data, onRem
                 </div>
                 <button onClick={onRemove} className="filter-pill-remove" aria-label={`Remove ${entity.name}`}>&times;</button>
             </div>
-            <div className="grid grid-cols-2 gap-2">
-                <KPICard title="Total Sales (2025)">
-                    <p className="text-2xl font-bold">{formatNumberAbbreviated(stats.sales2025)}</p>
+            <div className="grid grid-cols-2 gap-3 flex-grow">
+                <KPICard title="Total Sales (2025)" className="col-span-2">
+                    <p className="text-3xl font-bold">{formatNumberAbbreviated(stats.sales2025)}</p>
+                    <p className="text-sm text-slate-400">2024: {formatNumberAbbreviated(stats.sales2024)}</p>
                 </KPICard>
                 <KPICard title="YoY Growth %">
                     <GrowthIndicator value={stats.growth} className="text-2xl" />
                 </KPICard>
-                 <KPICard title="Active Items">
-                    <p className="text-2xl font-bold">{formatNumber(stats.itemCount)}</p>
-                </KPICard>
-                 <KPICard title="Contrib. to Total Sales">
+                <KPICard title="Contrib. to Total Sales">
                     <p className="text-2xl font-bold">{stats.contribution.toFixed(2)}%</p>
                 </KPICard>
-            </div>
-             <div className="flex-1 h-[350px]">
-                <h4 className="text-sm font-bold text-slate-300 text-center mb-2">Top {breakdownData.length} Contributors (2025 Sales)</h4>
-                {breakdownData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height="100%">
-                        <BarChart layout="vertical" data={breakdownData} margin={{ top: 5, right: 20, left: 80, bottom: 5 }}>
-                            <XAxis type="number" stroke="#9ca3af" tickFormatter={formatNumberAbbreviated} tick={{ fontSize: 10 }} />
-                            <YAxis type="category" dataKey="name" stroke="#9ca3af" width={80} tick={<CustomYAxisTick maxChars={12} />} interval={0} />
-                            <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(100, 116, 139, 0.1)' }} />
-                            <Bar dataKey="sales2025" name="2025 Sales" >
-                                {breakdownData.map((_entry, index) => (
-                                    <Cell key={`cell-${index}`} fill={'#38bdf8'} />
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
-                ) : (
-                    <div className="flex items-center justify-center h-full text-slate-500 text-sm">No breakdown data available.</div>
-                )}
+                 <KPICard title="Active Items">
+                    <p className="text-2xl font-bold">{formatNumber(stats.itemCount2025)}</p>
+                    <GrowthIndicator value={stats.itemCount2025 - stats.itemCount2024} unit="" />
+                </KPICard>
+                 <KPICard title="Avg Sales / Item">
+                    <p className="text-2xl font-bold">{formatNumberAbbreviated(stats.avgSalesPerItem)}</p>
+                </KPICard>
+                 <KPICard title="Pareto Items (Top 20%)" className="col-span-2">
+                    <p className="text-sm">Top <b>{formatNumber(stats.pareto.topCount)}</b> items generate <b>{stats.pareto.salesPercent.toFixed(1)}%</b> of this entity's sales.</p>
+                </KPICard>
+                <KPICard title="New Items (2025)">
+                    <p className="text-xl font-bold text-green-400">{formatNumber(stats.newItems.count)}</p>
+                    <p className="text-xs text-slate-400">Sales: {formatNumberAbbreviated(stats.newItems.sales)}</p>
+                </KPICard>
+                <KPICard title="Lost Items (2024)">
+                    <p className="text-xl font-bold text-rose-400">{formatNumber(stats.lostItems.count)}</p>
+                    <p className="text-xs text-slate-400">Sales: {formatNumberAbbreviated(stats.lostItems.sales2024)}</p>
+                </KPICard>
             </div>
         </div>
     );

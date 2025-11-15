@@ -2,7 +2,6 @@ import React, { useState, useMemo } from 'react';
 import { ProcessedData, RawSalesDataRow, FilterState } from '../types';
 import ComparisonSelector from './ComparisonSelector';
 import ComparisonColumn from './ComparisonColumn';
-import ComparisonItemsTable from './ComparisonItemsTable';
 
 export type ComparisonEntityType = 'divisions' | 'departments' | 'categories' | 'brands' | 'branches' | 'items';
 export interface ComparisonEntity {
@@ -70,33 +69,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         });
     }, [selectedEntities, allRawData, globalFilters]);
 
-    const allItemsForTable = useMemo(() => {
-        const itemMap = new Map<string, any>();
-
-        comparisonData.forEach(({ entity, data }) => {
-            data.forEach(row => {
-                const itemCode = row['ITEM CODE'];
-                const itemName = row['ITEM DESCRIPTION'];
-                if (!itemCode) return;
-
-                if (!itemMap.has(itemCode)) {
-                    itemMap.set(itemCode, {
-                        code: itemCode,
-                        name: itemName,
-                        sales2024: 0,
-                        sales2025: 0,
-                        parents: new Set<string>()
-                    });
-                }
-                const existing = itemMap.get(itemCode)!;
-                existing.sales2024 += row.SALES2024;
-                existing.sales2025 += row.SALES2025;
-                existing.parents.add(`${entity.type.slice(0, 4)}: ${entity.name}`);
-            });
-        });
-        return Array.from(itemMap.values()).map(item => ({...item, parentEntity: Array.from(item.parents).join(' | ')}));
-    }, [comparisonData]);
-
     return (
         <div className="flex flex-col gap-8">
             <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -141,13 +113,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                     <h3 className="mt-2 text-lg font-medium text-white">No entities selected</h3>
                     <p className="mt-1 text-sm text-slate-400">Click "Add Entity to Compare" to get started.</p>
                 </div>
-            )}
-            
-            {allItemsForTable.length > 0 && (
-                <ComparisonItemsTable
-                    itemsData={allItemsForTable}
-                    comparisonData={comparisonData}
-                />
             )}
         </div>
     );
