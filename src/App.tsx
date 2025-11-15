@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import Papa from 'papaparse';
 import { RawSalesDataRow, ProcessedData, FilterState } from './types';
 import { processSalesData, normalizeRow } from './services/dataProcessor';
+import { useDebounce } from './hooks/useDebounce';
 import LoadingIndicator from './components/LoadingIndicator';
 import Dashboard from './components/Dashboard';
 import DrilldownView from './components/DrilldownView';
@@ -43,6 +44,7 @@ const App: React.FC = () => {
     const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
     const [filters, setFilters] = useState<FilterState>({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
     const [searchTerm, setSearchTerm] = useState('');
+    const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
     const navigate = useNavigate();
     const location = useLocation();
@@ -121,7 +123,7 @@ const App: React.FC = () => {
     const filteredData = useMemo(() => {
         if (!processedData) return null;
 
-        const lowercasedTerm = searchTerm.toLowerCase();
+        const lowercasedTerm = debouncedSearchTerm.toLowerCase();
 
         const finalFilteredRows = allData.filter(row => {
             // Dropdown filters
@@ -137,7 +139,7 @@ const App: React.FC = () => {
             if (!dropdownMatch) return false;
 
             // Search term filter
-            if (searchTerm) {
+            if (debouncedSearchTerm) {
                 return (
                     (row['DIVISION']?.toLowerCase().includes(lowercasedTerm)) ||
                     (row['DEPARTMENT']?.toLowerCase().includes(lowercasedTerm)) ||
@@ -154,7 +156,7 @@ const App: React.FC = () => {
         // Check if any filter (dropdowns or search) is active
         // FIX: Explicitly typed the parameter in the `every` callback to resolve a TypeScript type inference issue with `Object.values`, ensuring that `f` is correctly recognized as a string array.
         const noFiltersApplied = Object.values(filters).every((f: string[]) => f.length === 0);
-        if (noFiltersApplied && !searchTerm) {
+        if (noFiltersApplied && !debouncedSearchTerm) {
             return processedData;
         }
 
@@ -163,7 +165,7 @@ const App: React.FC = () => {
         }
 
         return processSalesData(finalFilteredRows, processedData.filterOptions);
-    }, [processedData, filters, allData, searchTerm]);
+    }, [processedData, filters, allData, debouncedSearchTerm]);
 
     const handleLogin = () => {
         localStorage.setItem('isAuthenticated', 'true');

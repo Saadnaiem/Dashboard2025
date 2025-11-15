@@ -2,6 +2,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList, LegendType } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
 import { useWindowSize } from '../hooks/useWindowSize';
+import { CustomYAxisTick } from './charts/CustomYAxisTick';
 
 // New unified color palette
 const COLORS = {
@@ -92,41 +93,6 @@ const renderActiveShape = (props: any) => {
     );
 };
 
-const RADIAN = Math.PI / 180;
-const renderDonutLabel = ({ cx, cy, midAngle, outerRadius, percent, name, sales2024, sales2025 }: any) => {
-    const radius = outerRadius + 25; // Position label outside the pie
-    const x = cx + radius * Math.cos(-midAngle * RADIAN);
-    const y = cy + radius * Math.sin(-midAngle * RADIAN);
-    const textAnchor = x > cx ? 'start' : 'end';
-
-    if (percent < 0.03) return null; // Don't render labels for tiny slices
-
-    const growth = sales2024 === 0 ? (sales2025 > 0 ? Infinity : 0) : ((sales2025 - sales2024) / sales2024) * 100;
-    let growthText = '';
-    let growthColor = 'white';
-
-    if (growth === Infinity) {
-        growthText = ' (New)';
-        growthColor = COLORS.green;
-    } else if (!isNaN(growth)) {
-        growthText = ` (${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%)`;
-        growthColor = growth >= 0 ? COLORS.green : COLORS.red;
-    }
-
-    return (
-        <text
-            x={x}
-            y={y}
-            textAnchor={textAnchor}
-            dominantBaseline="central"
-            className="text-sm font-semibold"
-        >
-            <tspan fill="white">{name}</tspan>
-            <tspan fill={growthColor} dx="4">{growthText}</tspan>
-        </text>
-    );
-};
-
 const renderGrowthLabel = (props: any) => {
     const { x, y, width, height, payload } = props;
     
@@ -190,24 +156,6 @@ const renderLegendText = (value: string) => {
     return <span className="text-slate-200">{value}</span>;
 };
 
-const CustomYAxisTick = (props: any) => {
-    const { x, y, payload, maxChars } = props;
-    const value = payload.value as string;
-
-    if (!value) return null;
-
-    const truncatedValue = value.length > maxChars ? `${value.substring(0, maxChars)}...` : value;
-
-    return (
-        <g transform={`translate(${x},${y})`}>
-            <text x={0} y={0} dy={4} textAnchor="end" fill="white" fontSize={12} fontWeight="bold">
-                <title>{value}</title>
-                {truncatedValue}
-            </text>
-        </g>
-    );
-};
-
 interface ChartsProps {
     data: ProcessedData;
     filters: FilterState;
@@ -264,6 +212,45 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             }
         }
     }, [activeIndex, data.salesByDivision, onFilterChange, filters]);
+    
+    const RADIAN = Math.PI / 180;
+    const renderDonutLabel = ({ cx, cy, midAngle, outerRadius, percent, name, sales2024, sales2025 }: any) => {
+        const radius = outerRadius + 25; // Position label outside the pie
+        const x = cx + radius * Math.cos(-midAngle * RADIAN);
+        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+        const textAnchor = x > cx ? 'start' : 'end';
+
+        if (percent < 0.03) return null; // Don't render labels for tiny slices
+
+        const growth = sales2024 === 0 ? (sales2025 > 0 ? Infinity : 0) : ((sales2025 - sales2024) / sales2024) * 100;
+        let growthText = '';
+        let growthColor = 'white';
+
+        if (growth === Infinity) {
+            growthText = ' (New)';
+            growthColor = COLORS.green;
+        } else if (!isNaN(growth)) {
+            growthText = ` (${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%)`;
+            growthColor = growth >= 0 ? COLORS.green : COLORS.red;
+        }
+        
+        const maxNameLength = 20;
+        const truncatedName = name.length > maxNameLength ? `${name.substring(0, maxNameLength)}...` : name;
+
+        return (
+            <text
+                x={x}
+                y={y}
+                textAnchor={textAnchor}
+                dominantBaseline="central"
+                className="text-sm font-semibold"
+            >
+                <title>{name}</title>
+                <tspan fill="white">{truncatedName}</tspan>
+                <tspan fill={growthColor} dx="4">{growthText}</tspan>
+            </text>
+        );
+    };
     
     const yearComparisonData = [
         { name: '2024', value: data.totalSales2024, sales2024: data.totalSales2024, sales2025: 0 },

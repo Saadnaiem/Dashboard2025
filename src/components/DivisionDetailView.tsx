@@ -7,6 +7,7 @@ import Papa from 'papaparse';
 import { RawSalesDataRow } from '../types';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import { CustomYAxisTick } from './charts/CustomYAxisTick';
 
 const calculateGrowth = (current: number, previous: number) => 
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -32,20 +33,6 @@ const EnhancedTooltip: React.FC<any> = ({ active, payload, label }) => {
         );
     }
     return null;
-};
-
-const CustomYAxisTick: React.FC<any> = ({ x, y, payload, maxChars = 20 }) => {
-    const value = payload.value as string;
-    const truncatedValue = value.length > maxChars ? `${value.substring(0, maxChars)}...` : value;
-
-    return (
-        <g transform={`translate(${x},${y})`}>
-            <text x={0} y={0} dy={4} textAnchor="end" fill="white" fontSize={12} fontWeight="bold">
-                <title>{value}</title>
-                {truncatedValue}
-            </text>
-        </g>
-    );
 };
 
 const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
@@ -227,7 +214,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         return groupedData.filter(group => group.departmentName === selectedDepartment);
     }, [groupedData, selectedDepartment]);
 
-    const handleExport = (format: 'csv' | 'pdf') => {
+    const handleExport = (format: 'csv' | 'pdf' => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
         const title = `Division Analysis: ${divisionName}${selectedDepartment ? ` - ${selectedDepartment}`: ''}`;
         const head = [['Department', 'Category', '2024 Sales', '2025 Sales', 'Contrib % 2024', 'Contrib % 2025', 'Growth %']];

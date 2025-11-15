@@ -8,6 +8,7 @@ import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData } from '..
 import { processSalesData } from '../services/dataProcessor';
 import Header from './Header';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import { CustomYAxisTick } from './charts/CustomYAxisTick';
 
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
@@ -404,6 +405,14 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             </text>
         );
     };
+    
+    const formatLegendText = (value: string) => {
+        const maxLength = 20;
+        if (value.length > maxLength) {
+            return `${value.substring(0, maxLength)}...`;
+        }
+        return value;
+    };
 
     const PieTooltip = ({ active, payload }: any) => {
         if (active && payload && payload.length) {
@@ -541,7 +550,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                     ))}
                                 </Pie>
                                 <Tooltip content={<PieTooltip />} />
-                                <Legend wrapperStyle={{fontSize: "12px", paddingTop: "20px"}} />
+                                <Legend formatter={formatLegendText} wrapperStyle={{fontSize: "12px", paddingTop: "20px"}} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
@@ -675,7 +684,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             <BarChart layout="vertical" data={barChartData} margin={{ top: 5, right: 30, left: 150, bottom: 5 }}>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                                 <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} tick={{ fill: 'white' }} />
-                                <YAxis type="category" dataKey="name" stroke="white" width={150} tick={{ fontSize: 12, fill: 'white' }} interval={0} />
+                                <YAxis type="category" dataKey="name" stroke="white" width={150} tick={<CustomYAxisTick maxChars={20} />} interval={0} />
                                 <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }}/>
                                 <Bar 
                                     dataKey={isLostView ? "sales2024" : "sales2025"} 
