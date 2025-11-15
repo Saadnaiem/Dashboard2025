@@ -171,11 +171,9 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                 <div className="flex-grow min-w-[200px]">
                     {activeFilters.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-sm font-bold text-slate-400 mr-2 shrink-0">Active Filters:</span>
+                            <span className="text-sm font-bold text-sky-400 mr-2 shrink-0">Active Filters:</span>
                             {activeFilters.map(({ type, value }) => (
                                 <span key={`${type}-${value}`} className="filter-pill" title={`${type}: ${value}`}>
-                                    <span className="filter-pill-type">{type.slice(0, -1)}:</span>
-                                    {value}
                                     <button
                                         onClick={() => handleRemoveFilter(type, value)}
                                         className="filter-pill-remove"
@@ -183,6 +181,8 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                                     >
                                         &times;
                                     </button>
+                                    <span className="filter-pill-type">{type.slice(0, -1)}:</span>
+                                    {value}
                                 </span>
                             ))}
                         </div>

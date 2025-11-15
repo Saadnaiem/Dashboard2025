@@ -41,19 +41,19 @@ body {
 
     /* Styles for the new filter pills */
     .filter-pill {
-        @apply inline-flex items-center gap-2 bg-slate-700 text-slate-200 text-sm font-medium px-3 py-1 rounded-full;
-        @apply border border-slate-600 truncate;
+        @apply inline-flex items-center gap-2 bg-sky-900/50 text-sky-200 text-sm font-medium pl-2 pr-3 py-1 rounded-full;
+        @apply border border-sky-700 truncate;
         max-width: 200px;
     }
     
     .filter-pill-type {
-        @apply text-slate-400 capitalize;
+        @apply text-sky-400 capitalize font-semibold;
     }
 
     .filter-pill-remove {
-        @apply flex items-center justify-center w-4 h-4 bg-slate-500 text-white rounded-full text-xs font-bold;
-        @apply hover:bg-rose-500 focus:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-slate-700;
-        transition: background-color 150ms;
+        @apply flex items-center justify-center w-4 h-4 bg-sky-800 text-sky-300 rounded-full text-xs font-bold shrink-0;
+        @apply hover:bg-rose-500 hover:text-white focus:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-slate-800;
+        transition: background-color 150ms, color 150ms;
         line-height: 1;
     }
 }
