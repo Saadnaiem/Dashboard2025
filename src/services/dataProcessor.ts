@@ -97,7 +97,7 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
     return normalized as RawSalesDataRow;
 };
 
-const calculatePareto = (salesData: { name: string, sales: number }[]): { result: ParetoResult, contributors: string[] } => {
+export const calculatePareto = (salesData: { name: string, sales: number }[]): { result: ParetoResult, contributors: string[] } => {
     const sortedData = salesData.filter(item => item.sales > 0).sort((a, b) => b.sales - a.sales);
     
     const totalContributors = sortedData.length;

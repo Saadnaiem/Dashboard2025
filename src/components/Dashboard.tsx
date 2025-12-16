@@ -1,10 +1,11 @@
 
-import React from 'react';
-import { ProcessedData, FilterState } from '../types';
+import React, { useState, useMemo } from 'react';
+import { ProcessedData, FilterState, EntitySalesData } from '../types';
 import Header from './Header';
 import FilterControls from './FilterControls';
 import SummaryCards from './SummaryCards';
 import Charts from './Charts';
+import { calculatePareto } from '../services/dataProcessor';
 
 interface DashboardProps {
     data: ProcessedData;
@@ -16,10 +17,104 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, onLogout, searchTerm, onSearchChange }) => {
+    const [salesMix, setSalesMix] = useState<'Total' | 'Cash' | 'Credit'>('Total');
+
     const handleReset = () => {
         onFilterChange({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
         onSearchChange('');
+        setSalesMix('Total');
     };
+
+    const transformedData = useMemo(() => {
+        if (salesMix === 'Total') return data;
+
+        const mapEntity = (e: EntitySalesData): EntitySalesData => {
+            const s24 = salesMix === 'Cash' ? e.cash2024 : e.credit2024;
+            const s25 = salesMix === 'Cash' ? e.cash2025 : e.credit2025;
+            return {
+                ...e,
+                sales2024: s24,
+                sales2025: s25,
+                growth: s24 === 0 ? (s25 > 0 ? Infinity : 0) : ((s25 - s24) / s24) * 100
+            };
+        };
+
+        const salesByDivision = data.salesByDivision.map(mapEntity).sort((a,b) => b.sales2025 - a.sales2025);
+        const salesByBrand = data.salesByBrand.map(mapEntity).sort((a,b) => b.sales2025 - a.sales2025);
+        const salesByBranch = data.salesByBranch.map(mapEntity).sort((a,b) => b.sales2025 - a.sales2025);
+        const salesByItem = data.salesByItem.map(mapEntity).sort((a,b) => b.sales2025 - a.sales2025);
+
+        const totalSales2024 = salesMix === 'Cash' ? data.totalCash2024 : data.totalCredit2024;
+        const totalSales2025 = salesMix === 'Cash' ? data.totalCash2025 : data.totalCredit2025;
+        const salesGrowthPercentage = salesMix === 'Cash' ? data.cashGrowthPercentage : data.creditGrowthPercentage;
+
+        // When viewing Cash, set Credit totals to 0 to reflect the view, and vice versa
+        const totalCash2024 = salesMix === 'Cash' ? data.totalCash2024 : 0;
+        const totalCash2025 = salesMix === 'Cash' ? data.totalCash2025 : 0;
+        const totalCredit2024 = salesMix === 'Credit' ? data.totalCredit2024 : 0;
+        const totalCredit2025 = salesMix === 'Credit' ? data.totalCredit2025 : 0;
+
+        const top10Brands = salesByBrand.slice(0, 10);
+        const top50Items = salesByItem.slice(0, 50);
+        const topDivision = salesByDivision[0] || null;
+
+        const calcPareto = (list: EntitySalesData[]) => calculatePareto(list.map(i => ({ name: i.name, sales: i.sales2025 }))).result;
+        
+        const calcNew = (list: EntitySalesData[]) => {
+            const newEnts = list.filter(i => i.sales2024 === 0 && i.sales2025 > 0);
+            const sales = newEnts.reduce((sum, i) => sum + i.sales2025, 0);
+            return {
+                count: newEnts.length,
+                sales,
+                percentOfTotal: totalSales2025 > 0 ? (sales / totalSales2025) * 100 : 0
+            };
+        };
+        const calcLost = (list: EntitySalesData[]) => {
+            const lostEnts = list.filter(i => i.sales2024 > 0 && i.sales2025 === 0);
+            const sales = lostEnts.reduce((sum, i) => sum + i.sales2024, 0);
+            return {
+                count: lostEnts.length,
+                sales2024: sales,
+                percentOfTotal: totalSales2024 > 0 ? (sales / totalSales2024) * 100 : 0
+            };
+        };
+
+        return {
+            ...data,
+            totalSales2024,
+            totalSales2025,
+            totalCash2024,
+            totalCash2025,
+            totalCredit2024,
+            totalCredit2025,
+            salesGrowthPercentage,
+            salesByDivision,
+            salesByBrand,
+            salesByBranch,
+            salesByItem,
+            top10Brands,
+            top50Items,
+            topDivision,
+            pareto: {
+                branches: calcPareto(salesByBranch),
+                brands: calcPareto(salesByBrand),
+                items: calcPareto(salesByItem)
+            },
+            newEntities: {
+                branches: calcNew(salesByBranch),
+                brands: calcNew(salesByBrand),
+                items: calcNew(salesByItem)
+            },
+            lostEntities: {
+                brands: calcLost(salesByBrand),
+                items: calcLost(salesByItem)
+            },
+            newBrandsList: salesByBrand.filter(i => i.sales2024 === 0 && i.sales2025 > 0),
+            newItemsList: salesByItem.filter(i => i.sales2024 === 0 && i.sales2025 > 0),
+            lostBrandsList: salesByBrand.filter(i => i.sales2024 > 0 && i.sales2025 === 0),
+            lostItemsList: salesByItem.filter(i => i.sales2024 > 0 && i.sales2025 === 0),
+        };
+    }, [data, salesMix]);
 
     return (
         <div className="flex flex-col gap-6">
@@ -31,9 +126,18 @@ const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, on
                 searchTerm={searchTerm}
                 onSearchChange={onSearchChange}
                 onReset={handleReset}
+                salesMix={salesMix}
+                onSalesMixChange={setSalesMix}
             />
-            <SummaryCards data={data} searchTerm={searchTerm} filters={filters} />
-            <Charts data={data} filters={filters} onFilterChange={onFilterChange} />
+            
+            {salesMix !== 'Total' && (
+                <div className="bg-sky-900/30 border border-sky-700/50 p-3 rounded-lg text-center text-sky-200 text-sm font-semibold animate-pulse">
+                    Filtering view by {salesMix} Sales Only
+                </div>
+            )}
+
+            <SummaryCards data={transformedData} searchTerm={searchTerm} filters={filters} />
+            <Charts data={transformedData} filters={filters} onFilterChange={onFilterChange} />
 
             <div className="mt-8 flex justify-center">
                 <button 

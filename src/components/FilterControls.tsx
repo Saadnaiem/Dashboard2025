@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useRef } from 'react';
 import { FilterState, ProcessedData } from '../types';
 import useOnClickOutside from '../hooks/useOnClickOutside';
@@ -93,9 +94,11 @@ interface FilterControlsProps {
     searchTerm: string;
     onSearchChange: (term: string) => void;
     onReset: () => void;
+    salesMix: 'Total' | 'Cash' | 'Credit';
+    onSalesMixChange: (mix: 'Total' | 'Cash' | 'Credit') => void;
 }
 
-const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFilterChange, searchTerm, onSearchChange, onReset }) => {
+const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFilterChange, searchTerm, onSearchChange, onReset, salesMix, onSalesMixChange }) => {
     const [showFilters, setShowFilters] = useState(false);
     const filterRef = useRef<HTMLDivElement>(null);
 
@@ -152,7 +155,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
 
     return (
         <div ref={filterRef} className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-4">
                  <div className="relative w-full md:w-auto md:flex-grow lg:flex-grow-0 lg:max-w-md">
                     <input
                         type="text"
@@ -168,7 +171,29 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                     </div>
                 </div>
 
-                <div className="flex-grow min-w-[200px]">
+                {/* Sales Mix Filter */}
+                <div className="flex bg-slate-700 rounded-lg p-1 shrink-0">
+                    <button
+                        onClick={() => onSalesMixChange('Total')}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Total' ? 'bg-sky-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
+                    >
+                        Total
+                    </button>
+                    <button
+                        onClick={() => onSalesMixChange('Cash')}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Cash' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
+                    >
+                        Cash
+                    </button>
+                    <button
+                        onClick={() => onSalesMixChange('Credit')}
+                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Credit' ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
+                    >
+                        Credit
+                    </button>
+                </div>
+
+                <div className="flex-grow min-w-[100px]">
                     {activeFilters.length > 0 && (
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="text-sm font-bold text-sky-400 mr-2 shrink-0">Active Filters:</span>
@@ -189,7 +214,7 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                     )}
                 </div>
 
-                <div className="flex items-center gap-4 shrink-0">
+                <div className="flex items-center gap-4 shrink-0 ml-auto md:ml-0">
                     <button 
                         onClick={() => setShowFilters(!showFilters)} 
                         className="relative px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
