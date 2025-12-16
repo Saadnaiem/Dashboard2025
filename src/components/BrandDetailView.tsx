@@ -324,10 +324,10 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                  </div>
                 <div className="overflow-x-auto p-4">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="text-xs text-slate-400 uppercase bg-slate-700/50 sticky top-0 z-10">
+                        <thead className="text-xs text-sky-300 uppercase bg-slate-800 sticky top-0 z-10 font-bold">
                             <tr>
                                 {columns.map(col => (
-                                    <th key={col.key} scope="col" className={`p-3 ${col.key !== 'no' ? 'cursor-pointer' : ''} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>
+                                    <th key={col.key} scope="col" className={`p-3 whitespace-nowrap ${col.key !== 'no' ? 'cursor-pointer hover:bg-slate-700' : ''} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>
                                         {col.header} {sortConfig && sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                                     </th>
                                 ))}

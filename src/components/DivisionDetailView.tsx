@@ -398,11 +398,11 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                  </div>
                 <div className="overflow-x-auto p-4">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="text-xs text-slate-400 uppercase bg-slate-700/50 sticky top-0 z-20">
+                        <thead className="text-xs text-sky-300 uppercase bg-slate-800 sticky top-0 z-20 font-bold">
                             <tr>
-                                <th className="p-3">Department</th>
+                                <th className="p-3 whitespace-nowrap text-left">Department</th>
                                 {tableColumns.map(col => (
-                                    <th key={col.key} scope="col" className={`p-3 cursor-pointer ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig(c => ({key: col.key, direction: c.key === col.key && c.direction === 'asc' ? 'desc' : 'asc'}))}>
+                                    <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig(c => ({key: col.key, direction: c.key === col.key && c.direction === 'asc' ? 'desc' : 'asc'}))}>
                                         {col.header} {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                                     </th>
                                 ))}

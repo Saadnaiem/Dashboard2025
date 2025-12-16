@@ -195,7 +195,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                             CSV
                         </button>
                         <button onClick={() => handleExport('pdf')} className="px-4 py-2 bg-slate-600 text-white font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" /></svg>
                             PDF
                         </button>
                      </div>
@@ -203,11 +203,11 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
             </div>
             <div className="overflow-x-auto">
                 <table className="w-full text-left text-slate-300 table-sortable">
-                    <thead className="text-xs text-slate-400 uppercase bg-slate-700/50 sticky top-0 z-10">
+                    <thead className="text-xs text-sky-300 uppercase bg-slate-800 sticky top-0 z-10 font-bold">
                         <tr>
-                            <th className="p-3">No.</th>
+                            <th className="p-3 whitespace-nowrap text-left">No.</th>
                             {columns.map(col => (
-                                <th key={col.key} scope="col" className={`p-3 cursor-pointer ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>
+                                <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>
                                     {col.header} {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                                 </th>
                             ))}
