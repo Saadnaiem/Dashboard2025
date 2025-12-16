@@ -1,10 +1,12 @@
 
 import React, { useState, useMemo } from 'react';
-import { ProcessedData, RawSalesDataRow } from '../types';
+import { useOutletContext } from 'react-router-dom';
+import { ProcessedData, RawSalesDataRow, LayoutContextType } from '../types';
 import ComparisonSelector from './ComparisonSelector';
 import ComparisonColumn from './ComparisonColumn';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import ComparisonItemsTable from './ComparisonItemsTable';
+import { getSalesValue } from '../services/dataProcessor';
 
 export type ComparisonEntityType = 'divisions' | 'departments' | 'categories' | 'brands' | 'branches' | 'items';
 export interface ComparisonEntity {
@@ -51,6 +53,7 @@ const Breadcrumbs: React.FC<{ path: ComparisonEntity[], onNavigate: (index: numb
 );
 
 const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedData }) => {
+    const { salesMix } = useOutletContext<LayoutContextType>();
     const [drilldownPath, setDrilldownPath] = useState<ComparisonEntity[]>([]);
     const [isSelectorOpen, setSelectorOpen] = useState(false);
 
@@ -77,7 +80,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             const childName = row[childKey];
             if (childName) {
                 const currentSales = childSales.get(childName) || 0;
-                childSales.set(childName, currentSales + row.SALES2025);
+                childSales.set(childName, currentSales + getSalesValue(row, '2025', salesMix));
             }
         });
 
@@ -87,7 +90,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
 
         return sortedChildren;
 
-    }, [drilldownPath, allRawData, childType]);
+    }, [drilldownPath, allRawData, childType, salesMix]);
     
     const summaryStats = useMemo(() => {
         if (comparisonData.length === 0) return { totalSales: 0, totalEntities: 0, growth: 0 };
@@ -103,15 +106,15 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         const relevantData = currentData.filter(row => comparisonData.some(e => e.name === row[childKey]));
 
         const { s24, s25 } = relevantData.reduce((acc, row) => {
-            acc.s24 += row.SALES2024;
-            acc.s25 += row.SALES2025;
+            acc.s24 += getSalesValue(row, '2024', salesMix);
+            acc.s25 += getSalesValue(row, '2025', salesMix);
             return acc;
         }, { s24: 0, s25: 0 });
 
         const growth = s24 === 0 ? (s25 > 0 ? Infinity : 0) : ((s25 - s24) / s24) * 100;
 
         return { totalSales: s25, totalEntities: comparisonData.length, growth };
-    }, [comparisonData, allRawData, drilldownPath, childType]);
+    }, [comparisonData, allRawData, drilldownPath, childType, salesMix]);
 
     const comparisonDataForTable = useMemo(() => {
         return comparisonData.map(entity => {
@@ -153,6 +156,9 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             const itemName = row['ITEM DESCRIPTION'];
             if (!itemCode || !itemName) return;
 
+            const s24 = getSalesValue(row, '2024', salesMix);
+            const s25 = getSalesValue(row, '2025', salesMix);
+
             if (!itemsMap.has(itemCode)) {
                 itemsMap.set(itemCode, {
                     code: itemCode,
@@ -167,8 +173,8 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                 });
             }
             const item = itemsMap.get(itemCode)!;
-            item.sales2024 += row.SALES2024;
-            item.sales2025 += row.SALES2025;
+            item.sales2024 += s24;
+            item.sales2025 += s25;
             item.cash2024 += row.SALES2024_CASH || 0;
             item.credit2024 += row.SALES2024_CREDIT || 0;
             item.cash2025 += row.SALES2025_CASH || 0;
@@ -191,7 +197,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             parentEntity: Array.from(item.parentEntities).join(' | '),
         }));
 
-    }, [comparisonDataForTable, drilldownPath]);
+    }, [comparisonDataForTable, drilldownPath, salesMix]);
 
 
     const handleDrilldown = (entity: ComparisonEntity) => {
@@ -265,7 +271,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             {comparisonData.length > 0 ? (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <SummaryCard title="Total Sales (2025)">
+                        <SummaryCard title={`Total ${salesMix} Sales (2025)`}>
                             <p className="text-3xl font-bold">{formatNumberAbbreviated(summaryStats.totalSales)}</p>
                         </SummaryCard>
                          <SummaryCard title="YoY Growth">

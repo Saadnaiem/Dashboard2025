@@ -94,11 +94,9 @@ interface FilterControlsProps {
     searchTerm: string;
     onSearchChange: (term: string) => void;
     onReset: () => void;
-    salesMix: 'Total' | 'Cash' | 'Credit';
-    onSalesMixChange: (mix: 'Total' | 'Cash' | 'Credit') => void;
 }
 
-const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFilterChange, searchTerm, onSearchChange, onReset, salesMix, onSalesMixChange }) => {
+const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFilterChange, searchTerm, onSearchChange, onReset }) => {
     const [showFilters, setShowFilters] = useState(false);
     const filterRef = useRef<HTMLDivElement>(null);
 
@@ -169,28 +167,6 @@ const FilterControls: React.FC<FilterControlsProps> = ({ options, filters, onFil
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                         </svg>
                     </div>
-                </div>
-
-                {/* Sales Mix Filter */}
-                <div className="flex bg-slate-700 rounded-lg p-1 shrink-0">
-                    <button
-                        onClick={() => onSalesMixChange('Total')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Total' ? 'bg-sky-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
-                    >
-                        Total
-                    </button>
-                    <button
-                        onClick={() => onSalesMixChange('Cash')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Cash' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
-                    >
-                        Cash
-                    </button>
-                    <button
-                        onClick={() => onSalesMixChange('Credit')}
-                        className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Credit' ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
-                    >
-                        Credit
-                    </button>
                 </div>
 
                 <div className="flex-grow min-w-[100px]">

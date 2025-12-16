@@ -1,11 +1,9 @@
 
-import { RawSalesDataRow, ProcessedData, ParetoResult, EntitySalesData } from '../types';
+import { RawSalesDataRow, ProcessedData, ParetoResult, EntitySalesData, SalesMix } from '../types';
 
 export const normalizeRow = (row: Record<string, string>, headers: string[]): RawSalesDataRow => {
     const normalized: { [key: string]: any } = {};
     
-    // Header mapping with priority order. 
-    // Keys defined earlier in this object take precedence in the loop below.
     const headerMapping: {[key: string]: string} = {
         'DIVISION': 'DIVISION',
         'DEPARTMENT': 'DEPARTMENT',
@@ -22,14 +20,17 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
         'SALES2024': 'SALES2024',
         'SALES2025': 'SALES2025',
 
-        // Entity Attributes (Priority 1: Direct Matches)
+        // Entity Attributes 
         'BRAND': 'BRAND',
+        'CLASS': 'BRAND', // Alias
+        
         'ITEM DESCRIPTION': 'ITEM DESCRIPTION',
-        'ITEM NAME': 'ITEM DESCRIPTION',
-
-        // Entity Attributes (Priority 2: Aliases/Fallbacks)
-        'CLASS': 'BRAND',
-        'SUBCATEGORY': 'ITEM DESCRIPTION'
+        'ITEM NAME': 'ITEM DESCRIPTION', // Alias
+        'SUBCATEGORY': 'ITEM DESCRIPTION', // Alias
+        
+        'ITEM CODE': 'ITEM CODE',
+        'ITEM_CODE': 'ITEM CODE',
+        'CODE': 'ITEM CODE'
     };
 
     const parseSalesValue = (val: any): number => {
@@ -70,12 +71,11 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
         }
     }
 
-    // Fallback logic if specific columns weren't found via mapping
+    // Fallbacks if specific columns weren't found via mapping (e.g. if keys were skipped because they didn't match exactly)
     if (!normalized['BRAND'] && normalized['CLASS']) normalized['BRAND'] = normalized['CLASS'];
-    // Redundant but safe check if SUBCATEGORY was picked up as a generic key
     if (!normalized['ITEM DESCRIPTION'] && normalized['SUBCATEGORY']) normalized['ITEM DESCRIPTION'] = normalized['SUBCATEGORY'];
     
-    // If Total is 0 but Cash+Credit > 0, fix Total
+    // Fix Totals if Cash+Credit != Total
     const fixTotal = (year: string) => {
         const cash = normalized[`SALES${year}_CASH`] || 0;
         const credit = normalized[`SALES${year}_CREDIT`] || 0;
@@ -85,7 +85,6 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
              normalized[`SALES${year}`] = cash + credit;
         }
         
-        // Ensure defaults
         if (!normalized[`SALES${year}_CASH`]) normalized[`SALES${year}_CASH`] = 0;
         if (!normalized[`SALES${year}_CREDIT`]) normalized[`SALES${year}_CREDIT`] = 0;
         if (!normalized[`SALES${year}`]) normalized[`SALES${year}`] = 0;
@@ -95,6 +94,13 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
     fixTotal('2025');
 
     return normalized as RawSalesDataRow;
+};
+
+// Helper to get correct sales value based on mix
+export const getSalesValue = (row: RawSalesDataRow, year: '2024' | '2025', mix: SalesMix): number => {
+    if (mix === 'Cash') return row[`SALES${year}_CASH`] || 0;
+    if (mix === 'Credit') return row[`SALES${year}_CREDIT`] || 0;
+    return row[`SALES${year}`] || 0;
 };
 
 export const calculatePareto = (salesData: { name: string, sales: number }[]): { result: ParetoResult, contributors: string[] } => {
@@ -137,7 +143,6 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     let totalCash2025 = 0;
     let totalCredit2025 = 0;
 
-    // Helper interface for aggregation
     interface AggregatedStats { 
         s24: number; c24: number; cr24: number; 
         s25: number; c25: number; cr25: number; 
@@ -174,7 +179,10 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
 
         const aggr = (store: any, key: string, code?: string) => {
             if (key) {
-                store[key] = store[key] || { s24: 0, c24: 0, cr24: 0, s25: 0, c25: 0, cr25: 0, code: code || '' };
+                // Initialize if not present
+                store[key] = store[key] || { s24: 0, c24: 0, cr24: 0, s25: 0, c25: 0, cr25: 0, code: '' };
+                
+                // Add totals
                 store[key].s24 += s24;
                 store[key].c24 += c24;
                 store[key].cr24 += cr24;
@@ -182,6 +190,11 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
                 store[key].s25 += s25;
                 store[key].c25 += c25;
                 store[key].cr25 += cr25;
+
+                // Update code if it's missing in store but present in current row
+                if (!store[key].code && code) {
+                    store[key].code = code;
+                }
             }
         };
         
@@ -223,7 +236,7 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
             growth: calculateGrowth(stats.s25, stats.s24),
             cashGrowth: calculateGrowth(stats.c25, stats.c24),
             creditGrowth: calculateGrowth(stats.cr25, stats.cr24),
-            code: stats.code
+            code: stats.code 
         }));
 
     const salesByDivision = transform(divisions).sort((a,b) => b.sales2025 - a.sales2025);
@@ -260,7 +273,6 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     const newBrandsList: EntitySalesData[] = [];
     const lostBrandsList: EntitySalesData[] = [];
     
-    // Helper to create entity data for list (simplified transform)
     const createEnt = (name: string, stats: AggregatedStats): EntitySalesData => ({
         name,
         sales2024: stats.s24, cash2024: stats.c24, credit2024: stats.cr24,

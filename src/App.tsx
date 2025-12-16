@@ -206,7 +206,7 @@ const App: React.FC = () => {
                 <Route 
                     element={
                         <ProtectedRoute isAuthenticated={isAuthenticated}>
-                            <MainLayout />
+                            <MainLayout onLogout={handleLogout} />
                         </ProtectedRoute>
                     }
                 >
@@ -217,7 +217,6 @@ const App: React.FC = () => {
                                 data={filteredData!} 
                                 filters={filters} 
                                 onFilterChange={setFilters} 
-                                onLogout={handleLogout}
                                 searchTerm={searchTerm}
                                 onSearchChange={setSearchTerm}
                             />

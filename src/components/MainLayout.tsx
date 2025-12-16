@@ -1,5 +1,12 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
+import Header from './Header';
+import { SalesMix } from '../types';
+
+interface MainLayoutProps {
+    onLogout?: () => void;
+}
 
 const NavItem: React.FC<{ to: string, children: React.ReactNode }> = ({ to, children }) => (
     <NavLink
@@ -15,14 +22,22 @@ const NavItem: React.FC<{ to: string, children: React.ReactNode }> = ({ to, chil
     </NavLink>
 );
 
-const MainLayout: React.FC = () => {
+const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
+    const [salesMix, setSalesMix] = useState<SalesMix>('Total');
+
     return (
         <div className="container mx-auto max-w-screen-2xl px-4 py-8">
-            <nav className="mb-6 p-2 bg-slate-800/50 rounded-xl border border-slate-700 flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
+            <Header onLogout={onLogout} salesMix={salesMix} onSalesMixChange={setSalesMix} />
+            <nav className="my-6 p-2 bg-slate-800/50 rounded-xl border border-slate-700 flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
                 <NavItem to="/">Dashboard</NavItem>
                 <NavItem to="/compare">Comparison Hub</NavItem>
             </nav>
-            <Outlet />
+            {salesMix !== 'Total' && (
+                <div className="mb-4 bg-sky-900/30 border border-sky-700/50 p-3 rounded-lg text-center text-sky-200 text-sm font-semibold animate-pulse">
+                    Global View: {salesMix} Sales Only
+                </div>
+            )}
+            <Outlet context={{ salesMix }} />
         </div>
     );
 };

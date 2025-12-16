@@ -1,14 +1,14 @@
 
 import React, { useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useOutletContext } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { RawSalesDataRow } from '../types';
-import Header from './Header';
+import { RawSalesDataRow, LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import { CustomYAxisTick } from './charts/CustomYAxisTick';
+import { getSalesValue } from '../services/dataProcessor';
 
 const calculateGrowth = (current: number, previous: number) => 
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -75,6 +75,7 @@ const DEPT_ROW_COLORS = [
 
 const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) => {
     const { divisionName } = useParams<{ divisionName: string }>();
+    const { salesMix } = useOutletContext<LayoutContextType>();
     const navigate = useNavigate();
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
     const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
@@ -111,15 +112,22 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         const tableMap = new Map<string, { department: string; category: string; s24: number; c24: number; cr24: number; s25: number; c25: number; cr25: number; }>();
 
         divisionData.forEach(row => {
-            const s24 = row.SALES2024 || 0;
+            // Apply sales mix filter if needed
+            const s24 = getSalesValue(row, '2024', salesMix);
+            const s25 = getSalesValue(row, '2025', salesMix);
+            
+            // These remain full totals regardless of mix for detailed breakdown if needed, 
+            // but for the main table view we might want consistency.
+            // However, the detailed view specifically shows cash/credit columns, so we should keep original values for those specific columns
             const c24 = row.SALES2024_CASH || 0;
             const cr24 = row.SALES2024_CREDIT || 0;
-            const s25 = row.SALES2025 || 0;
             const c25 = row.SALES2025_CASH || 0;
             const cr25 = row.SALES2025_CREDIT || 0;
 
             totalSales2024 += s24;
             totalSales2025 += s25;
+            
+            // Accumulate raw totals for footer
             totalCash2024 += c24;
             totalCredit2024 += cr24;
             totalCash2025 += c25;
@@ -168,7 +176,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         };
 
         return { totalSales2024, totalSales2025, departmentsData, tableData, grandTotal };
-    }, [divisionData]);
+    }, [divisionData, salesMix]);
     
     const departmentFilteredDivisionData = useMemo(() => {
         if (!selectedDepartment) return divisionData;
@@ -186,8 +194,8 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         sourceData.forEach(row => {
             if (row['BRANCH NAME']) {
                 salesByBranch[row['BRANCH NAME']] = salesByBranch[row['BRANCH NAME']] || { s24: 0, s25: 0 };
-                salesByBranch[row['BRANCH NAME']].s24 += row.SALES2024;
-                salesByBranch[row['BRANCH NAME']].s25 += row.SALES2025;
+                salesByBranch[row['BRANCH NAME']].s24 += getSalesValue(row, '2024', salesMix);
+                salesByBranch[row['BRANCH NAME']].s25 += getSalesValue(row, '2025', salesMix);
             }
         });
 
@@ -209,7 +217,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
 
         return sortedBranches;
 
-    }, [departmentFilteredDivisionData, allBranchesList, processedData, selectedDepartment]);
+    }, [departmentFilteredDivisionData, allBranchesList, processedData, selectedDepartment, salesMix]);
 
     const groupedData = useMemo(() => {
         if (!processedData?.tableData) return [];
@@ -325,7 +333,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
 
     return (
         <div className="flex flex-col gap-6">
-            <Header />
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                 <h2 className="text-2xl font-bold text-white text-center sm:text-left">
                     Division Analysis: <span className="text-sky-400">{divisionName}</span>
@@ -336,7 +343,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 </Link>
             </div>
             
-            <ChartCard title="Department Sales Performance (Click to Filter)" className="lg:col-span-2">
+            <ChartCard title={`Department Sales Performance (${salesMix} View)`} className="lg:col-span-2">
                  <ResponsiveContainer width="100%" height={departmentChartHeight}>
                     <BarChart data={processedData?.departmentsData || []} layout="vertical" margin={{ left: 100, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
@@ -358,7 +365,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                 </ResponsiveContainer>
             </ChartCard>
             
-            <ChartCard title={`Branch Performance${selectedDepartment ? ` for ${selectedDepartment}` : ''}`}>
+            <ChartCard title={`Branch Performance${selectedDepartment ? ` for ${selectedDepartment}` : ''} (${salesMix} View)`}>
                 <ResponsiveContainer width="100%" height={branchChartHeight}>
                     <BarChart layout="vertical" data={allBranchesData} margin={{ left: 120, right: 20 }} barCategoryGap="25%">
                         <CartesianGrid strokeDasharray="3 3" stroke="#374151" />

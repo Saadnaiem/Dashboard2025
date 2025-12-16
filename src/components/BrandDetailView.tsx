@@ -1,12 +1,12 @@
 
 import React, { useMemo, useState } from 'react';
-import { useParams, Link, useSearchParams } from 'react-router-dom';
+import { useParams, Link, useSearchParams, useOutletContext } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { RawSalesDataRow } from '../types';
-import Header from './Header';
+import { RawSalesDataRow, LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import { getSalesValue } from '../services/dataProcessor';
 
 const calculateGrowth = (current: number, previous: number) =>
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -47,6 +47,7 @@ const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
 
 const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
     const { brandName } = useParams<{ brandName: string }>();
+    const { salesMix } = useOutletContext<LayoutContextType>();
     const [searchParams] = useSearchParams();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
@@ -90,13 +91,15 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
     const brandStats = useMemo(() => {
         if (brandData.length === 0) return null;
         return brandData.reduce((acc, row) => {
-            acc.s24 += row.SALES2024;
-            acc.s25 += row.SALES2025;
-            if (row.SALES2025 > 0) acc.items25.add(row['ITEM DESCRIPTION']);
-            if (row.SALES2024 > 0) acc.items24.add(row['ITEM DESCRIPTION']);
+            // Respect sales mix for totals
+            acc.s24 += getSalesValue(row, '2024', salesMix);
+            acc.s25 += getSalesValue(row, '2025', salesMix);
+            
+            if (getSalesValue(row, '2025', salesMix) > 0) acc.items25.add(row['ITEM DESCRIPTION']);
+            if (getSalesValue(row, '2024', salesMix) > 0) acc.items24.add(row['ITEM DESCRIPTION']);
             return acc;
         }, { s24: 0, s25: 0, items24: new Set<string>(), items25: new Set<string>() });
-    }, [brandData]);
+    }, [brandData, salesMix]);
     
     const itemsData = useMemo(() => {
         if (!brandStats) return [];
@@ -108,10 +111,13 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             const itemName = row['ITEM DESCRIPTION'];
             if (!itemName) return;
 
+            const s24 = getSalesValue(row, '2024', salesMix);
+            const s25 = getSalesValue(row, '2025', salesMix);
+
             if (aggregatedItems.has(itemName)) {
                 const existing = aggregatedItems.get(itemName)!;
-                existing.sales2024 += row.SALES2024;
-                existing.sales2025 += row.SALES2025;
+                existing.sales2024 += s24;
+                existing.sales2025 += s25;
                 existing.cash2024 += row.SALES2024_CASH || 0;
                 existing.credit2024 += row.SALES2024_CREDIT || 0;
                 existing.cash2025 += row.SALES2025_CASH || 0;
@@ -119,7 +125,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             } else {
                 aggregatedItems.set(itemName, { 
                     code: itemCode, name: itemName, 
-                    sales2024: row.SALES2024, sales2025: row.SALES2025,
+                    sales2024: s24, sales2025: s25,
                     cash2024: row.SALES2024_CASH || 0, credit2024: row.SALES2024_CREDIT || 0,
                     cash2025: row.SALES2025_CASH || 0, credit2025: row.SALES2025_CREDIT || 0
                 });
@@ -134,7 +140,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             contribution2024: brandStats.s24 > 0 ? (item.sales2024 / brandStats.s24) * 100 : 0,
             contribution2025: brandStats.s25 > 0 ? (item.sales2025 / brandStats.s25) * 100 : 0,
         }));
-    }, [brandData, brandStats]);
+    }, [brandData, brandStats, salesMix]);
 
     const filteredAndSortedData = useMemo(() => {
         const lowercasedTerm = localSearchTerm.toLowerCase();
@@ -265,7 +271,6 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
 
     return (
         <div className="flex flex-col gap-6">
-            <Header />
              <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="text-center sm:text-left">
                      <h2 className="text-2xl font-bold text-white">
@@ -280,7 +285,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             {brandStats && (
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center">
-                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total Sales (2025)</h3>
+                        <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total {salesMix} Sales (2025)</h3>
                         <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(brandStats.s25)}</div>
                         <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(brandStats.s24)}</div>
                         <GrowthIndicator value={calculateGrowth(brandStats.s25, brandStats.s24)} className="text-2xl mt-2" />

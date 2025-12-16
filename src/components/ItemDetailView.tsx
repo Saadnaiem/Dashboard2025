@@ -1,12 +1,12 @@
 
 import React, { useMemo, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useOutletContext } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { RawSalesDataRow } from '../types';
-import Header from './Header';
+import { RawSalesDataRow, LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
+import { getSalesValue } from '../services/dataProcessor';
 
 const calculateGrowth = (current: number, previous: number) =>
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -47,6 +47,7 @@ const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
 
 const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
     const { divisionName, departmentName, categoryName } = useParams<{ divisionName: string; departmentName: string; categoryName: string }>();
+    const { salesMix } = useOutletContext<LayoutContextType>();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
 
@@ -58,11 +59,11 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                 row.CATEGORY === categoryName
             )
             .reduce((acc, row) => {
-                acc.s24 += row.SALES2024;
-                acc.s25 += row.SALES2025;
+                acc.s24 += getSalesValue(row, '2024', salesMix);
+                acc.s25 += getSalesValue(row, '2025', salesMix);
                 return acc;
             }, { s24: 0, s25: 0 });
-    }, [allRawData, divisionName, departmentName, categoryName]);
+    }, [allRawData, divisionName, departmentName, categoryName, salesMix]);
 
     const itemsData = useMemo(() => {
         if (!divisionName || !departmentName || !categoryName) return [];
@@ -81,10 +82,13 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
 
             if (!itemName) return;
 
+            const s24 = getSalesValue(row, '2024', salesMix);
+            const s25 = getSalesValue(row, '2025', salesMix);
+
             if (aggregatedItems.has(itemName)) {
                 const existing = aggregatedItems.get(itemName)!;
-                existing.sales2024 += row.SALES2024;
-                existing.sales2025 += row.SALES2025;
+                existing.sales2024 += s24;
+                existing.sales2025 += s25;
                 existing.cash2024 += row.SALES2024_CASH || 0;
                 existing.credit2024 += row.SALES2024_CREDIT || 0;
                 existing.cash2025 += row.SALES2025_CASH || 0;
@@ -93,8 +97,8 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                 aggregatedItems.set(itemName, {
                     code: itemCode,
                     name: itemName,
-                    sales2024: row.SALES2024,
-                    sales2025: row.SALES2025,
+                    sales2024: s24,
+                    sales2025: s25,
                     cash2024: row.SALES2024_CASH || 0,
                     credit2024: row.SALES2024_CREDIT || 0,
                     cash2025: row.SALES2025_CASH || 0,
@@ -113,7 +117,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             contribution2024: categoryTotalSales.s24 > 0 ? (item.sales2024 / categoryTotalSales.s24) * 100 : 0,
             contribution2025: categoryTotalSales.s25 > 0 ? (item.sales2025 / categoryTotalSales.s25) * 100 : 0,
         }));
-    }, [allRawData, divisionName, departmentName, categoryName, categoryTotalSales]);
+    }, [allRawData, divisionName, departmentName, categoryName, categoryTotalSales, salesMix]);
 
     const filteredAndSortedData = useMemo(() => {
         const lowercasedTerm = localSearchTerm.toLowerCase();
@@ -238,7 +242,6 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
 
     return (
         <div className="flex flex-col gap-6">
-            <Header />
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                 <div className="text-center sm:text-left">
                      <h2 className="text-2xl font-bold text-white">

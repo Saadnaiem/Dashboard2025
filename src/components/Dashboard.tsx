@@ -1,7 +1,7 @@
 
-import React, { useState, useMemo } from 'react';
-import { ProcessedData, FilterState, EntitySalesData } from '../types';
-import Header from './Header';
+import React, { useMemo } from 'react';
+import { useOutletContext } from 'react-router-dom';
+import { ProcessedData, FilterState, EntitySalesData, LayoutContextType } from '../types';
 import FilterControls from './FilterControls';
 import SummaryCards from './SummaryCards';
 import Charts from './Charts';
@@ -11,18 +11,16 @@ interface DashboardProps {
     data: ProcessedData;
     filters: FilterState;
     onFilterChange: (filters: FilterState) => void;
-    onLogout: () => void;
     searchTerm: string;
     onSearchChange: (term: string) => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, onLogout, searchTerm, onSearchChange }) => {
-    const [salesMix, setSalesMix] = useState<'Total' | 'Cash' | 'Credit'>('Total');
+const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, searchTerm, onSearchChange }) => {
+    const { salesMix } = useOutletContext<LayoutContextType>();
 
     const handleReset = () => {
         onFilterChange({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
         onSearchChange('');
-        setSalesMix('Total');
     };
 
     const transformedData = useMemo(() => {
@@ -118,7 +116,6 @@ const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, on
 
     return (
         <div className="flex flex-col gap-6">
-            <Header onLogout={onLogout} />
             <FilterControls
                 options={data.filterOptions}
                 filters={filters}
@@ -126,16 +123,8 @@ const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, on
                 searchTerm={searchTerm}
                 onSearchChange={onSearchChange}
                 onReset={handleReset}
-                salesMix={salesMix}
-                onSalesMixChange={setSalesMix}
             />
             
-            {salesMix !== 'Total' && (
-                <div className="bg-sky-900/30 border border-sky-700/50 p-3 rounded-lg text-center text-sky-200 text-sm font-semibold animate-pulse">
-                    Filtering view by {salesMix} Sales Only
-                </div>
-            )}
-
             <SummaryCards data={transformedData} searchTerm={searchTerm} filters={filters} />
             <Charts data={transformedData} filters={filters} onFilterChange={onFilterChange} />
 

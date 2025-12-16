@@ -1,13 +1,12 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
-import { useParams, useSearchParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link, useOutletContext } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData } from '../types';
-import { processSalesData } from '../services/dataProcessor';
-import Header from './Header';
+import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData, LayoutContextType } from '../types';
+import { processSalesData, getSalesValue } from '../services/dataProcessor';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import { CustomYAxisTick } from './charts/CustomYAxisTick';
 
@@ -41,6 +40,7 @@ const ContributionCell: React.FC<{ value: number; }> = ({ value }) => {
 
 const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterOptions }) => {
     const { viewType } = useParams<{ viewType: string }>();
+    const { salesMix } = useOutletContext<LayoutContextType>();
     const [searchParams] = useSearchParams();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' } | null>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
@@ -98,10 +98,28 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         });
     }, [allRawData, globalFilters, globalSearchTerm]);
 
+    // Apply the Sales Mix filter by transforming the raw data BEFORE processing for the view
+    // This allows re-using processSalesData but tricking it into aggregating the correct columns
     const processedViewData = useMemo(() => {
         if (globallyFilteredRawData.length === 0) return null;
-        return processSalesData(globallyFilteredRawData, globalFilterOptions);
-    }, [globallyFilteredRawData, globalFilterOptions]);
+        
+        let workingData = globallyFilteredRawData;
+        
+        if (salesMix !== 'Total') {
+            workingData = globallyFilteredRawData.map(row => ({
+                ...row,
+                SALES2024: getSalesValue(row, '2024', salesMix),
+                SALES2025: getSalesValue(row, '2025', salesMix)
+            }));
+        }
+
+        return processSalesData(workingData, globalFilterOptions);
+    }, [globallyFilteredRawData, globalFilterOptions, salesMix]);
+
+    // Master list of branches to ensure "Show All" works even for zero sales
+    const masterBranchList = useMemo(() => {
+        return [...new Set(allRawData.map(r => r['BRANCH NAME']))].filter(Boolean).sort();
+    }, [allRawData]);
 
     const { title, dataForTable, columns, performanceMetric } = useMemo(() => {
         if (!processedViewData) return { title: 'Loading...', dataForTable: [], columns: [], performanceMetric: null };
@@ -154,7 +172,21 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             case 'divisions':
                 title = 'All Divisions'; data = addContribution(processedViewData.salesByDivision); columns = baseColumns; break;
             case 'branches':
-                title = 'All Branches'; data = addContribution(processedViewData.salesByBranch); columns = baseColumns;
+                title = 'All Branches';
+                // Merge master list with processed data to show ALL branches, even those with 0 sales in current view
+                const activeBranchesMap = new Map(processedViewData.salesByBranch.map(b => [b.name, b]));
+                const mergedBranches = masterBranchList.map(branchName => {
+                    const existing = activeBranchesMap.get(branchName);
+                    if (existing) return existing;
+                    return {
+                        name: branchName,
+                        sales2024: 0, cash2024: 0, credit2024: 0,
+                        sales2025: 0, cash2025: 0, credit2025: 0,
+                        growth: 0, cashGrowth: 0, creditGrowth: 0
+                    };
+                });
+                data = addContribution(mergedBranches); 
+                columns = baseColumns;
                 performanceMetric = { title: 'Branch Availability %', value: perfRate(processedViewData.branchCount2025, totalBranchesInSystem), subtext: `${processedViewData.branchCount2025} / ${totalBranchesInSystem} Available` };
                 break;
             case 'brands':
@@ -205,7 +237,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         
         const finalColumns = [{ key: 'no', header: 'No.', isNumeric: false }, ...columns];
         return { title, dataForTable: data, columns: finalColumns, performanceMetric };
-    }, [viewType, processedViewData, globalFilterOptions, globalFilters, globalSearchTerm]);
+    }, [viewType, processedViewData, globalFilterOptions, globalFilters, globalSearchTerm, masterBranchList]);
 
     const finalData = useMemo(() => {
         if (!dataForTable) return [];
@@ -349,7 +381,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const handleExport = (format: 'pdf' | 'csv') => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
-        const exportTitle = `${title}`;
+        const exportTitle = `${title} (${salesMix} Sales)`;
         const exportSubtitle = contextString || 'All Data';
 
         const head = [columns.map(c => c.header)];
@@ -493,7 +525,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     return (
         <div className="flex flex-col gap-6">
-            <Header />
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                 <h2 className="text-2xl font-bold text-white text-center sm:text-left">{title}</h2>
                 <Link to="/" className="px-4 py-2 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2">
@@ -513,7 +544,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     {isLostView ? (
                         <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                             <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
-                                Total Lost Sales (2024)
+                                Total Lost {salesMix} Sales (2024)
                             </h3>
                             <div className="text-5xl font-extrabold text-rose-400">
                                 {formatNumberAbbreviated(
@@ -532,7 +563,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     ) : isNewView ? (
                         <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
                             <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
-                                Total New Sales (2025)
+                                Total New {salesMix} Sales (2025)
                             </h3>
                             <div className="text-5xl font-extrabold text-green-400">
                                 {formatNumberAbbreviated(
@@ -550,7 +581,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                         </div>
                     ) : (
                         <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total Sales (2025)</h3>
+                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total {salesMix} Sales (2025)</h3>
                             <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(processedViewData.totalSales2025)}</div>
                             <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(processedViewData.totalSales2024)}</div>
                             <GrowthIndicator value={processedViewData.salesGrowthPercentage} className="text-2xl mt-2" />
@@ -612,7 +643,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             Export CSV
                         </button>
                         <button onClick={() => handleExport('pdf')} className="px-4 py-2 bg-slate-600 text-white font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" /></svg>
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" /></svg>
                             Export PDF
                         </button>
                      </div>
@@ -653,56 +684,72 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                     })}
                                 </tr>
                             )}
-                            {sortedData.map((row, index) => (
-                                <tr key={index} className="hover:bg-slate-800/80 transition-colors text-sm">
-                                    {columns.map(col => {
-                                        const is2024Col = col.key.toString().includes('2024');
-                                        const is2025Col = col.key.toString().includes('2025');
+                            {sortedData.map((row, index) => {
+                                const isZeroSales = row.sales2024 === 0 && row.sales2025 === 0;
+                                // Only apply red highlight for branch-related views if sales are 0 in both years
+                                const isBranchView = viewType?.includes('branches');
+                                const rowClassName = isBranchView && isZeroSales 
+                                    ? "hover:bg-slate-800/80 transition-colors text-sm" 
+                                    : "hover:bg-slate-800/80 transition-colors text-sm";
+                                
+                                const textClassName = isBranchView && isZeroSales ? 'text-rose-500 font-bold' : '';
 
-                                        let yearStyle = '';
-                                        if (is2024Col) {
-                                            yearStyle = col.key.includes('cash') ? 'text-emerald-300' : col.key.includes('credit') ? 'text-indigo-300' : 'font-bold text-lg text-sky-400';
-                                        } else if (is2025Col) {
-                                            yearStyle = col.key.includes('cash') ? 'text-emerald-400' : col.key.includes('credit') ? 'text-indigo-400' : 'font-bold text-lg text-green-400';
-                                        }
-                                        
-                                        const isItemNameCol = col.header === 'Item Name' || col.key === 'name';
-                                        const value = row[col.key as keyof typeof row];
-                                        const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle} ${isItemNameCol ? 'item-name-cell' : ''}`;
+                                return (
+                                    <tr key={index} className={rowClassName}>
+                                        {columns.map(col => {
+                                            const is2024Col = col.key.toString().includes('2024');
+                                            const is2025Col = col.key.toString().includes('2025');
 
-                                        const brandViews = ['brands', 'pareto_brands', 'new_brands', 'lost_brands'];
-                                        const isBrandLink = viewType && brandViews.includes(viewType) && col.key === 'name';
+                                            let yearStyle = '';
+                                            if (is2024Col) {
+                                                yearStyle = col.key.includes('cash') ? 'text-emerald-300' : col.key.includes('credit') ? 'text-indigo-300' : 'font-bold text-lg text-sky-400';
+                                            } else if (is2025Col) {
+                                                yearStyle = col.key.includes('cash') ? 'text-emerald-400' : col.key.includes('credit') ? 'text-indigo-400' : 'font-bold text-lg text-green-400';
+                                            }
+                                            
+                                            // Override styles if zero sales in branch view
+                                            if (isBranchView && isZeroSales && col.key !== 'no') {
+                                                yearStyle = 'text-rose-500 font-bold';
+                                            }
+                                            
+                                            const isItemNameCol = col.header === 'Item Name' || col.key === 'name';
+                                            const value = row[col.key as keyof typeof row];
+                                            const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle} ${isItemNameCol ? 'item-name-cell' : ''} ${textClassName}`;
 
-                                        return (
-                                            <td key={col.key} className={tdClassName} title={isItemNameCol ? String(value) : undefined}>
-                                                {(() => {
-                                                    if (isBrandLink) {
-                                                        const brandName = String(value);
-                                                        const linkParams = new URLSearchParams(searchParams);
-                                                        linkParams.delete('search_local');
-                                                        return (
-                                                            <Link 
-                                                                to={`/brand/${encodeURIComponent(brandName)}?${linkParams.toString()}`} 
-                                                                className="text-sky-400 hover:underline font-semibold"
-                                                                title={`View items for ${brandName}`}
-                                                            >
-                                                                {brandName}
-                                                            </Link>
-                                                        );
-                                                    }
-                                                    if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
-                                                    if (col.key === 'growth') return <GrowthIndicator value={value} />;
-                                                    if (col.key === 'cashGrowth') return <GrowthIndicator value={value} />;
-                                                    if (col.key === 'creditGrowth') return <GrowthIndicator value={value} />;
-                                                    if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
-                                                    if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
-                                                    return value;
-                                                })()}
-                                            </td>
-                                        );
-                                    })}
-                                </tr>
-                            ))}
+                                            const brandViews = ['brands', 'pareto_brands', 'new_brands', 'lost_brands'];
+                                            const isBrandLink = viewType && brandViews.includes(viewType) && col.key === 'name';
+
+                                            return (
+                                                <td key={col.key} className={tdClassName} title={isItemNameCol ? String(value) : undefined}>
+                                                    {(() => {
+                                                        if (isBrandLink) {
+                                                            const brandName = String(value);
+                                                            const linkParams = new URLSearchParams(searchParams);
+                                                            linkParams.delete('search_local');
+                                                            return (
+                                                                <Link 
+                                                                    to={`/brand/${encodeURIComponent(brandName)}?${linkParams.toString()}`} 
+                                                                    className="text-sky-400 hover:underline font-semibold"
+                                                                    title={`View items for ${brandName}`}
+                                                                >
+                                                                    {brandName}
+                                                                </Link>
+                                                            );
+                                                        }
+                                                        if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
+                                                        if (col.key === 'growth') return <GrowthIndicator value={value} className={isBranchView && isZeroSales ? 'text-rose-500' : ''} />;
+                                                        if (col.key === 'cashGrowth') return <GrowthIndicator value={value} className={isBranchView && isZeroSales ? 'text-rose-500' : ''} />;
+                                                        if (col.key === 'creditGrowth') return <GrowthIndicator value={value} className={isBranchView && isZeroSales ? 'text-rose-500' : ''} />;
+                                                        if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
+                                                        if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
+                                                        return value;
+                                                    })()}
+                                                </td>
+                                            );
+                                        })}
+                                    </tr>
+                                );
+                            })}
                         </tbody>
                     </table>
                     {sortedData.length === 0 && (

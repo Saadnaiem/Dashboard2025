@@ -117,3 +117,9 @@ export interface FilterState {
     brands: string[];
     items: string[];
 }
+
+export type SalesMix = 'Total' | 'Cash' | 'Credit';
+
+export interface LayoutContextType {
+    salesMix: SalesMix;
+}

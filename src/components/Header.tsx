@@ -1,10 +1,14 @@
+
 import React from 'react';
+import { SalesMix } from '../types';
 
 interface HeaderProps {
     onLogout?: () => void;
+    salesMix?: SalesMix;
+    onSalesMixChange?: (mix: SalesMix) => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onLogout }) => {
+const Header: React.FC<HeaderProps> = ({ onLogout, salesMix, onSalesMixChange }) => {
     return (
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -18,17 +22,43 @@ const Header: React.FC<HeaderProps> = ({ onLogout }) => {
                 </h1>
                 <span className="text-lg font-semibold text-slate-400 self-end pb-1">(2024-2025)</span>
             </div>
-            {onLogout && (
-                <button 
-                    onClick={onLogout}
-                    className="px-4 py-2 bg-slate-700 text-white font-bold rounded-lg shadow-md hover:bg-rose-600 transition-all flex items-center gap-2"
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Logout
-                </button>
-            )}
+            
+            <div className="flex items-center gap-4">
+                {salesMix && onSalesMixChange && (
+                    <div className="flex bg-slate-700/80 rounded-lg p-1">
+                        <button
+                            onClick={() => onSalesMixChange('Total')}
+                            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Total' ? 'bg-sky-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
+                        >
+                            Total
+                        </button>
+                        <button
+                            onClick={() => onSalesMixChange('Cash')}
+                            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Cash' ? 'bg-emerald-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
+                        >
+                            Cash
+                        </button>
+                        <button
+                            onClick={() => onSalesMixChange('Credit')}
+                            className={`px-4 py-2 rounded-md text-sm font-bold transition-all ${salesMix === 'Credit' ? 'bg-indigo-600 text-white shadow' : 'text-slate-300 hover:text-white hover:bg-slate-600'}`}
+                        >
+                            Credit
+                        </button>
+                    </div>
+                )}
+
+                {onLogout && (
+                    <button 
+                        onClick={onLogout}
+                        className="px-4 py-2 bg-slate-700 text-white font-bold rounded-lg shadow-md hover:bg-rose-600 transition-all flex items-center gap-2"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                        </svg>
+                        Logout
+                    </button>
+                )}
+            </div>
         </div>
     );
 };
