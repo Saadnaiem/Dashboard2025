@@ -26,6 +26,7 @@ type ItemData = {
     credit2025: number;
     contribution2024: number;
     contribution2025: number;
+    cashPercent2025: number;
     growth: number;
     cashGrowth: number;
     creditGrowth: number;
@@ -35,14 +36,7 @@ type SortableKeys = keyof ItemData | 'no';
 
 const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
     if (isNaN(value)) return <span className="text-right block w-full">-</span>;
-    return (
-        <div className="flex items-center justify-end gap-2 w-full">
-            <span className="font-mono w-14 text-right">{value.toFixed(2)}%</span>
-            <div className="w-24 bg-slate-600 rounded-full h-2.5 flex-shrink-0">
-                <div className="bg-sky-500 h-2.5 rounded-full" style={{ width: `${Math.min(value, 100)}%` }} />
-            </div>
-        </div>
-    );
+    return <span className="text-right block w-full">{value.toFixed(2)}%</span>;
 };
 
 const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
@@ -139,6 +133,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             creditGrowth: calculateGrowth(item.credit2025, item.credit2024),
             contribution2024: brandStats.s24 > 0 ? (item.sales2024 / brandStats.s24) * 100 : 0,
             contribution2025: brandStats.s25 > 0 ? (item.sales2025 / brandStats.s25) * 100 : 0,
+            cashPercent2025: item.sales2025 > 0 ? (item.cash2025 / item.sales2025) * 100 : 0,
         }));
     }, [brandData, brandStats, salesMix]);
 
@@ -192,6 +187,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             creditGrowth: calculateGrowth(totals.cr25, totals.cr24),
             contribution2024: totals.c24_contrib,
             contribution2025: totals.c25_contrib,
+            cashPercent2025: totals.s25 > 0 ? (totals.c25 / totals.s25) * 100 : 0,
         };
     }, [filteredAndSortedData]);
 
@@ -204,7 +200,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
         setSortConfig({ key, direction });
     };
 
-    const columns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
+    const allColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
         { key: 'no', header: 'No.', isNumeric: false },
         { key: 'code', header: 'Item Code' },
         { key: 'name', header: 'Item Description' },
@@ -212,11 +208,18 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
         { key: 'sales2025', header: '2025 Sales', isNumeric: true },
         { key: 'cash2025', header: '2025 Cash', isNumeric: true },
         { key: 'credit2025', header: '2025 Credit', isNumeric: true },
+        { key: 'cashPercent2025', header: 'Cash %', isNumeric: true },
         { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
         { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
         { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
     ];
+
+    const columns = allColumns.filter(col => {
+        if (salesMix === 'Total') return true;
+        const k = col.key.toString().toLowerCase();
+        return !k.startsWith('cash') && !k.startsWith('credit');
+    });
     
     const handleExport = (format: 'csv' | 'pdf') => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
@@ -230,6 +233,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                 switch(col.key) {
                     case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                     case 'contribution2024': case 'contribution2025': return `${(value as number).toFixed(2)}%`;
+                    case 'cashPercent2025': return `${(value as number).toFixed(2)}%`;
                     case 'growth': case 'cashGrowth': case 'creditGrowth': return `${(value as number).toFixed(2)}%`;
                     default: return value;
                 }
@@ -243,6 +247,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                      case 'no': return 'TOTAL';
                      case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                      case 'contribution2024': case 'contribution2025': return `${(value as number).toFixed(2)}%`;
+                     case 'cashPercent2025': return `${(value as number).toFixed(2)}%`;
                      case 'growth': case 'cashGrowth': case 'creditGrowth': return `${(value as number).toFixed(2)}%`;
                      default: return value;
                  }
@@ -339,6 +344,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                                                     case 'no': return '';
                                                     case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2024': case 'contribution2025': return <ContributionCell value={value as number} />;
+                                                    case 'cashPercent2025': return <span className="text-right block w-full">{(value as number).toFixed(2)}%</span>;
                                                     case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
                                                     default: return value;
                                                 }
@@ -360,6 +366,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                                                     case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2024': return <ContributionCell value={value as number} />;
                                                     case 'contribution2025': return <ContributionCell value={value as number} />;
+                                                    case 'cashPercent2025': return <span className="text-right block w-full">{(value as number).toFixed(2)}%</span>;
                                                     case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
                                                     default: return value;
                                                 }

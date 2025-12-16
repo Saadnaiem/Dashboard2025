@@ -26,6 +26,7 @@ type ItemData = {
     credit2025: number;
     contribution2024: number;
     contribution2025: number;
+    cashPercent2025: number;
     growth: number;
     cashGrowth: number;
     creditGrowth: number;
@@ -35,14 +36,7 @@ type SortableKeys = keyof ItemData;
 
 const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
     if (isNaN(value)) return <span className="text-right block w-full">-</span>;
-    return (
-        <div className="flex items-center justify-end gap-2 w-full">
-            <span className="font-mono w-14 text-right">{value.toFixed(2)}%</span>
-            <div className="w-24 bg-slate-600 rounded-full h-2.5 flex-shrink-0">
-                <div className="bg-sky-500 h-2.5 rounded-full" style={{ width: `${Math.min(value, 100)}%` }} />
-            </div>
-        </div>
-    );
+    return <span className="text-right block w-full">{value.toFixed(2)}%</span>;
 };
 
 const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
@@ -116,6 +110,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             creditGrowth: calculateGrowth(item.credit2025, item.credit2024),
             contribution2024: categoryTotalSales.s24 > 0 ? (item.sales2024 / categoryTotalSales.s24) * 100 : 0,
             contribution2025: categoryTotalSales.s25 > 0 ? (item.sales2025 / categoryTotalSales.s25) * 100 : 0,
+            cashPercent2025: item.sales2025 > 0 ? (item.cash2025 / item.sales2025) * 100 : 0,
         }));
     }, [allRawData, divisionName, departmentName, categoryName, categoryTotalSales, salesMix]);
 
@@ -166,6 +161,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             creditGrowth: calculateGrowth(totals.cr25, totals.cr24),
             contribution2024: totals.c24_contrib,
             contribution2025: totals.c25_contrib,
+            cashPercent2025: totals.s25 > 0 ? (totals.c25 / totals.s25) * 100 : 0,
         };
     }, [filteredAndSortedData]);
     
@@ -177,18 +173,25 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
         setSortConfig({ key, direction });
     };
 
-    const columns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
+    const allColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
         { key: 'code', header: 'Item Code' },
         { key: 'name', header: 'Item Description' },
         { key: 'sales2024', header: '2024 Sales', isNumeric: true },
         { key: 'sales2025', header: '2025 Sales', isNumeric: true },
         { key: 'cash2025', header: '2025 Cash', isNumeric: true },
         { key: 'credit2025', header: '2025 Credit', isNumeric: true },
+        { key: 'cashPercent2025', header: 'Cash %', isNumeric: true },
         { key: 'contribution2025', header: 'Contrib % (Category)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
         { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
         { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
     ];
+
+    const columns = allColumns.filter(col => {
+        if (salesMix === 'Total') return true;
+        const k = col.key.toString().toLowerCase();
+        return !k.startsWith('cash') && !k.startsWith('credit');
+    });
     
     const handleExport = (format: 'csv' | 'pdf') => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
@@ -201,6 +204,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             formatNumberAbbreviated(item.sales2025),
             formatNumberAbbreviated(item.cash2025),
             formatNumberAbbreviated(item.credit2025),
+            `${item.cashPercent2025.toFixed(2)}%`,
             `${item.contribution2025.toFixed(2)}%`,
             `${item.growth.toFixed(2)}%`,
             `${item.cashGrowth.toFixed(2)}%`,
@@ -214,6 +218,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                 formatNumberAbbreviated(totalRow.sales2025),
                 formatNumberAbbreviated(totalRow.cash2025),
                 formatNumberAbbreviated(totalRow.credit2025),
+                `${totalRow.cashPercent2025.toFixed(2)}%`,
                 `${totalRow.contribution2025.toFixed(2)}%`,
                 `${totalRow.growth.toFixed(2)}%`,
                 `${totalRow.cashGrowth.toFixed(2)}%`,
@@ -295,6 +300,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                                     <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2025)}</td>
                                     <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.cash2025)}</td>
                                     <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.credit2025)}</td>
+                                    <td className="p-3 text-right"><span className="text-right block w-full">{totalRow.cashPercent2025.toFixed(2)}%</span></td>
                                     <td className="p-3 text-right"><ContributionCell value={totalRow.contribution2025} /></td>
                                     <td className="p-3 text-right"><GrowthIndicator value={totalRow.growth} /></td>
                                     <td className="p-3 text-right"><GrowthIndicator value={totalRow.cashGrowth} /></td>
@@ -311,6 +317,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                                                     case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
                                                     case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2025': return <ContributionCell value={value as number} />;
+                                                    case 'cashPercent2025': return <span className="text-right block w-full">{(value as number).toFixed(2)}%</span>;
                                                     case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
                                                     default: return value;
                                                 }

@@ -3,7 +3,8 @@ import React, { useState, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { RawSalesDataRow } from '../types';
+import { useOutletContext } from 'react-router-dom';
+import { RawSalesDataRow, LayoutContextType } from '../types';
 import { ComparisonEntity } from './ComparisonPage';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
@@ -30,6 +31,7 @@ const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
 };
 
 const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, comparisonData }) => {
+    const { salesMix } = useOutletContext<LayoutContextType>();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
 
@@ -113,7 +115,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
         setSortConfig({ key, direction });
     };
 
-    const columns = [
+    const allColumns = [
         { key: 'code', header: 'Item Code' },
         { key: 'name', header: 'Item Description' },
         { key: 'parentEntity', header: 'Comparison Group' },
@@ -126,6 +128,12 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
         { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
         { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
     ];
+
+    const columns = allColumns.filter(col => {
+        if (salesMix === 'Total') return true;
+        const k = col.key.toString().toLowerCase();
+        return !k.startsWith('cash') && !k.startsWith('credit');
+    });
 
     const handleExport = (format: 'csv' | 'pdf') => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
@@ -212,12 +220,20 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                                 <td className="p-3 font-bold" colSpan={2}>TOTAL ({filteredAndSortedData.length} items)</td>
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2024)}</td>
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2025)}</td>
-                                <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.cash2025)}</td>
-                                <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.credit2025)}</td>
+                                {salesMix === 'Total' && (
+                                    <>
+                                        <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.cash2025)}</td>
+                                        <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.credit2025)}</td>
+                                    </>
+                                )}
                                 <td className="p-3"></td>
                                 <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.sales2025, totalRow.sales2024)} /></td>
-                                <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.cash2025, totalRow.cash2024)} /></td>
-                                <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.credit2025, totalRow.credit2024)} /></td>
+                                {salesMix === 'Total' && (
+                                    <>
+                                        <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.cash2025, totalRow.cash2024)} /></td>
+                                        <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.credit2025, totalRow.credit2024)} /></td>
+                                    </>
+                                )}
                             </tr>
                         )}
                         {filteredAndSortedData.map((item, index) => (
