@@ -16,7 +16,7 @@ interface DrilldownViewProps {
     globalFilterOptions?: ProcessedData['filterOptions'];
 }
 
-type SortableKeys = keyof EntitySalesData | 'sales2024' | 'sales2025' | 'growth' | 'code' | 'name' | 'contribution2024' | 'contribution2025' | 'cash2024' | 'credit2024' | 'cash2025' | 'credit2025';
+type SortableKeys = keyof EntitySalesData | 'sales2024' | 'sales2025' | 'growth' | 'code' | 'name' | 'contribution2024' | 'contribution2025' | 'cash2024' | 'credit2024' | 'cash2025' | 'credit2025' | 'cashGrowth' | 'creditGrowth';
 
 const ContributionCell: React.FC<{ value: number; }> = ({ value }) => {
     if (typeof value !== 'number' || isNaN(value)) {
@@ -124,6 +124,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             { key: 'credit2025', header: '2025 Credit', isNumeric: true },
             { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
             { key: 'growth', header: 'Growth %', isNumeric: true },
+            { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
+            { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
         ];
         
         const itemBaseColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
@@ -135,6 +137,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             { key: 'credit2025', header: '2025 Credit', isNumeric: true },
             { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
             { key: 'growth', header: 'Growth %', isNumeric: true },
+            { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
+            { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
         ];
 
         const addContribution = (d: any[]) => d.map(row => ({
@@ -249,6 +253,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             contribution2024: finalData.reduce((acc, row) => acc + (row.contribution2024 || 0), 0),
             contribution2025: finalData.reduce((acc, row) => acc + (row.contribution2025 || 0), 0),
             growth: calculateGrowth(totalSales2025, totalSales2024),
+            cashGrowth: calculateGrowth(totalCash2025, totalCash2024),
+            creditGrowth: calculateGrowth(totalCredit2025, totalCredit2024),
         };
     }, [finalData]);
 
@@ -354,8 +360,10 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             if (col.key === 'name') return totalRow.name;
             if (col.key === 'code') return totalRow.code;
             if (col.key === 'growth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
+            if (col.key === 'cashGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
+            if (col.key === 'creditGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
             if (col.key === 'contribution2024' || col.key === 'contribution2025') return `${value.toFixed(2)}%`;
-            if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
+            if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value as number);
             return '';
         })] : [];
 
@@ -364,8 +372,10 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 if (col.key === 'no') return index + 1;
                 const value = row[col.key as keyof typeof row];
                 if (col.key === 'growth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
+                if (col.key === 'cashGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
+                if (col.key === 'creditGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
                 if (col.key === 'contribution2024' || col.key === 'contribution2025') return `${value.toFixed(2)}%`;
-                if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
+                if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value as number);
                 return value;
             });
         });
@@ -630,6 +640,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                             case 'name': content = totalRow.name; break;
                                             case 'code': content = totalRow.code; break;
                                             case 'growth': content = <GrowthIndicator value={totalRow.growth} />; break;
+                                            case 'cashGrowth': content = <GrowthIndicator value={totalRow.cashGrowth} />; break;
+                                            case 'creditGrowth': content = <GrowthIndicator value={totalRow.creditGrowth} />; break;
                                             case 'contribution2024': content = <ContributionCell value={totalRow.contribution2024} />; break;
                                             case 'contribution2025': content = <ContributionCell value={totalRow.contribution2025} />; break;
                                             case 'sales2024': case 'cash2024': case 'credit2024': content = formatNumberAbbreviated(totalRow[col.key]); break;
@@ -680,6 +692,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                                     }
                                                     if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
                                                     if (col.key === 'growth') return <GrowthIndicator value={value} />;
+                                                    if (col.key === 'cashGrowth') return <GrowthIndicator value={value} />;
+                                                    if (col.key === 'creditGrowth') return <GrowthIndicator value={value} />;
                                                     if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
                                                     if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
                                                     return value;

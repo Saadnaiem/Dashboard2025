@@ -20,11 +20,15 @@ type ItemData = {
     name: string;
     sales2024: number;
     sales2025: number;
+    cash2024: number;
+    credit2024: number;
     cash2025: number;
     credit2025: number;
     contribution2024: number;
     contribution2025: number;
     growth: number;
+    cashGrowth: number;
+    creditGrowth: number;
 };
 
 type SortableKeys = keyof ItemData | 'no';
@@ -97,7 +101,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
     const itemsData = useMemo(() => {
         if (!brandStats) return [];
 
-        const aggregatedItems = new Map<string, { code: string; name: string; sales2024: number; sales2025: number; cash2025: number; credit2025: number; }>();
+        const aggregatedItems = new Map<string, { code: string; name: string; sales2024: number; sales2025: number; cash2024: number; credit2024: number; cash2025: number; credit2025: number; }>();
 
         brandData.forEach(row => {
             const itemCode = row['ITEM CODE'] || 'N/A';
@@ -108,12 +112,15 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                 const existing = aggregatedItems.get(itemName)!;
                 existing.sales2024 += row.SALES2024;
                 existing.sales2025 += row.SALES2025;
+                existing.cash2024 += row.SALES2024_CASH || 0;
+                existing.credit2024 += row.SALES2024_CREDIT || 0;
                 existing.cash2025 += row.SALES2025_CASH || 0;
                 existing.credit2025 += row.SALES2025_CREDIT || 0;
             } else {
                 aggregatedItems.set(itemName, { 
                     code: itemCode, name: itemName, 
                     sales2024: row.SALES2024, sales2025: row.SALES2025,
+                    cash2024: row.SALES2024_CASH || 0, credit2024: row.SALES2024_CREDIT || 0,
                     cash2025: row.SALES2025_CASH || 0, credit2025: row.SALES2025_CREDIT || 0
                 });
             }
@@ -122,6 +129,8 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
         return Array.from(aggregatedItems.values()).map(item => ({
             ...item,
             growth: calculateGrowth(item.sales2025, item.sales2024),
+            cashGrowth: calculateGrowth(item.cash2025, item.cash2024),
+            creditGrowth: calculateGrowth(item.credit2025, item.credit2024),
             contribution2024: brandStats.s24 > 0 ? (item.sales2024 / brandStats.s24) * 100 : 0,
             contribution2025: brandStats.s25 > 0 ? (item.sales2025 / brandStats.s25) * 100 : 0,
         }));
@@ -154,22 +163,28 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
         const totals = filteredAndSortedData.reduce((acc, item) => {
             acc.s24 += item.sales2024;
             acc.s25 += item.sales2025;
+            acc.c24 += item.cash2024;
+            acc.cr24 += item.credit2024;
             acc.c25 += item.cash2025;
             acc.cr25 += item.credit2025;
-            acc.c24 += item.contribution2024;
+            acc.c24_contrib += item.contribution2024;
             acc.c25_contrib += item.contribution2025;
             return acc;
-        }, { s24: 0, s25: 0, c25: 0, cr25: 0, c24: 0, c25_contrib: 0 });
+        }, { s24: 0, s25: 0, c24: 0, cr24: 0, c25: 0, cr25: 0, c24_contrib: 0, c25_contrib: 0 });
 
         return {
             code: 'TOTAL',
             name: `Total (${filteredAndSortedData.length} items)`,
             sales2024: totals.s24,
             sales2025: totals.s25,
+            cash2024: totals.c24,
+            credit2024: totals.cr24,
             cash2025: totals.c25,
             credit2025: totals.cr25,
             growth: calculateGrowth(totals.s25, totals.s24),
-            contribution2024: totals.c24,
+            cashGrowth: calculateGrowth(totals.c25, totals.c24),
+            creditGrowth: calculateGrowth(totals.cr25, totals.cr24),
+            contribution2024: totals.c24_contrib,
             contribution2025: totals.c25_contrib,
         };
     }, [filteredAndSortedData]);
@@ -193,6 +208,8 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
         { key: 'credit2025', header: '2025 Credit', isNumeric: true },
         { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
+        { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
+        { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
     ];
     
     const handleExport = (format: 'csv' | 'pdf') => {
@@ -207,7 +224,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                 switch(col.key) {
                     case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                     case 'contribution2024': case 'contribution2025': return `${(value as number).toFixed(2)}%`;
-                    case 'growth': return `${(value as number).toFixed(2)}%`;
+                    case 'growth': case 'cashGrowth': case 'creditGrowth': return `${(value as number).toFixed(2)}%`;
                     default: return value;
                 }
             });
@@ -220,7 +237,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                      case 'no': return 'TOTAL';
                      case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                      case 'contribution2024': case 'contribution2025': return `${(value as number).toFixed(2)}%`;
-                     case 'growth': return `${(value as number).toFixed(2)}%`;
+                     case 'growth': case 'cashGrowth': case 'creditGrowth': return `${(value as number).toFixed(2)}%`;
                      default: return value;
                  }
              }));
@@ -317,7 +334,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                                                     case 'no': return '';
                                                     case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2024': case 'contribution2025': return <ContributionCell value={value as number} />;
-                                                    case 'growth': return <GrowthIndicator value={value as number} />;
+                                                    case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
                                                     default: return value;
                                                 }
                                             })()}
@@ -338,7 +355,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                                                     case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2024': return <ContributionCell value={value as number} />;
                                                     case 'contribution2025': return <ContributionCell value={value as number} />;
-                                                    case 'growth': return <GrowthIndicator value={value as number} />;
+                                                    case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
                                                     default: return value;
                                                 }
                                             })()}

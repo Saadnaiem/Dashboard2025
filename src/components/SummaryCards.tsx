@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ProcessedData, FilterState } from '../types';
@@ -106,6 +105,14 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                             </>
                          ) : <div className="text-xl font-bold text-slate-400">-</div>}
                     </SummaryCard>
+                </div>
+            </section>
+
+            <section>
+                <SectionTitle>Entity Analysis</SectionTitle>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <MetricCard title="Brands" icon="🏷️" value2025={data.brandCount2025} value2024={data.brandCount2024} to={buildLink('/details/brands')} />
+                    <MetricCard title="Items" icon="📦" value2025={data.itemCount2025} value2024={data.itemCount2024} to={buildLink('/details/items')} />
                 </div>
             </section>
 

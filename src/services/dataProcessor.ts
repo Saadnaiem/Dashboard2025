@@ -4,25 +4,32 @@ import { RawSalesDataRow, ProcessedData, ParetoResult, EntitySalesData } from '.
 export const normalizeRow = (row: Record<string, string>, headers: string[]): RawSalesDataRow => {
     const normalized: { [key: string]: any } = {};
     
-    // Updated header mapping based on the new CSV structure
+    // Header mapping with priority order. 
+    // Keys defined earlier in this object take precedence in the loop below.
     const headerMapping: {[key: string]: string} = {
         'DIVISION': 'DIVISION',
         'DEPARTMENT': 'DEPARTMENT',
         'CATEGORY': 'CATEGORY',
-        'SUBCATEGORY': 'ITEM DESCRIPTION', // Map Subcategory to Item Desc if Item Desc is missing
-        'CLASS': 'BRAND', // Map Class to Brand
         'BRANCH NAME': 'BRANCH NAME',
+        
+        // Sales Columns
         '2024 TOTAL SALES': 'SALES2024',
         '2024 CASH SALES': 'SALES2024_CASH',
         '2024 CREDIT SALES': 'SALES2024_CREDIT',
         '2025 TOTAL SALES': 'SALES2025',
         '2025 CASH SALES': 'SALES2025_CASH',
         '2025 CREDIT SALES': 'SALES2025_CREDIT',
-        // Fallbacks for older formats
+        'SALES2024': 'SALES2024',
+        'SALES2025': 'SALES2025',
+
+        // Entity Attributes (Priority 1: Direct Matches)
         'BRAND': 'BRAND',
         'ITEM DESCRIPTION': 'ITEM DESCRIPTION',
-        'SALES2024': 'SALES2024',
-        'SALES2025': 'SALES2025'
+        'ITEM NAME': 'ITEM DESCRIPTION',
+
+        // Entity Attributes (Priority 2: Aliases/Fallbacks)
+        'CLASS': 'BRAND',
+        'SUBCATEGORY': 'ITEM DESCRIPTION'
     };
 
     const parseSalesValue = (val: any): number => {
@@ -43,9 +50,9 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
     // Iterate over the normalized keys we want
     for (const [csvHeaderPart, internalKey] of Object.entries(headerMapping)) {
         // Find the actual header in the file that contains our keyword (case insensitive)
-        // We look for exact match first, then partial if needed, but exact is safer for "2024 Sales" vs "2024 Cash Sales"
         const fileHeader = headers.find(h => h.trim().toUpperCase() === csvHeaderPart);
         
+        // Only set if we found the header AND we haven't set this internal key yet
         if (fileHeader && !normalized[internalKey]) {
             let value = row[fileHeader];
 
@@ -63,8 +70,9 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
         }
     }
 
-    // Fallback logic if specific columns weren't found but basics were
+    // Fallback logic if specific columns weren't found via mapping
     if (!normalized['BRAND'] && normalized['CLASS']) normalized['BRAND'] = normalized['CLASS'];
+    // Redundant but safe check if SUBCATEGORY was picked up as a generic key
     if (!normalized['ITEM DESCRIPTION'] && normalized['SUBCATEGORY']) normalized['ITEM DESCRIPTION'] = normalized['SUBCATEGORY'];
     
     // If Total is 0 but Cash+Credit > 0, fix Total
@@ -73,8 +81,6 @@ export const normalizeRow = (row: Record<string, string>, headers: string[]): Ra
         const credit = normalized[`SALES${year}_CREDIT`] || 0;
         const total = normalized[`SALES${year}`] || 0;
         
-        // If we have components but total is 0 or missing, calc it.
-        // Or if components exist, trust components sum over total.
         if ((cash !== 0 || credit !== 0) && Math.abs(total - (cash + credit)) > 1) {
              normalized[`SALES${year}`] = cash + credit;
         }

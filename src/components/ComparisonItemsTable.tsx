@@ -12,7 +12,7 @@ interface ComparisonItemsTableProps {
     comparisonData: { entity: ComparisonEntity; data: RawSalesDataRow[] }[];
 }
 
-type SortableKeys = 'name' | 'code' | 'sales2024' | 'sales2025' | 'growth' | 'contribution2024' | 'contribution2025' | 'parentEntity' | 'cash2025' | 'credit2025';
+type SortableKeys = 'name' | 'code' | 'sales2024' | 'sales2025' | 'growth' | 'contribution2024' | 'contribution2025' | 'parentEntity' | 'cash2025' | 'credit2025' | 'cashGrowth' | 'creditGrowth';
 
 const calculateGrowth = (current: number, previous: number) =>
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -50,12 +50,16 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
     const processedItemsData = useMemo(() => {
         return itemsData.map(item => {
             const growth = calculateGrowth(item.sales2025, item.sales2024);
+            const cashGrowth = calculateGrowth(item.cash2025, item.cash2024);
+            const creditGrowth = calculateGrowth(item.credit2025, item.credit2024);
             const firstParentKey = item.parentEntity.split(' | ')[0];
             const parentTotals = entityTotals.get(firstParentKey) || { sales2024: 0, sales2025: 0 };
 
             return {
                 ...item,
                 growth,
+                cashGrowth,
+                creditGrowth,
                 contribution2024: parentTotals.sales2024 > 0 ? (item.sales2024 / parentTotals.sales2024) * 100 : 0,
                 contribution2025: parentTotals.sales2025 > 0 ? (item.sales2025 / parentTotals.sales2025) * 100 : 0,
             };
@@ -88,11 +92,17 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
         const totals = filteredAndSortedData.reduce((acc, item) => {
             acc.s24 += item.sales2024;
             acc.s25 += item.sales2025;
+            acc.c24 += item.cash2024 || 0;
+            acc.cr24 += item.credit2024 || 0;
             acc.c25 += item.cash2025 || 0;
             acc.cr25 += item.credit2025 || 0;
             return acc;
-        }, { s24: 0, s25: 0, c25: 0, cr25: 0 });
-        return { sales2024: totals.s24, sales2025: totals.s25, cash2025: totals.c25, credit2025: totals.cr25 };
+        }, { s24: 0, s25: 0, c24: 0, cr24: 0, c25: 0, cr25: 0 });
+        return { 
+            sales2024: totals.s24, sales2025: totals.s25, 
+            cash2024: totals.c24, credit2024: totals.cr24, 
+            cash2025: totals.c25, credit2025: totals.cr25 
+        };
     }, [filteredAndSortedData]);
     
     const requestSort = (key: SortableKeys) => {
@@ -113,6 +123,8 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
         { key: 'credit2025', header: '2025 Credit', isNumeric: true },
         { key: 'contribution2025', header: 'Contrib % (Group)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
+        { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
+        { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
     ];
 
     const handleExport = (format: 'csv' | 'pdf') => {
@@ -129,7 +141,9 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
             formatNumberAbbreviated(item.cash2025 || 0),
             formatNumberAbbreviated(item.credit2025 || 0),
             `${item.contribution2025.toFixed(2)}%`,
-            `${item.growth.toFixed(2)}%`
+            `${item.growth.toFixed(2)}%`,
+            `${item.cashGrowth.toFixed(2)}%`,
+            `${item.creditGrowth.toFixed(2)}%`
         ]);
 
         const filename = `items_comparison_export`;
@@ -201,9 +215,9 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.cash2025)}</td>
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.credit2025)}</td>
                                 <td className="p-3"></td>
-                                <td className="p-3 text-right">
-                                    <GrowthIndicator value={calculateGrowth(totalRow.sales2025, totalRow.sales2024)} />
-                                </td>
+                                <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.sales2025, totalRow.sales2024)} /></td>
+                                <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.cash2025, totalRow.cash2024)} /></td>
+                                <td className="p-3 text-right"><GrowthIndicator value={calculateGrowth(totalRow.credit2025, totalRow.credit2024)} /></td>
                             </tr>
                         )}
                         {filteredAndSortedData.map((item, index) => (
@@ -220,7 +234,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                                                 switch (col.key) {
                                                     case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2025': return <ContributionCell value={value as number} />;
-                                                    case 'growth': return <GrowthIndicator value={value as number} />;
+                                                    case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
                                                     case 'parentEntity': return <span className="text-xs text-slate-400 truncate" title={value as string}>{value as string}</span>;
                                                     default: return value as string;
                                                 }

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { ProcessedData, RawSalesDataRow } from '../types';
 import ComparisonSelector from './ComparisonSelector';
@@ -136,6 +137,10 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             name: string;
             sales2024: number;
             sales2025: number;
+            cash2024: number;
+            credit2024: number;
+            cash2025: number;
+            credit2025: number;
             parentEntities: Set<string>;
         }>();
 
@@ -154,12 +159,20 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                     name: itemName,
                     sales2024: 0,
                     sales2025: 0,
+                    cash2024: 0,
+                    credit2024: 0,
+                    cash2025: 0,
+                    credit2025: 0,
                     parentEntities: new Set(),
                 });
             }
             const item = itemsMap.get(itemCode)!;
             item.sales2024 += row.SALES2024;
             item.sales2025 += row.SALES2025;
+            item.cash2024 += row.SALES2024_CASH || 0;
+            item.credit2024 += row.SALES2024_CREDIT || 0;
+            item.cash2025 += row.SALES2025_CASH || 0;
+            item.credit2025 += row.SALES2025_CREDIT || 0;
         });
 
         comparisonDataForTable.forEach(({ entity, data }) => {

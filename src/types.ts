@@ -1,5 +1,4 @@
 
-// FIX: Removed self-import which caused a conflict with the local declaration.
 export interface RawSalesDataRow {
     [key: string]: any;
     'DIVISION': string;
