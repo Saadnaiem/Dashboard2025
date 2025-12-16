@@ -1,40 +1,92 @@
+
 import { RawSalesDataRow, ProcessedData, ParetoResult, EntitySalesData } from '../types';
 
 export const normalizeRow = (row: Record<string, string>, headers: string[]): RawSalesDataRow => {
     const normalized: { [key: string]: any } = {};
-    const allPossibleHeaders = ['DIVISION', 'DEPARTMENT', 'SALES2024', 'SALES2025', 'BRANCH CODE', 'BRANCH NAME', 'CATEGORY', 'BRAND', 'ITEM CODE', 'ITEM DESCRIPTION'];
     
-    for (const header of allPossibleHeaders) {
-        const fileHeader = headers.find(h => h.trim().toUpperCase() === header);
-        let value = fileHeader ? row[fileHeader] : undefined;
+    // Updated header mapping based on the new CSV structure
+    const headerMapping: {[key: string]: string} = {
+        'DIVISION': 'DIVISION',
+        'DEPARTMENT': 'DEPARTMENT',
+        'CATEGORY': 'CATEGORY',
+        'SUBCATEGORY': 'ITEM DESCRIPTION', // Map Subcategory to Item Desc if Item Desc is missing
+        'CLASS': 'BRAND', // Map Class to Brand
+        'BRANCH NAME': 'BRANCH NAME',
+        '2024 TOTAL SALES': 'SALES2024',
+        '2024 CASH SALES': 'SALES2024_CASH',
+        '2024 CREDIT SALES': 'SALES2024_CREDIT',
+        '2025 TOTAL SALES': 'SALES2025',
+        '2025 CASH SALES': 'SALES2025_CASH',
+        '2025 CREDIT SALES': 'SALES2025_CREDIT',
+        // Fallbacks for older formats
+        'BRAND': 'BRAND',
+        'ITEM DESCRIPTION': 'ITEM DESCRIPTION',
+        'SALES2024': 'SALES2024',
+        'SALES2025': 'SALES2025'
+    };
 
-        if (typeof value === 'string') {
-            value = value.trim();
-             if (value === '#N/A' || value === 'N/A' || value === '') {
-                value = header.startsWith('SALES') ? '0' : '';
+    const parseSalesValue = (val: any): number => {
+        if (val === null || val === undefined) return 0;
+        let str = String(val).trim();
+        if (str === "" || str.toLowerCase() === 'n/a' || str === '#n/a') return 0;
+
+        const isNegative = str.startsWith('-') || str.endsWith('-') || (str.startsWith('(') && str.endsWith(')'));
+        const numericStr = str.replace(/[^0-9.]/g, '');
+        const num = parseFloat(numericStr);
+
+        if (isNaN(num)) return 0;
+
+        const result = isNegative ? -Math.abs(num) : Math.abs(num);
+        return result === 0 ? 0 : result;
+    };
+
+    // Iterate over the normalized keys we want
+    for (const [csvHeaderPart, internalKey] of Object.entries(headerMapping)) {
+        // Find the actual header in the file that contains our keyword (case insensitive)
+        // We look for exact match first, then partial if needed, but exact is safer for "2024 Sales" vs "2024 Cash Sales"
+        const fileHeader = headers.find(h => h.trim().toUpperCase() === csvHeaderPart);
+        
+        if (fileHeader && !normalized[internalKey]) {
+            let value = row[fileHeader];
+
+            if (internalKey.startsWith('SALES')) {
+                normalized[internalKey] = parseSalesValue(value);
+            } else {
+                 if (typeof value === 'string') {
+                    value = value.trim();
+                     if (value === '#N/A' || value === 'N/A' || value === '') {
+                        value = '';
+                    }
+                }
+                normalized[internalKey] = (typeof value === 'string' ? value.toUpperCase() : value) || '';
             }
         }
-        
-        if (header.startsWith('SALES')) {
-            const parseSalesValue = (val: any): number => {
-                if (val === null || val === undefined) return 0;
-                let str = String(val).trim();
-                if (str === "" || str.toLowerCase() === 'n/a' || str === '#n/a') return 0;
-
-                const isNegative = str.startsWith('-') || str.endsWith('-') || (str.startsWith('(') && str.endsWith(')'));
-                const numericStr = str.replace(/[^0-9.]/g, '');
-                const num = parseFloat(numericStr);
-
-                if (isNaN(num)) return 0;
-
-                const result = isNegative ? -Math.abs(num) : Math.abs(num);
-                return result === 0 ? 0 : result;
-            };
-            normalized[header] = parseSalesValue(value);
-        } else {
-            normalized[header] = (typeof value === 'string' ? value.toUpperCase() : value) || '';
-        }
     }
+
+    // Fallback logic if specific columns weren't found but basics were
+    if (!normalized['BRAND'] && normalized['CLASS']) normalized['BRAND'] = normalized['CLASS'];
+    if (!normalized['ITEM DESCRIPTION'] && normalized['SUBCATEGORY']) normalized['ITEM DESCRIPTION'] = normalized['SUBCATEGORY'];
+    
+    // If Total is 0 but Cash+Credit > 0, fix Total
+    const fixTotal = (year: string) => {
+        const cash = normalized[`SALES${year}_CASH`] || 0;
+        const credit = normalized[`SALES${year}_CREDIT`] || 0;
+        const total = normalized[`SALES${year}`] || 0;
+        
+        // If we have components but total is 0 or missing, calc it.
+        // Or if components exist, trust components sum over total.
+        if ((cash !== 0 || credit !== 0) && Math.abs(total - (cash + credit)) > 1) {
+             normalized[`SALES${year}`] = cash + credit;
+        }
+        
+        // Ensure defaults
+        if (!normalized[`SALES${year}_CASH`]) normalized[`SALES${year}_CASH`] = 0;
+        if (!normalized[`SALES${year}_CREDIT`]) normalized[`SALES${year}_CREDIT`] = 0;
+        if (!normalized[`SALES${year}`]) normalized[`SALES${year}`] = 0;
+    };
+
+    fixTotal('2024');
+    fixTotal('2025');
 
     return normalized as RawSalesDataRow;
 };
@@ -72,11 +124,24 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     if (data.length === 0) return null as any; 
 
     let totalSales2024 = 0;
+    let totalCash2024 = 0;
+    let totalCredit2024 = 0;
+
     let totalSales2025 = 0;
-    const divisions: { [key: string]: { s24: number, s25: number } } = {};
-    const brands: { [key: string]: { s24: number, s25: number } } = {};
-    const branches: { [key: string]: { s24: number, s25: number } } = {};
-    const items: { [key: string]: { s24: number, s25: number, code: string } } = {};
+    let totalCash2025 = 0;
+    let totalCredit2025 = 0;
+
+    // Helper interface for aggregation
+    interface AggregatedStats { 
+        s24: number; c24: number; cr24: number; 
+        s25: number; c25: number; cr25: number; 
+        code?: string;
+    }
+
+    const divisions: { [key: string]: AggregatedStats } = {};
+    const brands: { [key: string]: AggregatedStats } = {};
+    const branches: { [key: string]: AggregatedStats } = {};
+    const items: { [key: string]: AggregatedStats } = {};
     
     const distinct = {
         branches24: new Set<string>(), branches25: new Set<string>(),
@@ -85,31 +150,39 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     };
 
     data.forEach(row => {
-        const s24 = row['SALES2024'];
-        const s25 = row['SALES2025'];
+        const s24 = row['SALES2024'] || 0;
+        const c24 = row['SALES2024_CASH'] || 0;
+        const cr24 = row['SALES2024_CREDIT'] || 0;
+        
+        const s25 = row['SALES2025'] || 0;
+        const c25 = row['SALES2025_CASH'] || 0;
+        const cr25 = row['SALES2025_CREDIT'] || 0;
+
         totalSales2024 += s24;
+        totalCash2024 += c24;
+        totalCredit2024 += cr24;
+
         totalSales2025 += s25;
+        totalCash2025 += c25;
+        totalCredit2025 += cr25;
 
-        const aggr = (store: any, key: string) => {
+        const aggr = (store: any, key: string, code?: string) => {
             if (key) {
-                store[key] = store[key] || { s24: 0, s25: 0 };
+                store[key] = store[key] || { s24: 0, c24: 0, cr24: 0, s25: 0, c25: 0, cr25: 0, code: code || '' };
                 store[key].s24 += s24;
+                store[key].c24 += c24;
+                store[key].cr24 += cr24;
+                
                 store[key].s25 += s25;
-            }
-        };
-
-        const aggrItems = (store: any, key: string, code: string) => {
-             if (key) {
-                store[key] = store[key] || { s24: 0, s25: 0, code: code || '' };
-                store[key].s24 += s24;
-                store[key].s25 += s25;
+                store[key].c25 += c25;
+                store[key].cr25 += cr25;
             }
         };
         
         aggr(divisions, row['DIVISION']);
         aggr(brands, row['BRAND']);
         aggr(branches, row['BRANCH NAME']);
-        aggrItems(items, row['ITEM DESCRIPTION'], row['ITEM CODE'] || '');
+        aggr(items, row['ITEM DESCRIPTION'], row['ITEM CODE']);
 
         if(row['BRANCH NAME']) {
           if (s24 > 0) distinct.branches24.add(row['BRANCH NAME']);
@@ -129,14 +202,22 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
         previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
 
     const salesGrowthPercentage = calculateGrowth(totalSales2025, totalSales2024);
+    const cashGrowthPercentage = calculateGrowth(totalCash2025, totalCash2024);
+    const creditGrowthPercentage = calculateGrowth(totalCredit2025, totalCredit2024);
 
-    const transform = (obj: { [key: string]: { s24: number, s25: number, code?: string } }): EntitySalesData[] => 
-        Object.entries(obj).map(([name, { s24, s25, code }]) => ({ 
+    const transform = (obj: { [key: string]: AggregatedStats }): EntitySalesData[] => 
+        Object.entries(obj).map(([name, stats]) => ({ 
             name, 
-            sales2024: s24, 
-            sales2025: s25,
-            growth: calculateGrowth(s25, s24),
-            code: code
+            sales2024: stats.s24,
+            cash2024: stats.c24,
+            credit2024: stats.cr24,
+            sales2025: stats.s25,
+            cash2025: stats.c25,
+            credit2025: stats.cr25,
+            growth: calculateGrowth(stats.s25, stats.s24),
+            cashGrowth: calculateGrowth(stats.c25, stats.c24),
+            creditGrowth: calculateGrowth(stats.cr25, stats.cr24),
+            code: stats.code
         }));
 
     const salesByDivision = transform(divisions).sort((a,b) => b.sales2025 - a.sales2025);
@@ -144,8 +225,8 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
     const salesByItem = transform(items).sort((a,b) => b.sales2025 - a.sales2025);
     const salesByBranch = transform(branches).sort((a,b) => b.sales2025 - a.sales2025);
 
-    const top10Brands = salesByBrand.slice(0, 10).map(({ name, sales2024, sales2025 }) => ({ name, sales2024, sales2025 }));
-    const top50Items = salesByItem.slice(0, 50).map(({ name, sales2024, sales2025 }) => ({ name, sales2024, sales2025 }));
+    const top10Brands = salesByBrand.slice(0, 10);
+    const top50Items = salesByItem.slice(0, 50);
     const topDivision = salesByDivision[0] || null;
 
     // Pareto
@@ -170,37 +251,48 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
 
     const newBrands = { count: 0, sales: 0 };
     const lostBrands = { count: 0, sales2024: 0 };
-    const newBrandsList: { name: string; sales2025: number }[] = [];
-    const lostBrandsList: { name: string; sales2024: number }[] = [];
+    const newBrandsList: EntitySalesData[] = [];
+    const lostBrandsList: EntitySalesData[] = [];
     
-    Object.entries(brands).forEach(([key, {s24, s25}]) => { 
-      if(s25 > 0 && s24 === 0) {
+    // Helper to create entity data for list (simplified transform)
+    const createEnt = (name: string, stats: AggregatedStats): EntitySalesData => ({
+        name,
+        sales2024: stats.s24, cash2024: stats.c24, credit2024: stats.cr24,
+        sales2025: stats.s25, cash2025: stats.c25, credit2025: stats.cr25,
+        growth: calculateGrowth(stats.s25, stats.s24),
+        cashGrowth: calculateGrowth(stats.c25, stats.c24),
+        creditGrowth: calculateGrowth(stats.cr25, stats.cr24),
+        code: stats.code
+    });
+
+    Object.entries(brands).forEach(([key, stats]) => { 
+      if(stats.s25 > 0 && stats.s24 === 0) {
         newBrands.count++;
-        newBrands.sales += s25;
-        newBrandsList.push({ name: key, sales2025: s25 });
+        newBrands.sales += stats.s25;
+        newBrandsList.push(createEnt(key, stats));
       }
-      if(s24 > 0 && s25 === 0) {
+      if(stats.s24 > 0 && stats.s25 === 0) {
         lostBrands.count++;
-        lostBrands.sales2024 += s24;
-        lostBrandsList.push({ name: key, sales2024: s24 });
+        lostBrands.sales2024 += stats.s24;
+        lostBrandsList.push(createEnt(key, stats));
       }
     });
     
     const newItems = { count: 0, sales: 0 };
     const lostItems = { count: 0, sales2024: 0 };
-    const newItemsList: { name: string; sales2025: number; code: string }[] = [];
-    const lostItemsList: { name: string; sales2024: number; code: string }[] = [];
+    const newItemsList: EntitySalesData[] = [];
+    const lostItemsList: EntitySalesData[] = [];
 
-    Object.entries(items).forEach(([key, {s24, s25, code}]) => { 
-      if(s25 > 0 && s24 === 0) {
+    Object.entries(items).forEach(([key, stats]) => { 
+      if(stats.s25 > 0 && stats.s24 === 0) {
         newItems.count++;
-        newItems.sales += s25;
-        newItemsList.push({ name: key, sales2025: s25, code });
+        newItems.sales += stats.s25;
+        newItemsList.push(createEnt(key, stats));
       }
-      if(s24 > 0 && s25 === 0) {
+      if(stats.s24 > 0 && stats.s25 === 0) {
         lostItems.count++;
-        lostItems.sales2024 += s24;
-        lostItemsList.push({ name: key, sales2024: s24, code });
+        lostItems.sales2024 += stats.s24;
+        lostItemsList.push(createEnt(key, stats));
       }
     });
 
@@ -208,8 +300,17 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
 
     return {
         totalSales2024,
+        totalCash2024,
+        totalCredit2024,
+        
         totalSales2025,
+        totalCash2025,
+        totalCredit2025,
+        
         salesGrowthPercentage,
+        cashGrowthPercentage,
+        creditGrowthPercentage,
+        
         salesByDivision,
         salesByBrand,
         salesByBranch,
@@ -248,9 +349,8 @@ export const processSalesData = (data: RawSalesDataRow[], existingFilterOptions?
             departments: [...new Set(data.map(r => r['DEPARTMENT']))].filter(Boolean).sort(),
             categories: [...new Set(data.map(r => r['CATEGORY']))].filter(Boolean).sort(),
             branches: [...new Set(data.map(r => r['BRANCH NAME']))].filter(Boolean).sort(),
-            brands: [...new Set(data.map(r => r['BRAND']))].filter(Boolean).sort(),
-            // FIX: Added the missing 'items' property to match the `filterOptions` type definition, resolving a type error.
-            items: [...new Set(data.map(r => r['ITEM DESCRIPTION']))].filter(Boolean).sort(),
+            brands: [...new Set(data.map(r => r['BRAND'] || r['CLASS']))].filter(Boolean).sort(),
+            items: [...new Set(data.map(r => r['ITEM DESCRIPTION'] || r['SUBCATEGORY']))].filter(Boolean).sort(),
         },
     };
 };

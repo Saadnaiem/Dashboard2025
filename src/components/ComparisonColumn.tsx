@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { RawSalesDataRow } from '../types';
 import { ComparisonEntity } from './ComparisonPage';
@@ -26,6 +27,8 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
     const { stats, parentTypeLabel } = useMemo(() => {
         const defaultStats = {
             sales2024: 0, sales2025: 0, growth: 0,
+            cash2024: 0, cash2025: 0, cashGrowth: 0,
+            credit2024: 0, credit2025: 0, creditGrowth: 0,
             itemCount2024: 0, itemCount2025: 0, totalItemsForEntity: 0,
             contribution: 0,
             pareto: { topCount: 0, salesPercent: 0 },
@@ -48,12 +51,18 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
         }
 
         const items: { [key: string]: { s24: number, s25: number } } = {};
-        let totalSales2024 = 0;
-        let totalSales2025 = 0;
+        let totalSales2024 = 0, totalCash2024 = 0, totalCredit2024 = 0;
+        let totalSales2025 = 0, totalCash2025 = 0, totalCredit2025 = 0;
         
         data.forEach(row => {
             totalSales2024 += row['SALES2024'];
+            totalCash2024 += row['SALES2024_CASH'] || 0;
+            totalCredit2024 += row['SALES2024_CREDIT'] || 0;
+
             totalSales2025 += row['SALES2025'];
+            totalCash2025 += row['SALES2025_CASH'] || 0;
+            totalCredit2025 += row['SALES2025_CREDIT'] || 0;
+
             if (row['ITEM DESCRIPTION']) {
                 items[row['ITEM DESCRIPTION']] = items[row['ITEM DESCRIPTION']] || { s24: 0, s25: 0 };
                 items[row['ITEM DESCRIPTION']].s24 += row['SALES2024'];
@@ -89,12 +98,13 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
             if(s24 > 0 && s25 === 0) { lostItemsCount++; lostItemsSales2024 += s24; }
         });
 
-        // This calculation should now be correct as it's based on the already-scoped `data`
         const totalItemsForEntity = new Set(data.filter(row => row['ITEM DESCRIPTION']).map(row => row['ITEM DESCRIPTION'])).size;
 
         const finalStats = {
             sales2024: totalSales2024, sales2025: totalSales2025,
             growth: calculateGrowth(totalSales2025, totalSales2024),
+            cash2024: totalCash2024, cash2025: totalCash2025, cashGrowth: calculateGrowth(totalCash2025, totalCash2024),
+            credit2024: totalCredit2024, credit2025: totalCredit2025, creditGrowth: calculateGrowth(totalCredit2025, totalCredit2024),
             itemCount2024: items24.size, itemCount2025: items25.size,
             totalItemsForEntity, contribution: parentSales2025 > 0 ? (totalSales2025 / parentSales2025) * 100 : 0,
             pareto: { topCount: count, salesPercent: paretoSalesPercent },
@@ -142,6 +152,12 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
                 <KPICard title="YoY Growth %">
                     <GrowthIndicator value={stats.growth} className="text-lg" />
                 </KPICard>
+                <KPICard title="Cash Growth %">
+                    <GrowthIndicator value={stats.cashGrowth} className="text-lg text-emerald-400" />
+                </KPICard>
+                <KPICard title="Credit Growth %">
+                    <GrowthIndicator value={stats.creditGrowth} className="text-lg text-indigo-400" />
+                </KPICard>
                 <KPICard title={`Contrib% to ${parentTypeLabel}`}>
                     <p className="text-lg font-bold">{stats.contribution.toFixed(1)}%</p>
                 </KPICard>
@@ -150,14 +166,8 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
                         {formatNumber(stats.itemCount2025)}
                     </p>
                 </KPICard>
-                 <KPICard title={`Share of ${parentTypeLabel} Assortment`} className="sm:col-span-2 lg:col-span-1">
-                    <p className="text-lg font-bold">{stats.assortmentShare.toFixed(1)}%</p>
-                </KPICard>
                 <KPICard title="New Items">
                     <p className="text-lg font-bold text-green-400">{formatNumber(stats.newItems.count)}</p>
-                </KPICard>
-                <KPICard title="Lost Items">
-                    <p className="text-lg font-bold text-rose-400">{formatNumber(stats.lostItems.count)}</p>
                 </KPICard>
             </div>
         </div>

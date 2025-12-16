@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -19,6 +20,8 @@ type ItemData = {
     name: string;
     sales2024: number;
     sales2025: number;
+    cash2025: number;
+    credit2025: number;
     contribution2024: number;
     contribution2025: number;
     growth: number;
@@ -66,24 +69,28 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             row.CATEGORY === categoryName
         );
 
-        const aggregatedItems = new Map<string, { code: string; name: string; sales2024: number; sales2025: number; }>();
+        const aggregatedItems = new Map<string, { code: string; name: string; sales2024: number; sales2025: number; cash2025: number; credit2025: number; }>();
 
         filteredRaw.forEach(row => {
-            const itemCode = row['ITEM CODE'];
+            const itemCode = row['ITEM CODE'] || 'Unknown';
             const itemName = row['ITEM DESCRIPTION'];
 
-            if (!itemCode) return;
+            if (!itemName) return;
 
-            if (aggregatedItems.has(itemCode)) {
-                const existing = aggregatedItems.get(itemCode)!;
+            if (aggregatedItems.has(itemName)) {
+                const existing = aggregatedItems.get(itemName)!;
                 existing.sales2024 += row.SALES2024;
                 existing.sales2025 += row.SALES2025;
+                existing.cash2025 += row.SALES2025_CASH || 0;
+                existing.credit2025 += row.SALES2025_CREDIT || 0;
             } else {
-                aggregatedItems.set(itemCode, {
+                aggregatedItems.set(itemName, {
                     code: itemCode,
                     name: itemName,
                     sales2024: row.SALES2024,
                     sales2025: row.SALES2025,
+                    cash2025: row.SALES2025_CASH || 0,
+                    credit2025: row.SALES2025_CREDIT || 0,
                 });
             }
         });
@@ -122,19 +129,23 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
         const totals = filteredAndSortedData.reduce((acc, item) => {
             acc.s24 += item.sales2024;
             acc.s25 += item.sales2025;
+            acc.c25 += item.cash2025;
+            acc.cr25 += item.credit2025;
             acc.c24 += item.contribution2024;
-            acc.c25 += item.contribution2025;
+            acc.c25_contrib += item.contribution2025;
             return acc;
-        }, { s24: 0, s25: 0, c24: 0, c25: 0 });
+        }, { s24: 0, s25: 0, c25: 0, cr25: 0, c24: 0, c25_contrib: 0 });
 
         return {
             code: 'TOTAL',
             name: `Total (${filteredAndSortedData.length} items)`,
             sales2024: totals.s24,
             sales2025: totals.s25,
+            cash2025: totals.c25,
+            credit2025: totals.cr25,
             growth: calculateGrowth(totals.s25, totals.s24),
             contribution2024: totals.c24,
-            contribution2025: totals.c25,
+            contribution2025: totals.c25_contrib,
         };
     }, [filteredAndSortedData]);
     
@@ -147,10 +158,12 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
     };
 
     const columns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
-        { key: 'code', header: 'Item Code (ERP)' },
+        { key: 'code', header: 'Item Code' },
         { key: 'name', header: 'Item Description' },
         { key: 'sales2024', header: '2024 Sales', isNumeric: true },
         { key: 'sales2025', header: '2025 Sales', isNumeric: true },
+        { key: 'cash2025', header: '2025 Cash', isNumeric: true },
+        { key: 'credit2025', header: '2025 Credit', isNumeric: true },
         { key: 'contribution2025', header: 'Contrib % (Category)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
     ];
@@ -164,6 +177,8 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             item.code, item.name, 
             formatNumberAbbreviated(item.sales2024),
             formatNumberAbbreviated(item.sales2025),
+            formatNumberAbbreviated(item.cash2025),
+            formatNumberAbbreviated(item.credit2025),
             `${item.contribution2025.toFixed(2)}%`,
             `${item.growth.toFixed(2)}%`
         ]);
@@ -173,6 +188,8 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                 totalRow.code, totalRow.name,
                 formatNumberAbbreviated(totalRow.sales2024),
                 formatNumberAbbreviated(totalRow.sales2025),
+                formatNumberAbbreviated(totalRow.cash2025),
+                formatNumberAbbreviated(totalRow.credit2025),
                 `${totalRow.contribution2025.toFixed(2)}%`,
                 `${totalRow.growth.toFixed(2)}%`
              ]);
@@ -251,6 +268,8 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                                     <td className="p-3">{totalRow.name}</td>
                                     <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2024)}</td>
                                     <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2025)}</td>
+                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.cash2025)}</td>
+                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.credit2025)}</td>
                                     <td className="p-3 text-right"><ContributionCell value={totalRow.contribution2025} /></td>
                                     <td className="p-3 text-right"><GrowthIndicator value={totalRow.growth} /></td>
                                 </tr>
@@ -263,6 +282,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                                                 const value = item[col.key];
                                                 switch (col.key) {
                                                     case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                                                    case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2025': return <ContributionCell value={value as number} />;
                                                     case 'growth': return <GrowthIndicator value={value as number} />;
                                                     default: return value;

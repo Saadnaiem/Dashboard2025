@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState, useEffect } from 'react';
 import { useParams, useSearchParams, Link } from 'react-router-dom';
 import jsPDF from 'jspdf';
@@ -15,7 +16,7 @@ interface DrilldownViewProps {
     globalFilterOptions?: ProcessedData['filterOptions'];
 }
 
-type SortableKeys = keyof EntitySalesData | 'sales2024' | 'sales2025' | 'growth' | 'code' | 'name' | 'contribution2024' | 'contribution2025';
+type SortableKeys = keyof EntitySalesData | 'sales2024' | 'sales2025' | 'growth' | 'code' | 'name' | 'contribution2024' | 'contribution2025' | 'cash2024' | 'credit2024' | 'cash2025' | 'credit2025';
 
 const ContributionCell: React.FC<{ value: number; }> = ({ value }) => {
     if (typeof value !== 'number' || isNaN(value)) {
@@ -115,8 +116,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const baseColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
             { key: 'name', header: 'Name', isNumeric: false },
             { key: 'sales2024', header: '2024 Sales', isNumeric: true },
+            { key: 'cash2024', header: '2024 Cash', isNumeric: true },
+            { key: 'credit2024', header: '2024 Credit', isNumeric: true },
             { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
             { key: 'sales2025', header: '2025 Sales', isNumeric: true },
+            { key: 'cash2025', header: '2025 Cash', isNumeric: true },
+            { key: 'credit2025', header: '2025 Credit', isNumeric: true },
             { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
             { key: 'growth', header: 'Growth %', isNumeric: true },
         ];
@@ -125,8 +130,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             { key: 'code', header: 'Item Code', isNumeric: false },
             { key: 'name', header: 'Item Name', isNumeric: false },
             { key: 'sales2024', header: '2024 Sales', isNumeric: true },
-            { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
             { key: 'sales2025', header: '2025 Sales', isNumeric: true },
+            { key: 'cash2025', header: '2025 Cash', isNumeric: true },
+            { key: 'credit2025', header: '2025 Credit', isNumeric: true },
             { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true },
             { key: 'growth', header: 'Growth %', isNumeric: true },
         ];
@@ -180,15 +186,15 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 performanceMetric = { title: 'Top 20% Items', value: perfRate(data.length, processedViewData.itemCount2025), subtext: `${data.length} / ${processedViewData.itemCount2025} Active Items` };
                 break;
             case 'new_brands':
-                title = 'New Brands in 2025'; data = addContribution(processedViewData.newBrandsList); columns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }]; break;
+                title = 'New Brands in 2025'; data = addContribution(processedViewData.newBrandsList); columns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'cash2025', header: '2025 Cash', isNumeric: true }, { key: 'credit2025', header: '2025 Credit', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }]; break;
             case 'lost_brands':
-                title = 'Lost Brands from 2024'; data = addContribution(processedViewData.lostBrandsList); columns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
+                title = 'Lost Brands from 2024'; data = addContribution(processedViewData.lostBrandsList); columns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'cash2024', header: '2024 Cash', isNumeric: true }, { key: 'credit2024', header: '2024 Credit', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
             case 'new_items':
-                title = 'New Items in 2025'; data = addContribution(processedViewData.newItemsList); columns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }];
+                title = 'New Items in 2025'; data = addContribution(processedViewData.newItemsList); columns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'cash2025', header: '2025 Cash', isNumeric: true }, { key: 'credit2025', header: '2025 Credit', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }];
                 performanceMetric = { title: 'New Items %', value: perfRate(data.length, processedViewData.itemCount2025), subtext: `${data.length} / ${processedViewData.itemCount2025} Total Items` };
                 break;
             case 'lost_items':
-                title = 'Lost Items from 2024'; data = addContribution(processedViewData.lostItemsList); columns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
+                title = 'Lost Items from 2024'; data = addContribution(processedViewData.lostItemsList); columns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'cash2024', header: '2024 Cash', isNumeric: true }, { key: 'credit2024', header: '2024 Credit', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
             default:
                 title = 'Unknown View';
         }
@@ -223,6 +229,10 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
         const totalSales2024 = finalData.reduce((acc, row) => acc + (row.sales2024 || 0), 0);
         const totalSales2025 = finalData.reduce((acc, row) => acc + (row.sales2025 || 0), 0);
+        const totalCash2024 = finalData.reduce((acc, row) => acc + (row.cash2024 || 0), 0);
+        const totalCash2025 = finalData.reduce((acc, row) => acc + (row.cash2025 || 0), 0);
+        const totalCredit2024 = finalData.reduce((acc, row) => acc + (row.credit2024 || 0), 0);
+        const totalCredit2025 = finalData.reduce((acc, row) => acc + (row.credit2025 || 0), 0);
 
         const calculateGrowth = (current: number, previous: number) =>
             previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -232,6 +242,10 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             code: 'TOTAL',
             sales2024: totalSales2024,
             sales2025: totalSales2025,
+            cash2024: totalCash2024,
+            cash2025: totalCash2025,
+            credit2024: totalCredit2024,
+            credit2025: totalCredit2025,
             contribution2024: finalData.reduce((acc, row) => acc + (row.contribution2024 || 0), 0),
             contribution2025: finalData.reduce((acc, row) => acc + (row.contribution2025 || 0), 0),
             growth: calculateGrowth(totalSales2025, totalSales2024),
@@ -341,7 +355,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             if (col.key === 'code') return totalRow.code;
             if (col.key === 'growth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
             if (col.key === 'contribution2024' || col.key === 'contribution2025') return `${value.toFixed(2)}%`;
-            if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
+            if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
             return '';
         })] : [];
 
@@ -351,7 +365,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 const value = row[col.key as keyof typeof row];
                 if (col.key === 'growth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
                 if (col.key === 'contribution2024' || col.key === 'contribution2025') return `${value.toFixed(2)}%`;
-                if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
+                if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
                 return value;
             });
         });
@@ -618,8 +632,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                             case 'growth': content = <GrowthIndicator value={totalRow.growth} />; break;
                                             case 'contribution2024': content = <ContributionCell value={totalRow.contribution2024} />; break;
                                             case 'contribution2025': content = <ContributionCell value={totalRow.contribution2025} />; break;
-                                            case 'sales2024': content = formatNumberAbbreviated(totalRow.sales2024); break;
-                                            case 'sales2025': content = formatNumberAbbreviated(totalRow.sales2025); break;
+                                            case 'sales2024': case 'cash2024': case 'credit2024': content = formatNumberAbbreviated(totalRow[col.key]); break;
+                                            case 'sales2025': case 'cash2025': case 'credit2025': content = formatNumberAbbreviated(totalRow[col.key]); break;
                                             default: content = '';
                                         }
 
@@ -630,17 +644,17 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             {sortedData.map((row, index) => (
                                 <tr key={index} className="hover:bg-slate-800/80 transition-colors text-sm">
                                     {columns.map(col => {
-                                        const is2024Col = col.key === 'sales2024' || col.key === 'contribution2024';
-                                        const is2025Col = col.key === 'sales2025' || col.key === 'contribution2025';
+                                        const is2024Col = col.key.toString().includes('2024');
+                                        const is2025Col = col.key.toString().includes('2025');
 
                                         let yearStyle = '';
                                         if (is2024Col) {
-                                            yearStyle = 'font-bold text-lg text-sky-400';
+                                            yearStyle = col.key.includes('cash') ? 'text-emerald-300' : col.key.includes('credit') ? 'text-indigo-300' : 'font-bold text-lg text-sky-400';
                                         } else if (is2025Col) {
-                                            yearStyle = 'font-bold text-lg text-green-400';
+                                            yearStyle = col.key.includes('cash') ? 'text-emerald-400' : col.key.includes('credit') ? 'text-indigo-400' : 'font-bold text-lg text-green-400';
                                         }
                                         
-                                        const isItemNameCol = col.header === 'Item Name';
+                                        const isItemNameCol = col.header === 'Item Name' || col.key === 'name';
                                         const value = row[col.key as keyof typeof row];
                                         const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle} ${isItemNameCol ? 'item-name-cell' : ''}`;
 
@@ -667,7 +681,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                                     if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
                                                     if (col.key === 'growth') return <GrowthIndicator value={value} />;
                                                     if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
-                                                    if (col.key === 'sales2024' || col.key === 'sales2025') return formatNumberAbbreviated(value);
+                                                    if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
                                                     return value;
                                                 })()}
                                             </td>

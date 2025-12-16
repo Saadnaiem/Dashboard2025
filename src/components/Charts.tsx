@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList, LegendType } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
@@ -11,7 +12,9 @@ const COLORS = {
     red: '#f87171',    // red-400
     violet: '#a78bfa', // violet-400
     slate: '#9ca3af',
-    teal: '#2dd4bf'  // teal-400
+    teal: '#2dd4bf',  // teal-400
+    cash: '#10b981', // emerald-500
+    credit: '#6366f1' // indigo-500
 };
 const DIVISION_CHART_PALETTE = ['#38bdf8', '#818cf8', '#34d399', '#fb7185', '#facc15']; // sky, indigo, emerald, rose, amber
 
@@ -29,19 +32,45 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         const itemPayload = payload[0].payload;
 
         return (
-            <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-4 rounded-lg shadow-lg">
-                <p className="font-bold text-green-300 mb-2">{finalLabel}</p>
+            <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-700 p-4 rounded-lg shadow-xl text-sm">
+                <p className="font-bold text-white mb-2 text-lg border-b border-slate-700 pb-1">{finalLabel}</p>
                 
                 {itemPayload.sales2024 !== undefined && itemPayload.sales2025 !== undefined ? (
-                    <>
-                        <div style={{ color: COLORS.blue }}>2024 Sales: {formatNumber(itemPayload.sales2024)}</div>
-                        <div style={{ color: COLORS.teal }}>2025 Sales: {formatNumber(itemPayload.sales2025)}</div>
+                    <div className="grid grid-cols-2 gap-x-6 gap-y-2">
+                         <div className="col-span-2 flex justify-between items-center text-green-300 font-bold text-base">
+                            <span>2025 Total:</span>
+                            <span>{formatNumber(itemPayload.sales2025)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-emerald-400 pl-2">
+                             <span>Cash:</span>
+                             <span>{formatNumber(itemPayload.cash2025)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-indigo-400 pl-2">
+                             <span>Credit:</span>
+                             <span>{formatNumber(itemPayload.credit2025)}</span>
+                        </div>
+
+                        <div className="col-span-2 border-t border-slate-700 my-1"></div>
+
+                        <div className="col-span-2 flex justify-between items-center text-sky-300 font-bold text-base">
+                            <span>2024 Total:</span>
+                            <span>{formatNumber(itemPayload.sales2024)}</span>
+                        </div>
+                         <div className="flex justify-between items-center text-emerald-600 pl-2">
+                             <span>Cash:</span>
+                             <span>{formatNumber(itemPayload.cash2024)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-indigo-600 pl-2">
+                             <span>Credit:</span>
+                             <span>{formatNumber(itemPayload.credit2024)}</span>
+                        </div>
+
                          {itemPayload.growth !== undefined && (
-                             <div className={itemPayload.growth >= 0 ? 'text-green-400' : 'text-red-400'}>
-                                 Growth: {itemPayload.growth === Infinity ? 'New' : `${itemPayload.growth.toFixed(2)}%`}
+                             <div className={`col-span-2 mt-2 flex justify-end font-bold text-lg ${itemPayload.growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                 Total Growth: {itemPayload.growth === Infinity ? 'New' : `${itemPayload.growth.toFixed(1)}%`}
                              </div>
                          )}
-                    </>
+                    </div>
                 ) : (
                     payload.map((pld: any, index: number) => (
                         <div key={index} style={{ color: pld.color || pld.fill }}>
@@ -253,8 +282,8 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
     };
     
     const yearComparisonData = [
-        { name: '2024', value: data.totalSales2024, sales2024: data.totalSales2024, sales2025: 0 },
-        { name: '2025', value: data.totalSales2025, sales2024: 0, sales2025: data.totalSales2025 },
+        { name: '2024', value: data.totalSales2024, sales2024: data.totalSales2024, sales2025: 0, cash2024: data.totalCash2024, credit2024: data.totalCredit2024, cash2025: 0, credit2025: 0 },
+        { name: '2025', value: data.totalSales2025, sales2024: 0, sales2025: data.totalSales2025, cash2024: 0, credit2024: 0, cash2025: data.totalCash2025, credit2025: data.totalCredit2025 },
     ];
     
     const yoyGrowth = data.salesGrowthPercentage;

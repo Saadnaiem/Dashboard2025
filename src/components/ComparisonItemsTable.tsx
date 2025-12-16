@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -11,7 +12,7 @@ interface ComparisonItemsTableProps {
     comparisonData: { entity: ComparisonEntity; data: RawSalesDataRow[] }[];
 }
 
-type SortableKeys = 'name' | 'code' | 'sales2024' | 'sales2025' | 'growth' | 'contribution2024' | 'contribution2025' | 'parentEntity';
+type SortableKeys = 'name' | 'code' | 'sales2024' | 'sales2025' | 'growth' | 'contribution2024' | 'contribution2025' | 'parentEntity' | 'cash2025' | 'credit2025';
 
 const calculateGrowth = (current: number, previous: number) =>
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
@@ -87,9 +88,11 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
         const totals = filteredAndSortedData.reduce((acc, item) => {
             acc.s24 += item.sales2024;
             acc.s25 += item.sales2025;
+            acc.c25 += item.cash2025 || 0;
+            acc.cr25 += item.credit2025 || 0;
             return acc;
-        }, { s24: 0, s25: 0 });
-        return { sales2024: totals.s24, sales2025: totals.s25 };
+        }, { s24: 0, s25: 0, c25: 0, cr25: 0 });
+        return { sales2024: totals.s24, sales2025: totals.s25, cash2025: totals.c25, credit2025: totals.cr25 };
     }, [filteredAndSortedData]);
     
     const requestSort = (key: SortableKeys) => {
@@ -106,6 +109,8 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
         { key: 'parentEntity', header: 'Comparison Group' },
         { key: 'sales2024', header: '2024 Sales', isNumeric: true },
         { key: 'sales2025', header: '2025 Sales', isNumeric: true },
+        { key: 'cash2025', header: '2025 Cash', isNumeric: true },
+        { key: 'credit2025', header: '2025 Credit', isNumeric: true },
         { key: 'contribution2025', header: 'Contrib % (Group)', isNumeric: true },
         { key: 'growth', header: 'Growth %', isNumeric: true },
     ];
@@ -121,6 +126,8 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
             item.parentEntity,
             formatNumberAbbreviated(item.sales2024),
             formatNumberAbbreviated(item.sales2025),
+            formatNumberAbbreviated(item.cash2025 || 0),
+            formatNumberAbbreviated(item.credit2025 || 0),
             `${item.contribution2025.toFixed(2)}%`,
             `${item.growth.toFixed(2)}%`
         ]);
@@ -189,9 +196,10 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                              <tr className="bg-sky-900/60 font-bold text-white text-sm sticky top-[41px] z-10 backdrop-blur-sm">
                                 <td className="p-3"></td>
                                 <td className="p-3 font-bold" colSpan={2}>TOTAL ({filteredAndSortedData.length} items)</td>
-                                <td className="p-3"></td>
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2024)}</td>
                                 <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2025)}</td>
+                                <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.cash2025)}</td>
+                                <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.credit2025)}</td>
                                 <td className="p-3"></td>
                                 <td className="p-3 text-right">
                                     <GrowthIndicator value={calculateGrowth(totalRow.sales2025, totalRow.sales2024)} />
@@ -210,7 +218,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                                          <td key={col.key} className={tdClassName} title={isItemNameCol ? value as string : undefined}>
                                             {(() => {
                                                 switch (col.key) {
-                                                    case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                                                    case 'sales2024': case 'sales2025': case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                     case 'contribution2025': return <ContributionCell value={value as number} />;
                                                     case 'growth': return <GrowthIndicator value={value as number} />;
                                                     case 'parentEntity': return <span className="text-xs text-slate-400 truncate" title={value as string}>{value as string}</span>;

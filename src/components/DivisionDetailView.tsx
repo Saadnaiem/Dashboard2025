@@ -1,3 +1,4 @@
+
 import React, { useMemo, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
@@ -56,7 +57,11 @@ type TableData = {
     department: string;
     category: string;
     sales2024: number;
+    cash2024: number;
+    credit2024: number;
     sales2025: number;
+    cash2025: number;
+    credit2025: number;
     contribution2024: number;
     contribution2025: number;
     growth: number;
@@ -98,22 +103,40 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         if (!divisionData.length) return null;
 
         let totalSales2024 = 0, totalSales2025 = 0;
+        let totalCash2024 = 0, totalCredit2024 = 0, totalCash2025 = 0, totalCredit2025 = 0;
+
         const departments: { [key: string]: { s24: number, s25: number } } = {};
-        const tableMap = new Map<string, { department: string; category: string; s24: number; s25: number }>();
+        const tableMap = new Map<string, { department: string; category: string; s24: number; c24: number; cr24: number; s25: number; c25: number; cr25: number; }>();
 
         divisionData.forEach(row => {
-            totalSales2024 += row.SALES2024;
-            totalSales2025 += row.SALES2025;
+            const s24 = row.SALES2024 || 0;
+            const c24 = row.SALES2024_CASH || 0;
+            const cr24 = row.SALES2024_CREDIT || 0;
+            const s25 = row.SALES2025 || 0;
+            const c25 = row.SALES2025_CASH || 0;
+            const cr25 = row.SALES2025_CREDIT || 0;
+
+            totalSales2024 += s24;
+            totalSales2025 += s25;
+            totalCash2024 += c24;
+            totalCredit2024 += cr24;
+            totalCash2025 += c25;
+            totalCredit2025 += cr25;
+
             if (row.DEPARTMENT) {
                 departments[row.DEPARTMENT] = departments[row.DEPARTMENT] || { s24: 0, s25: 0 };
-                departments[row.DEPARTMENT].s24 += row.SALES2024;
-                departments[row.DEPARTMENT].s25 += row.SALES2025;
+                departments[row.DEPARTMENT].s24 += s24;
+                departments[row.DEPARTMENT].s25 += s25;
             }
             const tableKey = `${row.DEPARTMENT}|${row.CATEGORY}`;
-            if (!tableMap.has(tableKey)) tableMap.set(tableKey, { department: row.DEPARTMENT, category: row.CATEGORY, s24: 0, s25: 0 });
+            if (!tableMap.has(tableKey)) tableMap.set(tableKey, { department: row.DEPARTMENT, category: row.CATEGORY, s24: 0, c24: 0, cr24: 0, s25: 0, c25: 0, cr25: 0 });
             const entry = tableMap.get(tableKey)!;
-            entry.s24 += row.SALES2024;
-            entry.s25 += row.SALES2025;
+            entry.s24 += s24;
+            entry.c24 += c24;
+            entry.cr24 += cr24;
+            entry.s25 += s25;
+            entry.c25 += c25;
+            entry.cr25 += cr25;
         });
 
         const departmentsData = Object.entries(departments).map(([name, { s24, s25 }]) => ({
@@ -122,15 +145,19 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             contribution2025: totalSales2025 > 0 ? (s25 / totalSales2025) * 100 : 0,
         })).sort((a,b) => b.sales2025 - a.sales2025);
 
-        const tableData = Array.from(tableMap.values()).map(d => ({
-            department: d.department, category: d.category, sales2024: d.s24, sales2025: d.s25,
+        const tableData: TableData[] = Array.from(tableMap.values()).map(d => ({
+            department: d.department, category: d.category, 
+            sales2024: d.s24, cash2024: d.c24, credit2024: d.cr24,
+            sales2025: d.s25, cash2025: d.c25, credit2025: d.cr25,
             contribution2024: totalSales2024 > 0 ? (d.s24 / totalSales2024) * 100 : 0,
             contribution2025: totalSales2025 > 0 ? (d.s25 / totalSales2025) * 100 : 0,
             growth: calculateGrowth(d.s25, d.s24),
         }));
 
         const grandTotal = {
-            sales2024: totalSales2024, sales2025: totalSales2025, growth: calculateGrowth(totalSales2025, totalSales2024),
+            sales2024: totalSales2024, cash2024: totalCash2024, credit2024: totalCredit2024,
+            sales2025: totalSales2025, cash2025: totalCash2025, credit2025: totalCredit2025,
+            growth: calculateGrowth(totalSales2025, totalSales2024),
             contribution2024: 100, contribution2025: 100
         };
 
@@ -195,11 +222,15 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             });
 
             const total = categories.reduce((acc, row) => {
-                acc.sales2024 += row.sales2024; acc.sales2025 += row.sales2025; return acc;
-            }, { sales2024: 0, sales2025: 0 });
+                acc.sales2024 += row.sales2024; acc.cash2024 += row.cash2024; acc.credit2024 += row.credit2024;
+                acc.sales2025 += row.sales2025; acc.cash2025 += row.cash2025; acc.credit2025 += row.credit2025;
+                return acc;
+            }, { sales2024: 0, cash2024: 0, credit2024: 0, sales2025: 0, cash2025: 0, credit2025: 0 });
 
             const finalTotal: TableData = {
-                department: departmentName, category: 'TOTAL', sales2024: total.sales2024, sales2025: total.sales2025,
+                department: departmentName, category: 'TOTAL', 
+                sales2024: total.sales2024, cash2024: total.cash2024, credit2024: total.credit2024,
+                sales2025: total.sales2025, cash2025: total.cash2025, credit2025: total.credit2025,
                 growth: calculateGrowth(total.sales2025, total.sales2024),
                 contribution2024: processedData.totalSales2024 > 0 ? (total.sales2024 / processedData.totalSales2024) * 100 : 0,
                 contribution2025: processedData.totalSales2025 > 0 ? (total.sales2025 / processedData.totalSales2025) * 100 : 0,
@@ -217,15 +248,16 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     const handleExport = (format: 'csv' | 'pdf') => {
         const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
         const title = `Division Analysis: ${divisionName}${selectedDepartment ? ` - ${selectedDepartment}`: ''}`;
-        const head = [['Department', 'Category', '2024 Sales', '2025 Sales', 'Contrib % 2024', 'Contrib % 2025', 'Growth %']];
+        const head = [['Department', 'Category', '2024 Sales', '2025 Sales', '2025 Cash', '2025 Credit', 'Growth %']];
         
         const body: (string|number)[][] = [];
         
         if (!selectedDepartment && processedData) {
             body.push(['GRAND TOTAL', '---', 
                 formatNumberAbbreviated(processedData.grandTotal.sales2024), 
-                formatNumberAbbreviated(processedData.grandTotal.sales2025), 
-                '100.00%', '100.00%', 
+                formatNumberAbbreviated(processedData.grandTotal.sales2025),
+                formatNumberAbbreviated(processedData.grandTotal.cash2025), 
+                formatNumberAbbreviated(processedData.grandTotal.credit2025),
                 `${processedData.grandTotal.growth.toFixed(2)}%`
             ]);
         }
@@ -233,13 +265,13 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         finalGroupedData.forEach(group => {
             body.push([group.departmentName, 'TOTAL', 
                 formatNumberAbbreviated(group.total.sales2024), formatNumberAbbreviated(group.total.sales2025), 
-                `${group.total.contribution2024.toFixed(2)}%`, `${group.total.contribution2025.toFixed(2)}%`, 
+                formatNumberAbbreviated(group.total.cash2025), formatNumberAbbreviated(group.total.credit2025),
                 `${group.total.growth.toFixed(2)}%`
             ]);
             group.categories.forEach(cat => {
                 body.push([group.departmentName, cat.category,
                     formatNumberAbbreviated(cat.sales2024), formatNumberAbbreviated(cat.sales2025),
-                    `${cat.contribution2024.toFixed(2)}%`, `${cat.contribution2025.toFixed(2)}%`,
+                    formatNumberAbbreviated(cat.cash2025), formatNumberAbbreviated(cat.credit2025),
                     `${cat.growth.toFixed(2)}%`
                 ]);
             });
@@ -266,9 +298,14 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     if (!processedData) return <div className="text-center py-10">No data available for this division or filter combination.</div>;
     
     const tableColumns: { key: keyof TableData; header: string; isNumeric?: boolean }[] = [
-        { key: 'category', header: 'Category' }, { key: 'sales2024', header: '2024 Sales', isNumeric: true },
-        { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true },
-        { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }, { key: 'growth', header: 'Growth %', isNumeric: true },
+        { key: 'category', header: 'Category' }, 
+        { key: 'sales2024', header: '2024 Total', isNumeric: true },
+        { key: 'cash2024', header: '2024 Cash', isNumeric: true },
+        { key: 'credit2024', header: '2024 Credit', isNumeric: true },
+        { key: 'sales2025', header: '2025 Total', isNumeric: true }, 
+        { key: 'cash2025', header: '2025 Cash', isNumeric: true },
+        { key: 'credit2025', header: '2025 Credit', isNumeric: true },
+        { key: 'growth', header: 'Growth %', isNumeric: true },
     ];
 
     const departmentChartHeight = Math.max(400, (processedData?.departmentsData?.length || 0) * 40);
@@ -350,9 +387,11 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                                 <tr className="bg-sky-900/60 font-bold text-white sticky top-[41px] z-10 backdrop-blur-sm">
                                     <td className="p-3 whitespace-nowrap" colSpan={2}>GRAND TOTAL</td>
                                     <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2024)}</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.cash2024)}</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.credit2024)}</td>
                                     <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.sales2025)}</td>
-                                    <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={100} /></td>
-                                    <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={100} /></td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.cash2025)}</td>
+                                    <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(processedData.grandTotal.credit2025)}</td>
                                     <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={processedData.grandTotal.growth} /></td>
                                 </tr>
                              )}
@@ -361,9 +400,11 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                                     <tr className="bg-slate-700/60 font-bold text-white text-sm">
                                         <td className="p-3 whitespace-nowrap" colSpan={2}>{group.departmentName} TOTAL</td>
                                         <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2024)}</td>
+                                        <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.cash2024)}</td>
+                                        <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.credit2024)}</td>
                                         <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.sales2025)}</td>
-                                        <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={group.total.contribution2024} /></td>
-                                        <td className="p-3 whitespace-nowrap text-right"><ContributionCell value={group.total.contribution2025} /></td>
+                                        <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.cash2025)}</td>
+                                        <td className="p-3 whitespace-nowrap text-right">{formatNumberAbbreviated(group.total.credit2025)}</td>
                                         <td className="p-3 whitespace-nowrap text-right"><GrowthIndicator value={group.total.growth} /></td>
                                     </tr>
                                     {group.categories.map((row, catIndex) => (
@@ -381,6 +422,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
                                                         const value = row[col.key];
                                                         switch(col.key) {
                                                             case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
+                                                            case 'cash2024': case 'cash2025': case 'credit2024': case 'credit2025': return formatNumberAbbreviated(value as number);
                                                             case 'contribution2024': case 'contribution2025': return <ContributionCell value={value as number} />;
                                                             case 'growth': return <GrowthIndicator value={value as number} />;
                                                             default: return value;

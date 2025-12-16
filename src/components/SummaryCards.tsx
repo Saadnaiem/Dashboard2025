@@ -78,6 +78,24 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                         <div className="font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalSales2024)}</div>
                         <GrowthIndicator value={data.salesGrowthPercentage} className="text-xl" />
                     </SummaryCard>
+
+                    <SummaryCard title="Cash Sales (2025)" icon="💵">
+                        <div className="text-3xl font-extrabold text-emerald-400">{formatNumberAbbreviated(data.totalCash2025)}</div>
+                         <div className="font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalCash2024)}</div>
+                        <div className="flex items-center justify-between">
+                            <GrowthIndicator value={data.cashGrowthPercentage} className="text-xl" />
+                        </div>
+                    </SummaryCard>
+
+                    <SummaryCard title="Credit Sales (2025)" icon="💳">
+                        <div className="text-3xl font-extrabold text-indigo-400">{formatNumberAbbreviated(data.totalCredit2025)}</div>
+                         <div className="font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalCredit2024)}</div>
+                        <div className="flex items-center justify-between">
+                             <GrowthIndicator value={data.creditGrowthPercentage} className="text-xl" />
+                        </div>
+                    </SummaryCard>
+                    
+                    <MetricCard title="Branches" icon="🏬" value2025={data.branchCount2025} value2024={data.branchCount2024} to={buildLink('/details/branches')} />
                     
                     <SummaryCard title="Top Division" icon="🏆" to={topDivisionLink}>
                          {data.topDivision ? (
@@ -88,10 +106,6 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                             </>
                          ) : <div className="text-xl font-bold text-slate-400">-</div>}
                     </SummaryCard>
-                    
-                    <MetricCard title="Branches" icon="🏬" value2025={data.branchCount2025} value2024={data.branchCount2024} to={buildLink('/details/branches')} />
-                    <MetricCard title="Brands" icon="🏷️" value2025={data.brandCount2025} value2024={data.brandCount2024} to={buildLink('/details/brands')} />
-                    <MetricCard title="Items" icon="📦" value2025={data.itemCount2025} value2024={data.itemCount2024} to={buildLink('/details/items')} />
                 </div>
             </section>
 

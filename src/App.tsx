@@ -17,7 +17,10 @@ import BrandDetailView from './components/BrandDetailView';
 import ComparisonPage from './components/ComparisonPage';
 
 const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions']): ProcessedData => ({
-    totalSales2024: 0, totalSales2025: 0, salesGrowthPercentage: 0, salesByDivision: [], salesByBrand: [], salesByBranch: [], salesByItem: [],
+    totalSales2024: 0, totalSales2025: 0, 
+    totalCash2024: 0, totalCredit2024: 0, totalCash2025: 0, totalCredit2025: 0,
+    salesGrowthPercentage: 0, cashGrowthPercentage: 0, creditGrowthPercentage: 0,
+    salesByDivision: [], salesByBrand: [], salesByBranch: [], salesByItem: [],
     top10Brands: [], top50Items: [], branchCount2024: 0, branchCount2025: 0, brandCount2024: 0, brandCount2025: 0, itemCount2024: 0,
     itemCount2025: 0, totalUniqueItemCount: 0, topDivision: null,
     pareto: {
@@ -65,7 +68,7 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const GDRIVE_URL = 'https://corsproxy.io/?https://drive.google.com/uc?export=download&id=1ra1vcQbJiufmfXK0Yvl8qocQLlhjKMAk';
+        const GDRIVE_URL = 'https://corsproxy.io/?https://drive.google.com/uc?export=download&id=1yqGiPMAQ8GMKeNvWWW6QeTvjOQ7Yz3Fg';
 
         const fetchData = async () => {
             setError(null);
@@ -81,12 +84,13 @@ const App: React.FC = () => {
                     header: true, skipEmptyLines: true, worker: true,
                     complete: (results) => {
                         setLoadingState({ isLoading: true, progress: 50, message: 'Validating data...' });
-                        const requiredHeaders = ['DIVISION', 'SALES2024', 'SALES2025', 'BRANCH NAME', 'BRAND', 'ITEM DESCRIPTION'];
+                        // Check for at least one critical column from the new set or the old set
+                        const criticalHeaders = ['DIVISION', 'BRANCH NAME', '2024 TOTAL SALES', 'SALES2024'];
                         const fileHeaders = results.meta.fields?.map(h => h.trim().toUpperCase()) || [];
-                        const missingHeaders = requiredHeaders.filter(h => !fileHeaders.includes(h));
+                        const hasCriticalHeaders = criticalHeaders.some(h => fileHeaders.includes(h));
 
-                        if (missingHeaders.length > 0) {
-                            setError(`Missing required columns: ${missingHeaders.join(', ')}`);
+                        if (!hasCriticalHeaders) {
+                            setError(`Invalid file format. Missing required sales columns (e.g., '2024 TOTAL SALES' or 'SALES2024').`);
                             setLoadingState({ isLoading: false, progress: 0, message: '' });
                             return;
                         }
@@ -155,8 +159,6 @@ const App: React.FC = () => {
             return true; // No search term, so it passes this filter
         });
 
-        // Check if any filter (dropdowns or search) is active
-        // FIX: Explicitly typed the parameter in the `every` callback to resolve a TypeScript type inference issue with `Object.values`, ensuring that `f` is correctly recognized as a string array.
         const noFiltersApplied = Object.values(filters).every((f: string[]) => f.length === 0);
         if (noFiltersApplied && !debouncedSearchTerm) {
             return processedData;
