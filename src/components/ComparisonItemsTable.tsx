@@ -1,8 +1,4 @@
-
 import React, { useState, useMemo } from 'react';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import Papa from 'papaparse';
 import { useOutletContext } from 'react-router-dom';
 import { RawSalesDataRow, LayoutContextType } from '../types';
 import { ComparisonEntity } from './ComparisonPage';
@@ -163,7 +159,6 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                         <tr>
                             <th className="p-3 text-slate-400">No.</th>
                             {columns.map(col => {
-                                // Apply differentiated colors for 2024 and 2025
                                 let colorClass = 'text-sky-300';
                                 if (col.header.includes('2024')) colorClass = 'text-sky-400';
                                 if (col.header.includes('2025')) colorClass = 'text-green-400';
@@ -184,7 +179,6 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData, 
                     <tbody className="divide-y divide-slate-700/50">
                         {totalRowValues && (
                              <tr className="bg-sky-900/60 font-bold text-white text-sm sticky top-[41px] z-10 backdrop-blur-sm">
-                                {/* Fixed alignment: "TOTAL" in the first column */}
                                 <td className="p-3 text-sky-400 font-bold">TOTAL</td>
                                 {columns.map((col, idx) => {
                                     const isNumeric = col.isNumeric;

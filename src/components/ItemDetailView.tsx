@@ -1,9 +1,5 @@
-
 import React, { useMemo, useState } from 'react';
-import { useParams, Link, useOutletContext } from 'react-router-dom';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import Papa from 'papaparse';
+import { useParams, useOutletContext } from 'react-router-dom';
 import { RawSalesDataRow, LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import { getSalesValue } from '../services/dataProcessor';
@@ -38,7 +34,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
     const { divisionName, departmentName, categoryName } = useParams<{ divisionName: string; departmentName: string; categoryName: string }>();
     const { salesMix } = useOutletContext<LayoutContextType>();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
-    const [localSearchTerm, setLocalSearchTerm] = useState('');
+    const [localSearchTerm] = useState('');
 
     const categoryTotalSales = useMemo(() => {
         return allRawData

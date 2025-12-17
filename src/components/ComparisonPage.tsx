@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ProcessedData, RawSalesDataRow, LayoutContextType } from '../types';
@@ -58,10 +57,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
     // Support multiple selected entities at the current level
     const [selectedEntities, setSelectedEntities] = useState<ComparisonEntity[]>([]);
     const [isSelectorOpen, setSelectorOpen] = useState(false);
-
-    // If drilldownPath exists, the child type is based on the LAST item in the path
-    const currentLevel = drilldownPath.length;
-    const childType = HIERARCHY[currentLevel];
 
     const displayData = useMemo(() => {
         // If we haven't selected anything yet, show empty

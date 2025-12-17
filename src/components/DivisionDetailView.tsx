@@ -1,46 +1,11 @@
-
 import React, { useMemo, useState } from 'react';
 import { useParams, Link, useNavigate, useOutletContext } from 'react-router-dom';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import Papa from 'papaparse';
 import { RawSalesDataRow, LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
-import { CustomYAxisTick } from './charts/CustomYAxisTick';
 import { getSalesValue } from '../services/dataProcessor';
 
 const calculateGrowth = (current: number, previous: number) => 
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
-
-const ChartCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
-    <div className={`bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300 ${className}`}>
-        <h2 className="text-xl font-bold text-white mb-4 text-center">{title}</h2>
-        {children}
-    </div>
-);
-
-const EnhancedTooltip: React.FC<any> = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-        const data = payload[0].payload;
-        return (
-            <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-3 rounded-lg shadow-lg text-sm">
-                <p className="font-bold text-green-300 mb-2">{label || data.name}</p>
-                {data.sales2024 !== undefined && <p className="text-sky-400">2024 Sales: {formatNumberAbbreviated(data.sales2024)}</p>}
-                {data.sales2025 !== undefined && <p className="text-green-400">2025 Sales: {formatNumberAbbreviated(data.sales2025)}</p>}
-                {data.growth !== undefined && <div className="flex items-center gap-1">Growth: <GrowthIndicator value={data.growth} /></div>}
-                {data.contribution2025 !== undefined && <p className="text-slate-300">Contrib %: {data.contribution2025.toFixed(2)}%</p>}
-            </div>
-        );
-    }
-    return null;
-};
-
-const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
-    if (isNaN(value)) return <span className="text-right block w-full">-</span>;
-    return <span className="text-right block w-full">{value.toFixed(2)}%</span>;
-};
-
 
 interface DivisionDetailViewProps {
     allRawData: RawSalesDataRow[];
@@ -72,29 +37,17 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
     const { salesMix } = useOutletContext<LayoutContextType>();
     const navigate = useNavigate();
     const [sortConfig, setSortConfig] = useState<{ key: keyof TableData; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
-    const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null);
-
-    const allBranchesList = useMemo(() => {
-        return [...new Set(allRawData.map(r => r['BRANCH NAME']))].filter(Boolean);
-    }, [allRawData]);
+    const [selectedDepartment] = useState<string | null>(null);
 
     const divisionData = useMemo(() => {
         return allRawData.filter(row => row['DIVISION'] === divisionName);
     }, [allRawData, divisionName]);
 
-    const handleDepartmentClick = (data: any) => {
-        if (data && data.name) {
-            const departmentName = data.name;
-            setSelectedDepartment(prev => (prev === departmentName ? null : departmentName));
-        }
-    };
-    
     const handleRowClick = (departmentName: string, categoryName: string) => {
         if (categoryName && departmentName && divisionName) {
             navigate(`/division/${encodeURIComponent(divisionName)}/${encodeURIComponent(departmentName)}/${encodeURIComponent(categoryName)}`);
         }
     };
-
 
     const processedData = useMemo(() => {
         if (!divisionData.length) return null;
@@ -102,7 +55,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         let totalSales2024 = 0, totalSales2025 = 0;
         let totalCash2024 = 0, totalCredit2024 = 0, totalCash2025 = 0, totalCredit2025 = 0;
 
-        const departments: { [key: string]: { s24: number, s25: number } } = {};
         const tableMap = new Map<string, { department: string; category: string; s24: number; c24: number; cr24: number; s25: number; c25: number; cr25: number; }>();
 
         divisionData.forEach(row => {
@@ -122,11 +74,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             totalCash2025 += c25;
             totalCredit2025 += cr25;
 
-            if (row.DEPARTMENT) {
-                departments[row.DEPARTMENT] = departments[row.DEPARTMENT] || { s24: 0, s25: 0 };
-                departments[row.DEPARTMENT].s24 += s24;
-                departments[row.DEPARTMENT].s25 += s25;
-            }
             const tableKey = `${row.DEPARTMENT}|${row.CATEGORY}`;
             if (!tableMap.has(tableKey)) tableMap.set(tableKey, { department: row.DEPARTMENT, category: row.CATEGORY, s24: 0, c24: 0, cr24: 0, s25: 0, c25: 0, cr25: 0 });
             const entry = tableMap.get(tableKey)!;
@@ -137,12 +84,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             entry.c25 += c25;
             entry.cr25 += cr25;
         });
-
-        const departmentsData = Object.entries(departments).map(([name, { s24, s25 }]) => ({
-            name, sales2024: s24, sales2025: s25, growth: calculateGrowth(s25, s24),
-            contribution2024: totalSales2024 > 0 ? (s24 / totalSales2024) * 100 : 0,
-            contribution2025: totalSales2025 > 0 ? (s25 / totalSales2025) * 100 : 0,
-        })).sort((a,b) => b.sales2025 - a.sales2025);
 
         const tableData: TableData[] = Array.from(tableMap.values()).map(d => ({
             department: d.department, category: d.category, 
@@ -166,48 +107,9 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             cashPercent2025: totalSales2025 > 0 ? (totalCash2025 / totalSales2025) * 100 : 0
         };
 
-        return { totalSales2024, totalSales2025, departmentsData, tableData, grandTotal };
+        return { totalSales2024, totalSales2025, tableData, grandTotal };
     }, [divisionData, salesMix]);
     
-    const departmentFilteredDivisionData = useMemo(() => {
-        if (!selectedDepartment) return divisionData;
-        return divisionData.filter(row => row['DEPARTMENT'] === selectedDepartment);
-    }, [divisionData, selectedDepartment]);
-
-
-    const allBranchesData = useMemo(() => {
-        if (!processedData) return [];
-        const { totalSales2025 } = processedData;
-        const sourceData = departmentFilteredDivisionData; 
-        
-        const salesByBranch: { [key: string]: { s24: number, s25: number } } = {};
-        sourceData.forEach(row => {
-            if (row['BRANCH NAME']) {
-                salesByBranch[row['BRANCH NAME']] = salesByBranch[row['BRANCH NAME']] || { s24: 0, s25: 0 };
-                salesByBranch[row['BRANCH NAME']].s24 += getSalesValue(row, '2024', salesMix);
-                salesByBranch[row['BRANCH NAME']].s25 += getSalesValue(row, '2025', salesMix);
-            }
-        });
-
-        const allBranchesSales = allBranchesList.map(branchName => {
-            const sales = salesByBranch[branchName] || { s24: 0, s25: 0 };
-            return {
-                name: branchName, sales2024: sales.s24, sales2025: sales.s25,
-                growth: calculateGrowth(sales.s25, sales.s24),
-                contribution2025: totalSales2025 > 0 ? (sales.s25 / totalSales2025) * 100 : 0,
-            };
-        });
-
-        const sortedBranches = allBranchesSales.sort((a, b) => b.sales2025 - a.sales2025);
-        
-        if (selectedDepartment) {
-            return sortedBranches.filter(b => b.sales2024 !== 0 || b.sales2025 !== 0);
-        }
-
-        return sortedBranches;
-
-    }, [departmentFilteredDivisionData, allBranchesList, processedData, selectedDepartment, salesMix]);
-
     const groupedData = useMemo(() => {
         if (!processedData?.tableData) return [];
         const groups: Record<string, TableData[]> = {};

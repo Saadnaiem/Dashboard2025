@@ -1,9 +1,5 @@
-
 import React, { useMemo, useState } from 'react';
 import { useParams, Link, useSearchParams, useOutletContext } from 'react-router-dom';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import Papa from 'papaparse';
 import { RawSalesDataRow, LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import { getSalesValue } from '../services/dataProcessor';
@@ -44,7 +40,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
     const { salesMix } = useOutletContext<LayoutContextType>();
     const [searchParams] = useSearchParams();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
-    const [localSearchTerm, setLocalSearchTerm] = useState('');
+    const [localSearchTerm] = useState('');
 
     const globalFilters = useMemo(() => ({
         divisions: searchParams.get('divisions')?.split(',') || [],
