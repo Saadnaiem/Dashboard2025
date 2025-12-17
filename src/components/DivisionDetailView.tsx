@@ -1,6 +1,5 @@
-
-import React, { useMemo, useState } from 'react';
-import { useParams, Link, useNavigate, useOutletContext } from 'react-router-dom';
+import React, { useMemo } from 'react';
+import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import { RawSalesDataRow, LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import { getSalesValue } from '../services/dataProcessor';

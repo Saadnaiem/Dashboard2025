@@ -1,6 +1,4 @@
 import React, { useState, useMemo } from 'react';
-import { useOutletContext } from 'react-router-dom';
-import { LayoutContextType } from '../types';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 
 interface ComparisonItemsTableProps {
@@ -10,7 +8,6 @@ interface ComparisonItemsTableProps {
 type SortableKeys = 'name' | 'code' | 'sales2024' | 'sales2025' | 'growth' | 'cash2025' | 'credit2025' | 'cashGrowth' | 'creditGrowth' | 'contribution2025' | 'cashContrib2025' | 'creditContrib2025';
 
 const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }) => {
-    const { salesMix } = useOutletContext<LayoutContextType>();
     const [searchTerm, setSearchTerm] = useState('');
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' }>({ key: 'sales2025', direction: 'desc' });
 
@@ -79,9 +76,8 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }
                             ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-numeric">
-                        {/* Summary Total Row */}
-                        <tr className="bg-slate-900/80 font-black text-[10px] sticky top-12 z-10 shadow-lg">
+                    <tbody className="divide-y divide-slate-800/60 font-numeric text-[11px]">
+                        <tr className="bg-slate-900/80 font-black sticky top-12 z-10 shadow-lg">
                             <td className="p-4 text-slate-600">Σ</td>
                             <td className="p-4 uppercase text-slate-400 tracking-widest">Grand Total</td>
                             <td className="p-4 uppercase text-slate-400 tracking-tight">Across Display Set</td>
@@ -95,7 +91,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }
                             <td colSpan={3} className="p-4 bg-slate-950/20"></td>
                         </tr>
                         {filteredAndSortedData.map((item, index) => (
-                            <tr key={index} className="hover:bg-slate-700/20 transition-all text-[11px] group">
+                            <tr key={index} className="hover:bg-slate-700/20 transition-all group border-b border-slate-800">
                                 <td className="p-4 text-slate-600 text-[10px] font-bold">{index + 1}</td>
                                 {columns.map(c => (
                                     <td key={c.key} className={`p-4 ${c.isNumeric ? 'text-right' : ''} ${c.year === '2024' ? 'text-sky-400/80' : c.year === '2025' ? 'text-emerald-400/90 font-bold' : ''}`}>

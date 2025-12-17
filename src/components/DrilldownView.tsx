@@ -1,8 +1,7 @@
-
 import React, { useMemo, useState, useRef } from 'react';
 import { useParams, useSearchParams, Link, useOutletContext } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData, LayoutContextType, SalesMix } from '../types';
+import { RawSalesDataRow, ProcessedData, EntitySalesData, LayoutContextType, SalesMix } from '../types';
 import { processSalesData, getSalesValue } from '../services/dataProcessor';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import useOnClickOutside from '../hooks/useOnClickOutside';
@@ -155,7 +154,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const sortedData = useMemo(() => {
         const filtered = localSearchTerm ? dataForTable.filter(r => Object.values(r).some(v => String(v).toLowerCase().includes(localSearchTerm.toLowerCase()))) : dataForTable;
-        return sortConfig ? [...filtered].sort((a,b) => (a[sortConfig.key] < b[sortConfig.key] ? -1 : 1) * (sortConfig.direction === 'asc' ? 1 : -1)) : filtered;
+        return sortConfig ? [...filtered].sort((a: any, b: any) => {
+            if (sortConfig.key === 'no') return 0;
+            const aVal = a[sortConfig.key] ?? 0;
+            const bVal = b[sortConfig.key] ?? 0;
+            return (aVal < bVal ? -1 : 1) * (sortConfig.direction === 'asc' ? 1 : -1);
+        }) : filtered;
     }, [dataForTable, localSearchTerm, sortConfig]);
 
     if (!processedViewData) return <div className="text-white text-center py-20">Processing Analysis...</div>;
@@ -190,6 +194,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                         <input type="text" placeholder={`Filter ${title}...`} value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-bold" />
                     </div>
                     <FilterDropdown label="Division" options={globalFilterOptions?.divisions || []} selected={localDivisions} onChange={setLocalDivisions} />
+                    <FilterDropdown label="Department" options={globalFilterOptions?.departments || []} selected={localDepartments} onChange={setLocalDepartments} />
                 </div>
 
                 <div className="table-container border border-slate-700 rounded-2xl overflow-hidden shadow-2xl bg-slate-900/40">
@@ -212,7 +217,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                             <td key={col.key} className={`p-4 ${col.isNumeric ? 'text-right' : 'font-bold uppercase tracking-tight'} ${col.year === '2024' ? 'text-sky-400/70' : col.year === '2025' ? 'text-emerald-400/80 font-bold' : 'text-slate-300'}`}>
                                                 {(() => {
                                                     if (col.key === 'no') return i + 1;
-                                                    if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:text-sky-300 underline underline-offset-4">{val}</Link>;
+                                                    if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(String(val))}`} className="text-sky-400 hover:text-sky-300 underline underline-offset-4">{val}</Link>;
                                                     if (col.key.toString().toLowerCase().includes('growth')) return <GrowthIndicator value={val as number} />;
                                                     if (col.key.toString().includes('contrib')) return `${(val as number).toFixed(1)}%`;
                                                     if (col.isNumeric) return formatNumberAbbreviated(val as number);

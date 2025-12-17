@@ -105,7 +105,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         const relevantNames = new Set(displayData.map(e => e.name));
         const targetData = currentScopeData.filter(row => relevantNames.has(row[filterKey]));
 
-        // Calculate grand totals for percentages
         const grand = targetData.reduce((acc, r) => {
             acc.s25 += r.SALES2025 || 0;
             acc.c25 += r.SALES2025_CASH || 0;
@@ -148,13 +147,15 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
 
     const handleDrilldown = (entity: ComparisonEntity) => {
         if (entity.type === 'items') return;
-        setDrilldownPath(prev => [...prev, entity]);
-        const nextType = HIERARCHY[drilldownPath.length + 1];
+        
+        const newPath = [...drilldownPath, entity];
+        setDrilldownPath(newPath);
+        
+        const nextType = HIERARCHY[newPath.length];
         if (!nextType) return;
 
         let currentData = allRawData;
-        const fullPath = [...drilldownPath, entity];
-        fullPath.forEach(pathEntity => {
+        newPath.forEach(pathEntity => {
             const key = pathEntity.type === 'divisions' ? 'DIVISION' : pathEntity.type === 'departments' ? 'DEPARTMENT' : pathEntity.type === 'categories' ? 'CATEGORY' : 'BRAND';
             currentData = currentData.filter(row => row[key] === pathEntity.name);
         });
@@ -179,8 +180,29 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         }
         const newPath = drilldownPath.slice(0, index + 1);
         const lastEntity = newPath[newPath.length - 1];
-        setDrilldownPath(newPath.slice(0, -1));
-        handleDrilldown(lastEntity);
+        
+        // Temporarily reset to navigate properly
+        const basePath = drilldownPath.slice(0, index);
+        setDrilldownPath(basePath);
+        
+        // Re-trigger drilldown with correct context
+        handleDrilldownFromState(lastEntity, basePath);
+    };
+
+    const handleDrilldownFromState = (entity: ComparisonEntity, basePath: ComparisonEntity[]) => {
+        if (entity.type === 'items') return;
+        const newPath = [...basePath, entity];
+        setDrilldownPath(newPath);
+        const nextType = HIERARCHY[newPath.length];
+        if (!nextType) return;
+        let currentData = allRawData;
+        newPath.forEach(pe => {
+            const key = pe.type === 'divisions' ? 'DIVISION' : pe.type === 'departments' ? 'DEPARTMENT' : pe.type === 'categories' ? 'CATEGORY' : 'BRAND';
+            currentData = currentData.filter(row => row[key] === pe.name);
+        });
+        const childKey: keyof RawSalesDataRow = nextType === 'departments' ? 'DEPARTMENT' : nextType === 'categories' ? 'CATEGORY' : nextType === 'brands' ? 'BRAND' : 'ITEM DESCRIPTION';
+        const children = [...new Set(currentData.map(r => r[childKey]).filter(Boolean))].map(name => ({ type: nextType, name }));
+        setSelectedEntities(children);
     };
 
     const handleBack = () => {
@@ -190,12 +212,12 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             return;
         }
         const newPath = drilldownPath.slice(0, -1);
-        setDrilldownPath(newPath);
         if (newPath.length === 0) {
+            setDrilldownPath([]);
             setSelectedEntities([]);
             setSelectorOpen(true);
         } else {
-            handleDrilldown(newPath[newPath.length - 1]);
+            handleDrilldownFromState(newPath[newPath.length - 1], newPath.slice(0, -1));
         }
     };
 
