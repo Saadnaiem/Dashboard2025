@@ -136,7 +136,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         return sortConfig ? [...filtered].sort((a,b) => (a[sortConfig.key] < b[sortConfig.key] ? -1 : 1) * (sortConfig.direction === 'asc' ? 1 : -1)) : filtered;
     }, [dataForTable, localSearchTerm, sortConfig]);
 
-    if (!processedViewData) return <div className="text-white text-center py-20">Processing...</div>;
+    if (!processedViewData) return <div className="text-white text-center py-20 font-sans">Processing...</div>;
 
     return (
         <div className="flex flex-col gap-6">
@@ -147,70 +147,77 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 </Link>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1 bg-slate-800/50 p-6 rounded-2xl border border-slate-700 flex flex-col items-center justify-center min-h-[300px]">
-                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Top 5 Per 2025 Sales</h3>
-                    <ResponsiveContainer width="100%" height={220}>
-                        <PieChart>
-                            <Pie data={topFiveData} dataKey="sales2025" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={50} paddingAngle={5}>
-                                {topFiveData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                            </Pie>
-                            <Tooltip content={<CustomTooltipForPie />} />
-                        </PieChart>
-                    </ResponsiveContainer>
-                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-4">
+            {/* Visual Summary: Pie Chart Section */}
+            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 flex flex-col items-center justify-center min-h-[300px] w-full">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Top 5 Revenue Contributors</h3>
+                <div className="flex flex-col md:flex-row items-center justify-around w-full gap-8">
+                    <div className="flex-1 w-full max-w-[400px]">
+                        <ResponsiveContainer width="100%" height={260}>
+                            <PieChart>
+                                <Pie data={topFiveData} dataKey="sales2025" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={65} paddingAngle={5}>
+                                    {topFiveData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+                                </Pie>
+                                <Tooltip content={<CustomTooltipForPie />} />
+                            </PieChart>
+                        </ResponsiveContainer>
+                    </div>
+                    <div className="flex flex-col gap-3 flex-1">
                         {topFiveData.map((d, i) => (
-                            <div key={i} className="flex items-center gap-1.5">
-                                <div className="w-2 h-2 rounded-full" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                                <span className="text-[10px] font-bold text-slate-300 truncate max-w-[80px]">{d.name}</span>
+                            <div key={i} className="flex items-center justify-between gap-4 bg-slate-900/40 p-3 rounded-lg border border-slate-700/50">
+                                <div className="flex items-center gap-3 overflow-hidden">
+                                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                                    <span className="text-xs font-bold text-slate-200 truncate">{d.name}</span>
+                                </div>
+                                <span className="text-xs font-numeric font-bold text-sky-400">{formatNumberAbbreviated(d.sales2025)}</span>
                             </div>
                         ))}
                     </div>
                 </div>
+            </div>
 
-                <div className="lg:col-span-2 bg-slate-800/50 p-6 rounded-2xl border border-slate-700 space-y-4">
-                    <div className="flex flex-wrap items-center gap-4 border-b border-slate-700/50 pb-4">
-                        <div className="relative flex-grow max-w-sm">
-                            <input type="text" placeholder={`Search ${title}...`} value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
-                        </div>
-                        <FilterDropdown label="Division" options={globalFilterOptions?.divisions || []} selected={localDivisions} onChange={setLocalDivisions} />
-                        <FilterDropdown label="Department" options={globalFilterOptions?.departments || []} selected={localDepartments} onChange={setLocalDepartments} />
+            {/* Table Section */}
+            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 space-y-4">
+                <div className="flex flex-wrap items-center gap-4 border-b border-slate-700/50 pb-4">
+                    <div className="relative flex-grow max-w-sm">
+                        <input type="text" placeholder={`Search ${title}...`} value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
                     </div>
+                    <FilterDropdown label="Division" options={globalFilterOptions?.divisions || []} selected={localDivisions} onChange={setLocalDivisions} />
+                    <FilterDropdown label="Department" options={globalFilterOptions?.departments || []} selected={localDepartments} onChange={setLocalDepartments} />
+                </div>
 
-                    <div className="table-container">
-                        <table className="w-full text-left text-slate-300 table-sortable">
-                            <thead className="text-[10px] uppercase bg-slate-900 sticky top-0 z-20 font-bold border-b border-slate-700">
-                                <tr>
-                                    {columns.map(col => (
-                                        <th key={col.key} className={`${col.header.includes('2024') ? 'text-sky-400' : col.header.includes('2025') ? 'text-green-400' : 'text-slate-400'} ${col.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                            {col.header} {sortConfig?.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-700/50">
-                                {sortedData.map((row, i) => (
-                                    <tr key={i} className="hover:bg-slate-700/30 transition-colors text-xs font-numeric">
-                                        {columns.map(col => {
-                                            const val = row[col.key as keyof typeof row];
-                                            return (
-                                                <td key={col.key} className={`${col.isNumeric ? 'text-right' : 'font-sans'} ${col.key.toString().includes('2024') ? 'text-sky-400/90 font-bold' : col.key.toString().includes('2025') ? 'text-green-400 font-bold' : ''}`}>
-                                                    {(() => {
-                                                        if (col.key === 'no') return i + 1;
-                                                        if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:underline font-sans">{val}</Link>;
-                                                        if (col.key.toString().toLowerCase().includes('growth')) return <GrowthIndicator value={val as number} />;
-                                                        if (col.key.toString().includes('contribution')) return `${(val as number).toFixed(2)}%`;
-                                                        if (col.isNumeric) return formatNumberAbbreviated(val as number);
-                                                        return val;
-                                                    })()}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
+                <div className="table-container">
+                    <table className="w-full text-left text-slate-300 table-sortable">
+                        <thead className="text-[10px] uppercase bg-slate-900 sticky top-0 z-20 font-bold border-b border-slate-700">
+                            <tr>
+                                {columns.map(col => (
+                                    <th key={col.key} className={`${col.header.includes('2024') ? 'text-sky-400' : col.header.includes('2025') ? 'text-green-400' : 'text-slate-400'} ${col.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                        {col.header} {sortConfig?.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                    </th>
                                 ))}
-                            </tbody>
-                        </table>
-                    </div>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-700/50">
+                            {sortedData.map((row, i) => (
+                                <tr key={i} className="hover:bg-slate-700/30 transition-colors text-xs font-numeric">
+                                    {columns.map(col => {
+                                        const val = row[col.key as keyof typeof row];
+                                        return (
+                                            <td key={col.key} className={`${col.isNumeric ? 'text-right' : 'font-sans'} ${col.key.toString().includes('2024') ? 'text-sky-400/90 font-bold' : col.key.toString().includes('2025') ? 'text-green-400 font-bold' : ''}`}>
+                                                {(() => {
+                                                    if (col.key === 'no') return i + 1;
+                                                    if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:underline font-sans">{val}</Link>;
+                                                    if (col.key.toString().toLowerCase().includes('growth')) return <GrowthIndicator value={val as number} />;
+                                                    if (col.key.toString().includes('contribution')) return `${(val as number).toFixed(2)}%`;
+                                                    if (col.isNumeric) return formatNumberAbbreviated(val as number);
+                                                    return val;
+                                                })()}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
@@ -221,10 +228,18 @@ const CustomTooltipForPie = ({ active, payload }: any) => {
     if (active && payload?.length) {
         const item = payload[0].payload;
         return (
-            <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-xl text-xs font-numeric">
-                <p className="font-bold text-white mb-2 font-sans">{payload[0].name}</p>
-                <p className="text-sky-400 font-bold mb-1">2024: {formatNumberAbbreviated(item.sales2024 || 0)}</p>
-                <p className="text-green-400 font-bold">2025: {formatNumberAbbreviated(item.sales2025 || 0)}</p>
+            <div className="bg-slate-950/90 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl min-w-[200px]">
+                <p className="font-black text-white mb-3 text-[10px] uppercase tracking-wider border-b border-slate-800 pb-2 truncate max-w-[180px]">{payload[0].name}</p>
+                <div className="flex flex-col gap-2">
+                    <div className="flex justify-between items-baseline border-l-2 border-sky-500/50 pl-2">
+                        <span className="text-[9px] font-bold text-sky-400/70 uppercase">2024</span>
+                        <span className="text-xs font-numeric font-bold text-sky-400">{formatNumberAbbreviated(item.sales2024 || 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-baseline border-l-2 border-emerald-500/50 pl-2">
+                        <span className="text-[9px] font-bold text-emerald-400/70 uppercase">2025</span>
+                        <span className="text-xs font-numeric font-bold text-emerald-400">{formatNumberAbbreviated(item.sales2025 || 0)}</span>
+                    </div>
+                </div>
             </div>
         );
     }
