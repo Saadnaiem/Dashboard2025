@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useParams, useSearchParams, Link, useOutletContext } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -9,6 +9,7 @@ import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData, LayoutCon
 import { processSalesData, getSalesValue } from '../services/dataProcessor';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import { CustomYAxisTick } from './charts/CustomYAxisTick';
+import useOnClickOutside from '../hooks/useOnClickOutside';
 
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
@@ -24,6 +25,63 @@ const ContributionCell: React.FC<{ value: number; }> = ({ value }) => {
     return <span className="text-right block">{value.toFixed(2)}%</span>;
 };
 
+const FilterDropdown: React.FC<{ 
+    label: string, 
+    options: string[], 
+    selected: string[], 
+    onChange: (val: string[]) => void 
+}> = ({ label, options, selected, onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const ref = useRef<HTMLDivElement>(null);
+    useOnClickOutside(ref, () => setIsOpen(false));
+
+    const filtered = options.filter(o => o.toLowerCase().includes(search.toLowerCase()));
+
+    const toggle = (val: string) => {
+        if (selected.includes(val)) {
+            onChange(selected.filter(s => s !== val));
+        } else {
+            onChange([...selected, val]);
+        }
+    };
+
+    return (
+        <div className="relative" ref={ref}>
+            <button 
+                onClick={() => setIsOpen(!isOpen)}
+                className="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white text-sm font-bold flex items-center gap-2 hover:bg-slate-600 transition-colors"
+            >
+                {label} {selected.length > 0 && `(${selected.length})`}
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {isOpen && (
+                <div className="absolute top-full left-0 mt-2 w-64 bg-slate-800 border border-slate-700 rounded-xl shadow-2xl z-50 p-2">
+                    <input 
+                        type="text" 
+                        placeholder={`Search ${label}...`}
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="w-full bg-slate-900 border border-slate-700 rounded-md p-2 text-sm text-white mb-2 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                    />
+                    <div className="max-h-60 overflow-y-auto space-y-1 filter-list">
+                        {filtered.map(opt => (
+                            <label key={opt} className="flex items-center gap-2 p-2 hover:bg-slate-700 rounded-md cursor-pointer transition-colors">
+                                <input 
+                                    type="checkbox" 
+                                    checked={selected.includes(opt)}
+                                    onChange={() => toggle(opt)}
+                                    className="form-checkbox"
+                                />
+                                <span className="text-sm text-slate-200 truncate">{opt}</span>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterOptions }) => {
     const { viewType } = useParams<{ viewType: string }>();
@@ -31,47 +89,50 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [searchParams] = useSearchParams();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' } | null>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
-    const [localFilters, setLocalFilters] = useState<FilterState>({ divisions: [], departments: [], categories: [], branches: [], brands: [], items: [] });
     
+    // Internal state for page-specific filters
+    const [localDivisions, setLocalDivisions] = useState<string[]>([]);
+    const [localDepartments, setLocalDepartments] = useState<string[]>([]);
+
     const isLostView = viewType === 'lost_brands' || viewType === 'lost_items';
     const isNewView = viewType === 'new_brands' || viewType === 'new_items';
 
     const globalFilters: FilterState = useMemo(() => ({
-        divisions: searchParams.get('divisions')?.split(',') || [],
-        departments: searchParams.get('departments')?.split(',') || [],
-        categories: searchParams.get('categories')?.split(',') || [],
-        branches: searchParams.get('branches')?.split(',') || [],
-        brands: searchParams.get('brands')?.split(',') || [],
-        items: searchParams.get('items')?.split(',') || [],
+        divisions: searchParams.get('divisions')?.split(',').filter(Boolean) || [],
+        departments: searchParams.get('departments')?.split(',').filter(Boolean) || [],
+        categories: searchParams.get('categories')?.split(',').filter(Boolean) || [],
+        branches: searchParams.get('branches')?.split(',').filter(Boolean) || [],
+        brands: searchParams.get('brands')?.split(',').filter(Boolean) || [],
+        items: searchParams.get('items')?.split(',').filter(Boolean) || [],
     }), [searchParams]);
 
     const globalSearchTerm = useMemo(() => searchParams.get('search') || '', [searchParams]);
 
-    useEffect(() => {
-        setLocalFilters({
-            divisions: searchParams.get('divisions_local')?.split(',').filter(Boolean) || [],
-            departments: searchParams.get('departments_local')?.split(',').filter(Boolean) || [],
-            categories: searchParams.get('categories_local')?.split(',').filter(Boolean) || [],
-            branches: searchParams.get('branches_local')?.split(',').filter(Boolean) || [],
-            brands: searchParams.get('brands_local')?.split(',').filter(Boolean) || [],
-            items: [],
-        });
-        setLocalSearchTerm(searchParams.get('search_local') || '');
-    }, [searchParams, viewType]);
+    // Available options based on context
+    const filterChoices = useMemo(() => {
+        return {
+            divisions: [...new Set(allRawData.map(r => r['DIVISION']))].filter(Boolean).sort(),
+            departments: [...new Set(allRawData.map(r => r['DEPARTMENT']))].filter(Boolean).sort(),
+        };
+    }, [allRawData]);
 
     const globallyFilteredRawData = useMemo(() => {
         const lowercasedTerm = globalSearchTerm.toLowerCase();
         return allRawData.filter(row => {
             const { divisions, departments, categories, branches, brands, items } = globalFilters;
-            const divisionMatch = divisions.length === 0 || divisions.includes(row['DIVISION']);
-            const departmentMatch = departments.length === 0 || departments.includes(row['DEPARTMENT']);
+            
+            // Combine global search params with local page overrides
+            const effectiveDivisions = localDivisions.length > 0 ? localDivisions : divisions;
+            const effectiveDepts = localDepartments.length > 0 ? localDepartments : departments;
+
+            const divisionMatch = effectiveDivisions.length === 0 || effectiveDivisions.includes(row['DIVISION']);
+            const departmentMatch = effectiveDepts.length === 0 || effectiveDepts.includes(row['DEPARTMENT']);
             const categoryMatch = categories.length === 0 || categories.includes(row['CATEGORY']);
             const branchMatch = branches.length === 0 || branches.includes(row['BRANCH NAME']);
             const brandMatch = brands.length === 0 || brands.includes(row['BRAND']);
             const itemMatch = items.length === 0 || items.includes(row['ITEM DESCRIPTION']);
-            const dropdownMatch = divisionMatch && departmentMatch && categoryMatch && branchMatch && brandMatch && itemMatch;
-
-            if (!dropdownMatch) return false;
+            
+            if (!(divisionMatch && departmentMatch && categoryMatch && branchMatch && brandMatch && itemMatch)) return false;
 
             if (globalSearchTerm) {
                 return (
@@ -83,15 +144,11 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             }
             return true;
         });
-    }, [allRawData, globalFilters, globalSearchTerm]);
+    }, [allRawData, globalFilters, globalSearchTerm, localDivisions, localDepartments]);
 
-    // Apply the Sales Mix filter by transforming the raw data BEFORE processing for the view
-    // This allows re-using processSalesData but tricking it into aggregating the correct columns
     const processedViewData = useMemo(() => {
         if (globallyFilteredRawData.length === 0) return null;
-        
         let workingData = globallyFilteredRawData;
-        
         if (salesMix !== 'Total') {
             workingData = globallyFilteredRawData.map(row => ({
                 ...row,
@@ -99,11 +156,9 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 SALES2025: getSalesValue(row, '2025', salesMix)
             }));
         }
-
         return processSalesData(workingData, globalFilterOptions);
     }, [globallyFilteredRawData, globalFilterOptions, salesMix]);
 
-    // Master list of branches to ensure "Show All" works even for zero sales
     const masterBranchList = useMemo(() => {
         return [...new Set(allRawData.map(r => r['BRANCH NAME']))].filter(Boolean).sort();
     }, [allRawData]);
@@ -156,76 +211,33 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         }));
         
         const perfRate = (count: number, total: number) => total > 0 ? (count / total) * 100 : 0;
-        const hasGlobalContext = globalFilters.divisions.length > 0 || globalFilters.branches.length > 0 || globalFilters.brands.length > 0 || !!globalSearchTerm;
 
         switch (viewType) {
-            case 'divisions':
-                title = 'All Divisions'; data = addContribution(processedViewData.salesByDivision); allColumns = baseColumns; break;
+            case 'divisions': title = 'All Divisions'; data = addContribution(processedViewData.salesByDivision); allColumns = baseColumns; break;
             case 'branches':
                 title = 'All Branches';
-                // Merge master list with processed data to show ALL branches, even those with 0 sales in current view
                 const activeBranchesMap = new Map(processedViewData.salesByBranch.map(b => [b.name, b]));
                 const mergedBranches = masterBranchList.map(branchName => {
                     const existing = activeBranchesMap.get(branchName);
                     if (existing) return existing;
-                    return {
-                        name: branchName,
-                        sales2024: 0, cash2024: 0, credit2024: 0,
-                        sales2025: 0, cash2025: 0, credit2025: 0,
-                        growth: 0, cashGrowth: 0, creditGrowth: 0
-                    };
+                    return { name: branchName, sales2024: 0, cash2024: 0, credit2024: 0, sales2025: 0, cash2025: 0, credit2025: 0, growth: 0, cashGrowth: 0, creditGrowth: 0 };
                 });
                 data = addContribution(mergedBranches); 
                 allColumns = baseColumns;
                 performanceMetric = { title: 'Branch Availability %', value: perfRate(processedViewData.branchCount2025, totalBranchesInSystem), subtext: `${processedViewData.branchCount2025} / ${totalBranchesInSystem} Available` };
                 break;
-            case 'brands':
-                title = 'All Brands'; data = addContribution(processedViewData.salesByBrand); allColumns = baseColumns;
+            case 'brands': title = 'All Brands'; data = addContribution(processedViewData.salesByBrand); allColumns = baseColumns;
                 performanceMetric = { title: 'Brand Performance Rate', value: perfRate(processedViewData.brandCount2025, processedViewData.brandCount2024), subtext: `${processedViewData.brandCount2025} / ${processedViewData.brandCount2024} Active` };
                 break;
-            case 'items':
-                title = 'All Items'; data = addContribution(processedViewData.salesByItem); allColumns = itemBaseColumns;
-                if (hasGlobalContext) {
-                    performanceMetric = { 
-                        title: 'Item Availability %', 
-                        value: perfRate(processedViewData.itemCount2025, processedViewData.itemCount2024), 
-                        subtext: `${processedViewData.itemCount2025} / ${processedViewData.itemCount2024} Active` 
-                    };
-                } else {
-                    performanceMetric = { 
-                        title: 'Item Availability %', 
-                        value: perfRate(processedViewData.itemCount2025, processedViewData.totalUniqueItemCount), 
-                        subtext: `${processedViewData.itemCount2025} / ${processedViewData.totalUniqueItemCount} Total Items` 
-                    };
-                }
-                break;
-            case 'pareto_branches':
-                title = 'Top 20% Branches (Pareto)'; data = addContribution(processedViewData.paretoContributors.branches); allColumns = baseColumns;
-                performanceMetric = { title: 'Top 20% Branches', value: perfRate(data.length, processedViewData.branchCount2025), subtext: `${data.length} / ${processedViewData.branchCount2025} Active Branches` };
-                break;
-            case 'pareto_brands':
-                title = 'Top 20% Brands (Pareto)'; data = addContribution(processedViewData.paretoContributors.brands); allColumns = baseColumns;
-                performanceMetric = { title: 'Top 20% Brands', value: perfRate(data.length, processedViewData.brandCount2025), subtext: `${data.length} / ${processedViewData.brandCount2025} Active Brands` };
-                break;
-            case 'pareto_items':
-                title = 'Top 20% Items (Pareto)'; data = addContribution(processedViewData.paretoContributors.items); allColumns = itemBaseColumns;
-                performanceMetric = { title: 'Top 20% Items', value: perfRate(data.length, processedViewData.itemCount2025), subtext: `${data.length} / ${processedViewData.itemCount2025} Active Items` };
-                break;
-            case 'new_brands':
-                title = 'New Brands in 2025'; data = addContribution(processedViewData.newBrandsList); allColumns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'cash2025', header: '2025 Cash', isNumeric: true }, { key: 'credit2025', header: '2025 Credit', isNumeric: true }, { key: 'cashPercent2025', header: 'Cash %', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }]; break;
-            case 'lost_brands':
-                title = 'Lost Brands from 2024'; data = addContribution(processedViewData.lostBrandsList); allColumns = [{ key: 'name', header: 'Brand Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'cash2024', header: '2024 Cash', isNumeric: true }, { key: 'credit2024', header: '2024 Credit', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
-            case 'new_items':
-                title = 'New Items in 2025'; data = addContribution(processedViewData.newItemsList); allColumns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2025', header: '2025 Sales', isNumeric: true }, { key: 'cash2025', header: '2025 Cash', isNumeric: true }, { key: 'credit2025', header: '2025 Credit', isNumeric: true }, { key: 'cashPercent2025', header: 'Cash %', isNumeric: true }, { key: 'contribution2025', header: 'Contrib % (2025)', isNumeric: true }];
-                performanceMetric = { title: 'New Items %', value: perfRate(data.length, processedViewData.itemCount2025), subtext: `${data.length} / ${processedViewData.itemCount2025} Total Items` };
-                break;
-            case 'lost_items':
-                title = 'Lost Items from 2024'; data = addContribution(processedViewData.lostItemsList); allColumns = [{ key: 'code', header: 'Item Code', isNumeric: false }, { key: 'name', header: 'Item Name', isNumeric: false }, { key: 'sales2024', header: '2024 Sales', isNumeric: true }, { key: 'cash2024', header: '2024 Cash', isNumeric: true }, { key: 'credit2024', header: '2024 Credit', isNumeric: true }, { key: 'contribution2024', header: 'Contrib % (2024)', isNumeric: true }]; break;
-            default:
-                title = 'Unknown View';
+            case 'items': title = 'All Items'; data = addContribution(processedViewData.salesByItem); allColumns = itemBaseColumns; break;
+            case 'pareto_branches': title = 'Top 20% Branches (Pareto)'; data = addContribution(processedViewData.paretoContributors.branches); allColumns = baseColumns; break;
+            case 'pareto_brands': title = 'Top 20% Brands (Pareto)'; data = addContribution(processedViewData.paretoContributors.brands); allColumns = baseColumns; break;
+            case 'pareto_items': title = 'Top 20% Items (Pareto)'; data = addContribution(processedViewData.paretoContributors.items); allColumns = itemBaseColumns; break;
+            case 'new_brands': title = 'New Brands (2025)'; data = addContribution(processedViewData.newBrandsList); allColumns = baseColumns; break;
+            case 'lost_brands': title = 'Lost Brands (2024)'; data = addContribution(processedViewData.lostBrandsList); allColumns = baseColumns; break;
+            default: title = 'Unknown View';
         }
         
-        // Filter columns based on salesMix
         const filteredColumns = allColumns.filter(col => {
             if (salesMix === 'Total') return true;
             const k = col.key.toString().toLowerCase();
@@ -234,59 +246,14 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
         const finalColumns = [{ key: 'no', header: 'No.', isNumeric: false }, ...filteredColumns];
         return { title, dataForTable: data, columns: finalColumns, performanceMetric };
-    }, [viewType, processedViewData, globalFilterOptions, globalFilters, globalSearchTerm, masterBranchList, salesMix]);
+    }, [viewType, processedViewData, globalFilterOptions, globalFilters, masterBranchList, salesMix]);
 
     const finalData = useMemo(() => {
         if (!dataForTable) return [];
         const lowercasedTerm = localSearchTerm.toLowerCase();
-        
-        const noFiltersApplied = Object.values(localFilters).every((f: string[]) => f.length === 0);
-
-        if (!localSearchTerm && noFiltersApplied) {
-            return dataForTable;
-        }
-
-        return dataForTable.filter(row => {
-            const searchMatch = !localSearchTerm || Object.values(row).some(val => 
-                String(val).toLowerCase().includes(lowercasedTerm)
-            );
-
-            const filterMatch = true; 
-
-            return searchMatch && filterMatch;
-        });
-    }, [dataForTable, localSearchTerm, localFilters]);
-
-    const totalRow = useMemo(() => {
-        if (!finalData || finalData.length === 0) return null;
-
-        const totalSales2024 = finalData.reduce((acc, row) => acc + (row.sales2024 || 0), 0);
-        const totalSales2025 = finalData.reduce((acc, row) => acc + (row.sales2025 || 0), 0);
-        const totalCash2024 = finalData.reduce((acc, row) => acc + (row.cash2024 || 0), 0);
-        const totalCash2025 = finalData.reduce((acc, row) => acc + (row.cash2025 || 0), 0);
-        const totalCredit2024 = finalData.reduce((acc, row) => acc + (row.credit2024 || 0), 0);
-        const totalCredit2025 = finalData.reduce((acc, row) => acc + (row.credit2025 || 0), 0);
-
-        const calculateGrowth = (current: number, previous: number) =>
-            previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
-
-        return {
-            name: `Total (${finalData.length})`,
-            code: 'TOTAL',
-            sales2024: totalSales2024,
-            sales2025: totalSales2025,
-            cash2024: totalCash2024,
-            cash2025: totalCash2025,
-            credit2024: totalCredit2024,
-            credit2025: totalCredit2025,
-            cashPercent2025: totalSales2025 > 0 ? (totalCash2025 / totalSales2025) * 100 : 0,
-            contribution2024: finalData.reduce((acc, row) => acc + (row.contribution2024 || 0), 0),
-            contribution2025: finalData.reduce((acc, row) => acc + (row.contribution2025 || 0), 0),
-            growth: calculateGrowth(totalSales2025, totalSales2024),
-            cashGrowth: calculateGrowth(totalCash2025, totalCash2024),
-            creditGrowth: calculateGrowth(totalCredit2025, totalCredit2024),
-        };
-    }, [finalData]);
+        if (!localSearchTerm) return dataForTable;
+        return dataForTable.filter(row => Object.values(row).some(val => String(val).toLowerCase().includes(lowercasedTerm)));
+    }, [dataForTable, localSearchTerm]);
 
     const sortedData = useMemo(() => {
         if (!finalData) return [];
@@ -295,10 +262,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             sortableData.sort((a, b) => {
                 const aVal = a[sortConfig.key];
                 const bVal = b[sortConfig.key];
-                
-                if (aVal === undefined || aVal === null) return 1;
-                if (bVal === undefined || bVal === null) return -1;
-                
                 if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
                 if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
                 return 0;
@@ -307,481 +270,170 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         return sortableData;
     }, [finalData, sortConfig]);
 
-    const pieChartData = useMemo(() => {
-        // All views now get a pie chart summary.
-        const appropriateViews = [
-            'divisions', 'branches', 'brands', 'items', 
-            'pareto_branches', 'pareto_brands', 'pareto_items',
-            'new_brands', 'lost_brands', 'new_items', 'lost_items'
-        ];
-        
-        if (!processedViewData || !viewType || !appropriateViews.includes(viewType) || !dataForTable || dataForTable.length === 0) {
-            return null;
-        }
-    
-        const salesKey = isLostView ? 'sales2024' : 'sales2025';
-        const contributionKey = isLostView ? 'contribution2024' : 'contribution2025';
-        const totalSalesForView = isLostView ? processedViewData.totalSales2024 : processedViewData.totalSales2025;
+    const totalRow = useMemo(() => {
+        if (!sortedData.length) return null;
+        const sums = sortedData.reduce((acc, row) => {
+            acc.s24 += row.sales2024 || 0; acc.s25 += row.sales2025 || 0;
+            acc.c24 += row.cash2024 || 0; acc.c25 += row.cash2025 || 0;
+            acc.cr24 += row.credit2024 || 0; acc.cr25 += row.credit2025 || 0;
+            acc.contrib24 += row.contribution2024 || 0; acc.contrib25 += row.contribution2025 || 0;
+            return acc;
+        }, { s24: 0, s25: 0, c24: 0, c25: 0, cr24: 0, cr25: 0, contrib24: 0, contrib25: 0 });
 
-        const sortedBySales = [...dataForTable].sort((a, b) => b[salesKey] - a[salesKey]);
-    
-        const topN = 5;
-        const topData = sortedBySales.slice(0, topN);
-        const otherData = sortedBySales.slice(topN);
-    
-        if (otherData.length === 0) {
-            return topData.map(d => ({ ...d, value: d[salesKey] }));
-        }
-    
-        const othersValue = otherData.reduce((acc, curr) => acc + curr[salesKey], 0);
-        const othersContribution = totalSalesForView > 0 ? (othersValue / totalSalesForView) * 100 : 0;
-    
-        return [
-            ...topData.map(d => ({ ...d, value: d[salesKey] })),
-            { name: 'Others', value: othersValue, [salesKey]: othersValue, [contributionKey]: othersContribution }
-        ].filter(d => d.value > 0);
-    
-    }, [dataForTable, viewType, processedViewData, isLostView]);
-
-    const barChartData = useMemo(() => {
-        if (!isNewView && !isLostView) return null;
-        return [...dataForTable].slice(0, 20); // Top 20
-    }, [dataForTable, isNewView, isLostView]);
-    
-    const requestSort = (key: SortableKeys | 'no') => {
-        if (key === 'no') return;
-        let direction: 'asc' | 'desc' = 'asc';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        } else if (sortConfig && sortConfig.key === key && sortConfig.direction === 'desc') {
-            setSortConfig(null);
-            return;
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const getSortClassName = (key: SortableKeys | 'no') => {
-        if (!sortConfig || sortConfig.key !== key) return '';
-        return sortConfig.direction === 'asc' ? 'sort-asc' : 'sort-desc';
-    };
-
-    const getContextString = () => {
-        const parts = [];
-        if(globalFilters.divisions.length) parts.push(`Division: ${globalFilters.divisions.join(', ')}`);
-        if(globalFilters.departments.length) parts.push(`Department: ${globalFilters.departments.join(', ')}`);
-        if(globalFilters.categories.length) parts.push(`Category: ${globalFilters.categories.join(', ')}`);
-        if(globalFilters.brands.length) parts.push(`Brand: ${globalFilters.brands.join(', ')}`);
-        if(globalFilters.branches.length) parts.push(`Branch: ${globalFilters.branches.join(', ')}`);
-        if(globalSearchTerm) parts.push(`Search: "${globalSearchTerm}"`);
-        return parts.join(' | ');
-    };
-    const contextString = getContextString();
+        return {
+            name: `Total (${sortedData.length})`, sales2024: sums.s24, sales2025: sums.s25,
+            cash2024: sums.c24, cash2025: sums.c25, credit2024: sums.cr24, credit2025: sums.cr25,
+            cashPercent2025: sums.s25 > 0 ? (sums.c25 / sums.s25) * 100 : 0,
+            contribution2024: sums.contrib24, contribution2025: sums.contrib25,
+            growth: sums.s24 === 0 ? (sums.s25 > 0 ? Infinity : 0) : ((sums.s25 - sums.s24) / sums.s24) * 100
+        };
+    }, [sortedData]);
 
     const handleExport = (format: 'pdf' | 'csv') => {
-        const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
-        const exportTitle = `${title} (${salesMix} Sales)`;
-        const exportSubtitle = contextString || 'All Data';
-
         const head = [columns.map(c => c.header)];
-
-        const totalBodyRow = totalRow ? [columns.map(col => {
-            if (col.key === 'no') return 'TOTAL';
-            const value = totalRow[col.key as keyof typeof totalRow];
-            if (col.key === 'name') return totalRow.name;
-            if (col.key === 'code') return totalRow.code;
-            if (col.key === 'growth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
-            if (col.key === 'cashGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
-            if (col.key === 'creditGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
-            if (col.key === 'contribution2024' || col.key === 'contribution2025' || col.key === 'cashPercent2025') return `${value.toFixed(2)}%`;
-            if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value as number);
-            return '';
-        })] : [];
-
-        const body = sortedData.map((row, index) => {
-             return columns.map(col => {
-                if (col.key === 'no') return index + 1;
-                const value = row[col.key as keyof typeof row];
-                if (col.key === 'growth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
-                if (col.key === 'cashGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
-                if (col.key === 'creditGrowth') return value === Infinity ? 'New' : `${value.toFixed(2)}%`;
-                if (col.key === 'contribution2024' || col.key === 'contribution2025' || col.key === 'cashPercent2025') return `${value.toFixed(2)}%`;
-                if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value as number);
-                return value;
-            });
-        });
-
-        const finalBody = [...totalBodyRow, ...body];
-        const filename = `${title.toLowerCase().replace(/ /g, '_')}_${contextString.toLowerCase().replace(/[^a-z0-9]/g, '_') || 'export'}`;
-
-        if (format === 'pdf') {
-            doc.setFontSize(16);
-            doc.text(exportTitle, 14, 20);
-
-            doc.setFontSize(10);
-            doc.setTextColor(100);
-            doc.text(exportSubtitle, 14, 26);
-
-            doc.autoTable({
-                startY: 30,
-                head: head,
-                body: finalBody,
-                theme: 'striped',
-                headStyles: { fillColor: [22, 163, 74] }, // Green color
-            });
-            doc.save(`${filename}.pdf`);
-        } else {
-            const csvContent = Papa.unparse({
-                fields: head[0],
-                data: finalBody
-            });
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const body = sortedData.map((row, i) => columns.map(col => {
+            if (col.key === 'no') return i + 1;
+            const val = row[col.key as keyof typeof row];
+            if (col.key.toString().includes('growth')) return isNaN(val) ? '-' : val === Infinity ? 'New' : `${val.toFixed(1)}%`;
+            if (col.key.toString().includes('contribution') || col.key === 'cashPercent2025') return `${val.toFixed(2)}%`;
+            if (col.isNumeric) return formatNumberAbbreviated(val);
+            return val;
+        }));
+        if (totalRow) {
+            body.unshift(columns.map(col => {
+                if (col.key === 'no') return 'TOTAL';
+                const val = totalRow[col.key as keyof typeof totalRow];
+                if (col.key.toString().includes('growth')) return isNaN(val) ? '-' : val === Infinity ? 'New' : `${val.toFixed(1)}%`;
+                if (col.key.toString().includes('contribution') || col.key === 'cashPercent2025') return `${val.toFixed(2)}%`;
+                if (col.isNumeric) return formatNumberAbbreviated(val);
+                return val;
+            }));
+        }
+        if (format === 'csv') {
+            const csv = Papa.unparse({ fields: head[0], data: body });
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            const url = URL.createObjectURL(blob);
-            link.setAttribute("href", url);
-            link.setAttribute("download", `${filename}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute("download", `${title.toLowerCase().replace(/ /g, '_')}.csv`);
+            document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        } else {
+            const doc = new jsPDF() as any;
+            doc.text(title, 14, 15);
+            doc.autoTable({ startY: 20, head, body, theme: 'striped', headStyles: { fillColor: [22, 163, 74] } });
+            doc.save(`${title.toLowerCase().replace(/ /g, '_')}.pdf`);
         }
     };
-    
-    if (!processedViewData) {
-        return <div className="min-h-screen flex items-center justify-center text-white text-xl">
-            <div className="flex flex-col items-center gap-4">
-                <svg className="animate-spin h-8 w-8 text-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Processing View Data...
-            </div>
-        </div>;
-    }
 
-    const PIE_CHART_COLORS = ['#38bdf8', '#818cf8', '#34d399', '#fb7185', '#facc15', '#9ca3af'];
-    const RADIAN = Math.PI / 180;
-
-    const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: any) => {
-        if (percent < 0.05) return null;
-        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-        const x = cx + radius * Math.cos(-midAngle * RADIAN);
-        const y = cy + radius * Math.sin(-midAngle * RADIAN);
-        return (
-            <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" className="font-bold text-xs pointer-events-none">
-                {`${(percent * 100).toFixed(0)}%`}
-            </text>
-        );
-    };
-    
-    const formatLegendText = (value: string) => {
-        const maxLength = 20;
-        if (value.length > maxLength) {
-            return `${value.substring(0, maxLength)}...`;
-        }
-        return value;
-    };
-
-    const PieTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            const data = payload[0].payload;
-            const contribution = data.contribution2025 ?? data.contribution2024;
-            return (
-                <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-3 rounded-lg shadow-lg">
-                    <p className="font-bold" style={{ color: payload[0].payload.fill }}>{`${data.name}: ${formatNumberAbbreviated(data.value)}`}</p>
-                    {contribution !== undefined && (
-                        <p className="text-slate-300 text-sm">
-                            Contribution: {contribution.toFixed(2)}%
-                        </p>
-                    )}
-                </div>
-            );
-        }
-        return null;
-    };
-    
-    const BarTooltip = ({ active, payload }: any) => {
-        if (active && payload && payload.length) {
-            const data = payload[0].payload;
-            return (
-                <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-700 p-4 rounded-lg shadow-lg text-sm">
-                    <p className="font-bold text-green-300 mb-2">{data.name}</p>
-                    {isNewView && data.sales2025 !== undefined && (
-                        <>
-                            <p style={{ color: '#34d399' }}>2025 Sales: {formatNumberAbbreviated(data.sales2025)}</p>
-                            <p className="text-slate-300">Contrib %: {data.contribution2025.toFixed(2)}%</p>
-                        </>
-                    )}
-                    {isLostView && data.sales2024 !== undefined && (
-                        <>
-                            <p style={{ color: '#38bdf8' }}>2024 Sales: {formatNumberAbbreviated(data.sales2024)}</p>
-                            <p className="text-slate-300">Contrib %: {data.contribution2024.toFixed(2)}%</p>
-                        </>
-                    )}
-                </div>
-            );
-        }
-        return null;
-    };
-
+    if (!processedViewData) return <div className="text-white text-center py-20">Processing...</div>;
 
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <h2 className="text-2xl font-bold text-white text-center sm:text-left">{title}</h2>
+                <h2 className="text-2xl font-bold text-white">{title}</h2>
                 <Link to="/" className="px-4 py-2 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg>
                     Back to Dashboard
                 </Link>
             </div>
-            
-             {contextString && (
-                <div className="p-4 bg-slate-700/50 rounded-lg text-slate-300 text-center text-sm border border-slate-600">
-                    <span className="font-bold">Context:</span> {contextString}
-                </div>
-            )}
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-1 flex flex-col gap-6">
-                    {isLostView ? (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
-                                Total Lost {salesMix} Sales (2024)
-                            </h3>
-                            <div className="text-5xl font-extrabold text-rose-400">
-                                {formatNumberAbbreviated(
-                                    viewType === 'lost_brands' 
-                                    ? processedViewData.lostEntities.brands.sales2024 
-                                    : processedViewData.lostEntities.items.sales2024
-                                )}
-                            </div>
-                            <div className="text-sm font-bold text-slate-400 mt-1">
-                                {viewType === 'lost_brands' 
-                                    ? `${processedViewData.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Total`
-                                    : `${processedViewData.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Total`
-                                }
-                            </div>
-                        </div>
-                    ) : isNewView ? (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">
-                                Total New {salesMix} Sales (2025)
-                            </h3>
-                            <div className="text-5xl font-extrabold text-green-400">
-                                {formatNumberAbbreviated(
-                                    viewType === 'new_brands' 
-                                    ? processedViewData.newEntities.brands.sales
-                                    : processedViewData.newEntities.items.sales
-                                )}
-                            </div>
-                             <div className="text-sm font-bold text-slate-400 mt-1">
-                                {viewType === 'new_brands' 
-                                    ? `${processedViewData.newEntities.brands.percentOfTotal.toFixed(2)}% of 2025 Total`
-                                    : `${processedViewData.newEntities.items.percentOfTotal.toFixed(2)}% of 2025 Total`
-                                }
-                            </div>
-                        </div>
-                    ) : (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">Total {salesMix} Sales (2025)</h3>
-                            <div className="text-5xl font-extrabold text-green-400">{formatNumberAbbreviated(processedViewData.totalSales2025)}</div>
-                            <div className="text-sm font-bold text-slate-400 mt-1">2024: {formatNumberAbbreviated(processedViewData.totalSales2024)}</div>
-                            <GrowthIndicator value={processedViewData.salesGrowthPercentage} className="text-2xl mt-2" />
-                        </div>
-                    )}
 
-                    {performanceMetric && (
-                        <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 flex flex-col justify-center items-center text-center hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                            <h3 className="text-base font-bold text-slate-300 uppercase tracking-wider mb-2">{performanceMetric.title}</h3>
-                            <div className="text-5xl font-extrabold text-green-400">{performanceMetric.value.toFixed(1)}%</div>
-                            <div className="text-sm font-bold text-slate-400 mt-1">{performanceMetric.subtext}</div>
-                        </div>
-                    )}
-                </div>
-                 {pieChartData && (
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-xl border border-slate-700 lg:col-span-2 hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                        <h3 className="text-xl font-bold text-white mb-4 text-center">Top 5 Contribution ({isLostView ? '2024' : '2025'})</h3>
-                        <ResponsiveContainer width="100%" height={400}>
-                            <PieChart>
-                                <Pie
-                                    data={pieChartData}
-                                    dataKey="value"
-                                    nameKey="name"
-                                    cx="50%"
-                                    cy="50%"
-                                    outerRadius={120}
-                                    labelLine={false}
-                                    label={renderCustomizedLabel}
-                                >
-                                    {pieChartData.map((_entry, index) => (
-                                        <Cell key={`cell-${index}`} fill={PIE_CHART_COLORS[index % PIE_CHART_COLORS.length]} />
-                                    ))}
-                                </Pie>
-                                <Tooltip content={<PieTooltip />} />
-                                <Legend formatter={formatLegendText} wrapperStyle={{fontSize: "12px", paddingTop: "20px"}} />
-                            </PieChart>
-                        </ResponsiveContainer>
-                    </div>
-                )}
-            </div>
-
-            <div>
-                 <div className="p-4 bg-slate-800/50 rounded-t-2xl border-t border-x border-slate-700 flex flex-col md:flex-row items-center gap-4">
-                    <div className="relative w-full flex-grow">
+            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 space-y-6">
+                <div className="flex flex-wrap items-center gap-4 border-b border-slate-700 pb-6">
+                    <div className="relative flex-grow max-w-md">
                         <input
                             type="text"
-                            placeholder={`Search within ${title}...`}
+                            placeholder={`Search ${title}...`}
                             value={localSearchTerm}
                             onChange={(e) => setLocalSearchTerm(e.target.value)}
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
+                            className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
                         />
-                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                         </div>
                     </div>
-                     <div className="flex items-center gap-2">
-                         <button onClick={() => handleExport('csv')} className="px-4 py-2 bg-slate-600 text-white font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" /></svg>
-                            Export CSV
-                        </button>
-                        <button onClick={() => handleExport('pdf')} className="px-4 py-2 bg-slate-600 text-white font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 00-1.414-1.414L11 11.586V8z" clipRule="evenodd" /></svg>
-                            Export PDF
-                        </button>
-                     </div>
-                 </div>
-                <div className="overflow-x-auto bg-slate-800/50 p-1 rounded-b-2xl shadow-lg border-b border-x border-slate-700">
-                    <table className="w-full text-left text-slate-300 table-sortable table-banded">
+                    
+                    <div className="flex items-center gap-2">
+                        <FilterDropdown label="Division" options={filterChoices.divisions} selected={localDivisions} onChange={setLocalDivisions} />
+                        <FilterDropdown label="Department" options={filterChoices.departments} selected={localDepartments} onChange={setLocalDepartments} />
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-auto">
+                        <button onClick={() => handleExport('csv')} className="px-4 py-2 bg-slate-600 text-white font-bold rounded-lg text-sm hover:bg-slate-500 transition-all">CSV</button>
+                        <button onClick={() => handleExport('pdf')} className="px-4 py-2 bg-slate-600 text-white font-bold rounded-lg text-sm hover:bg-slate-500 transition-all">PDF</button>
+                    </div>
+                </div>
+
+                {(localDivisions.length > 0 || localDepartments.length > 0) && (
+                    <div className="flex flex-wrap items-center gap-2 pt-2">
+                        <span className="text-sm font-bold text-sky-400">Filtered By:</span>
+                        {localDivisions.map(d => (
+                            <span key={d} className="filter-pill">
+                                <button onClick={() => setLocalDivisions(localDivisions.filter(x => x !== d))} className="filter-pill-remove">&times;</button>
+                                <span className="filter-pill-type">Div:</span>{d}
+                            </span>
+                        ))}
+                        {localDepartments.map(d => (
+                            <span key={d} className="filter-pill">
+                                <button onClick={() => setLocalDepartments(localDepartments.filter(x => x !== d))} className="filter-pill-remove">&times;</button>
+                                <span className="filter-pill-type">Dept:</span>{d}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                <div className="overflow-x-auto rounded-xl border border-slate-700">
+                    <table className="w-full text-left text-slate-300 table-sortable">
                         <thead className="text-xs text-sky-300 uppercase bg-slate-800 sticky top-0 z-20 font-bold">
                             <tr>
                                 {columns.map(col => (
-                                    <th key={col.key} scope="col" className={`p-3 whitespace-nowrap transition-colors ${col.key !== 'no' ? 'cursor-pointer hover:bg-slate-700' : ''} ${col.isNumeric ? 'text-right' : 'text-left'} ${getSortClassName(col.key as SortableKeys)}`} onClick={() => requestSort(col.key as SortableKeys)}>
-                                       {col.header}
+                                    <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                        {col.header} {sortConfig?.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                                     </th>
                                 ))}
                             </tr>
                         </thead>
-                        <tbody>
-                             {totalRow && (
-                                <tr className="bg-sky-900/60 font-bold text-white sticky top-[41px] z-10 backdrop-blur-sm">
-                                    {columns.map(col => {
-                                        const tdClassName = `p-3 whitespace-nowrap border-b-2 border-slate-600 ${col.isNumeric ? 'text-right' : ''}`;
-                                        let content: React.ReactNode = '';
-                                        
-                                        switch(col.key) {
-                                            case 'no': content = ''; break;
-                                            case 'name': content = totalRow.name; break;
-                                            case 'code': content = totalRow.code; break;
-                                            case 'growth': content = <GrowthIndicator value={totalRow.growth} />; break;
-                                            case 'cashGrowth': content = <GrowthIndicator value={totalRow.cashGrowth} />; break;
-                                            case 'creditGrowth': content = <GrowthIndicator value={totalRow.creditGrowth} />; break;
-                                            case 'contribution2024': content = <ContributionCell value={totalRow.contribution2024} />; break;
-                                            case 'contribution2025': content = <ContributionCell value={totalRow.contribution2025} />; break;
-                                            case 'cashPercent2025': content = <span className="text-right block">{totalRow.cashPercent2025.toFixed(2)}%</span>; break;
-                                            case 'sales2024': case 'cash2024': case 'credit2024': content = formatNumberAbbreviated(totalRow[col.key]); break;
-                                            case 'sales2025': case 'cash2025': case 'credit2025': content = formatNumberAbbreviated(totalRow[col.key]); break;
-                                            default: content = '';
-                                        }
-
-                                        return <td key={`total-${col.key}`} className={tdClassName}>{content}</td>;
-                                    })}
+                        <tbody className="divide-y divide-slate-700/50">
+                            {totalRow && (
+                                <tr className="bg-sky-900/60 font-bold text-white sticky top-[37px] z-10 backdrop-blur-sm">
+                                    {columns.map(col => (
+                                        <td key={`total-${col.key}`} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
+                                            {(() => {
+                                                if (col.key === 'no') return 'TOTAL';
+                                                const val = totalRow[col.key as keyof typeof totalRow];
+                                                if (col.key === 'name') return totalRow.name;
+                                                if (col.key.toString().includes('growth')) return <GrowthIndicator value={val as number} />;
+                                                if (col.key.toString().includes('contribution')) return <ContributionCell value={val as number} />;
+                                                if (col.key === 'cashPercent2025') return <span className="text-right block">{val.toFixed(2)}%</span>;
+                                                if (col.isNumeric) return formatNumberAbbreviated(val as number);
+                                                return val;
+                                            })()}
+                                        </td>
+                                    ))}
                                 </tr>
                             )}
-                            {sortedData.map((row, index) => {
-                                const isZeroSales = row.sales2024 === 0 && row.sales2025 === 0;
-                                // Only apply red highlight for branch-related views if sales are 0 in both years
-                                const isBranchView = viewType?.includes('branches');
-                                const rowClassName = isBranchView && isZeroSales 
-                                    ? "hover:bg-slate-800/80 transition-colors text-sm" 
-                                    : "hover:bg-slate-800/80 transition-colors text-sm";
-                                
-                                const textClassName = isBranchView && isZeroSales ? 'text-rose-500 font-bold' : '';
-
-                                return (
-                                    <tr key={index} className={rowClassName}>
-                                        {columns.map(col => {
-                                            const is2024Col = col.key.toString().includes('2024');
-                                            const is2025Col = col.key.toString().includes('2025');
-
-                                            let yearStyle = '';
-                                            if (is2024Col) {
-                                                yearStyle = col.key.includes('cash') ? 'text-emerald-300' : col.key.includes('credit') ? 'text-indigo-300' : 'font-bold text-lg text-sky-400';
-                                            } else if (is2025Col) {
-                                                yearStyle = col.key.includes('cash') ? 'text-emerald-400' : col.key.includes('credit') ? 'text-indigo-400' : 'font-bold text-lg text-green-400';
-                                            }
-                                            
-                                            // Override styles if zero sales in branch view
-                                            if (isBranchView && isZeroSales && col.key !== 'no') {
-                                                yearStyle = 'text-rose-500 font-bold';
-                                            }
-                                            
-                                            const isItemNameCol = col.header === 'Item Name' || col.key === 'name';
-                                            const value = row[col.key as keyof typeof row];
-                                            const tdClassName = `p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${yearStyle} ${isItemNameCol ? 'item-name-cell' : ''} ${textClassName}`;
-
-                                            const brandViews = ['brands', 'pareto_brands', 'new_brands', 'lost_brands'];
-                                            const isBrandLink = viewType && brandViews.includes(viewType) && col.key === 'name';
-
-                                            return (
-                                                <td key={col.key} className={tdClassName} title={isItemNameCol ? String(value) : undefined}>
-                                                    {(() => {
-                                                        if (isBrandLink) {
-                                                            const brandName = String(value);
-                                                            const linkParams = new URLSearchParams(searchParams);
-                                                            linkParams.delete('search_local');
-                                                            return (
-                                                                <Link 
-                                                                    to={`/brand/${encodeURIComponent(brandName)}?${linkParams.toString()}`} 
-                                                                    className="text-sky-400 hover:underline font-semibold"
-                                                                    title={`View items for ${brandName}`}
-                                                                >
-                                                                    {brandName}
-                                                                </Link>
-                                                            );
-                                                        }
-                                                        if (col.key === 'no') return <div className="text-center w-full">{index + 1}</div>;
-                                                        if (col.key === 'growth') return <GrowthIndicator value={value} className={isBranchView && isZeroSales ? 'text-rose-500' : ''} />;
-                                                        if (col.key === 'cashGrowth') return <GrowthIndicator value={value} className={isBranchView && isZeroSales ? 'text-rose-500' : ''} />;
-                                                        if (col.key === 'creditGrowth') return <GrowthIndicator value={value} className={isBranchView && isZeroSales ? 'text-rose-500' : ''} />;
-                                                        if (col.key === 'contribution2024' || col.key === 'contribution2025') return <ContributionCell value={value} />;
-                                                        if (col.key === 'cashPercent2025') return <span className="text-right block">{value.toFixed(2)}%</span>;
-                                                        if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') || col.key.toString().startsWith('credit')) return formatNumberAbbreviated(value);
-                                                        return value;
-                                                    })()}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                );
-                            })}
+                            {sortedData.map((row, i) => (
+                                <tr key={i} className="hover:bg-slate-700/50 transition-colors text-sm">
+                                    {columns.map(col => {
+                                        const val = row[col.key as keyof typeof row];
+                                        return (
+                                            <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${col.key.toString().includes('2025') && col.isNumeric ? 'font-bold text-green-400' : ''}`}>
+                                                {(() => {
+                                                    if (col.key === 'no') return i + 1;
+                                                    if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:underline">{val}</Link>;
+                                                    if (col.key.toString().includes('growth')) return <GrowthIndicator value={val as number} />;
+                                                    if (col.key.toString().includes('contribution')) return <ContributionCell value={val as number} />;
+                                                    if (col.key === 'cashPercent2025') return <span className="text-right block">{val.toFixed(2)}%</span>;
+                                                    if (col.isNumeric) return formatNumberAbbreviated(val as number);
+                                                    return val;
+                                                })()}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
-                    {sortedData.length === 0 && (
-                        <div className="text-center py-8 text-slate-400">
-                            No data available for this view.
-                        </div>
-                    )}
                 </div>
             </div>
-
-            {barChartData && barChartData.length > 0 && viewType && (
-                <div className="mt-8">
-                    <div className="bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700 hover:border-sky-500 hover:shadow-sky-500/10 hover:-translate-y-1 transition-all duration-300">
-                        <h3 className="text-xl font-bold text-white mb-4 text-center">
-                            Top {barChartData.length} {isNewView ? 'New' : 'Lost'} {viewType.includes('brands') ? 'Brands' : 'Items'}
-                        </h3>
-                        <ResponsiveContainer width="100%" height={Math.max(400, barChartData.length * 30)}>
-                            <BarChart layout="vertical" data={barChartData} margin={{ top: 5, right: 30, left: 150, bottom: 5 }}>
-                                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                                <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} tick={{ fill: 'white' }} />
-                                <YAxis type="category" dataKey="name" stroke="white" width={150} tick={<CustomYAxisTick maxChars={20} />} interval={0} />
-                                <Tooltip content={<BarTooltip />} cursor={{ fill: 'rgba(255, 255, 255, 0.1)' }}/>
-                                <Bar 
-                                    dataKey={isLostView ? "sales2024" : "sales2025"} 
-                                    name={isLostView ? "2024 Sales" : "2025 Sales"}
-                                    fill={isLostView ? "#f87171" : "#34d399"} 
-                                />
-                            </BarChart>
-                        </ResponsiveContainer>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

@@ -26,7 +26,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
     const [salesMix, setSalesMix] = useState<SalesMix>('Total');
 
     return (
-        <div className="container mx-auto max-w-screen-2xl px-4 py-8">
+        <div className="container mx-auto max-w-[98%] px-2 sm:px-4 py-4 sm:py-8">
             <Header onLogout={onLogout} salesMix={salesMix} onSalesMixChange={setSalesMix} />
             <nav className="my-6 p-2 bg-slate-800/50 rounded-xl border border-slate-700 flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
                 <NavItem to="/">Dashboard</NavItem>
