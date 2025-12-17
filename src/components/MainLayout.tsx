@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Outlet, NavLink } from 'react-router-dom';
 import Header from './Header';
@@ -37,7 +36,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ onLogout }) => {
                     Global View: {salesMix} Sales Only
                 </div>
             )}
-            <Outlet context={{ salesMix }} />
+            <Outlet context={{ salesMix, setSalesMix }} />
         </div>
     );
 };

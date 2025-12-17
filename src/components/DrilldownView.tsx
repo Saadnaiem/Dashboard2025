@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useRef } from 'react';
 import { useParams, useSearchParams, Link, useOutletContext } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
-import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData, LayoutContextType } from '../types';
+import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData, LayoutContextType, SalesMix } from '../types';
 import { processSalesData, getSalesValue } from '../services/dataProcessor';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
 import useOnClickOutside from '../hooks/useOnClickOutside';
@@ -41,6 +41,31 @@ const FilterDropdown: React.FC<{
     );
 };
 
+const SalesMixSelector: React.FC<{ current: SalesMix, onChange: (mix: SalesMix) => void }> = ({ current, onChange }) => {
+    return (
+        <div className="flex bg-slate-900/60 p-1 rounded-lg border border-slate-700 self-center">
+            <button
+                onClick={() => onChange('Total')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${current === 'Total' ? 'bg-sky-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+                Total
+            </button>
+            <button
+                onClick={() => onChange('Cash')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${current === 'Cash' ? 'bg-emerald-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+                Cash
+            </button>
+            <button
+                onClick={() => onChange('Credit')}
+                className={`px-3 py-1.5 rounded-md text-[10px] font-black uppercase tracking-widest transition-all ${current === 'Credit' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}
+            >
+                Credit
+            </button>
+        </div>
+    );
+};
+
 type SortableKeys = keyof EntitySalesData | 'no' | 'contribution2024' | 'contribution2025';
 
 interface DrilldownViewProps {
@@ -56,7 +81,7 @@ interface ColumnDef {
 
 const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterOptions }) => {
     const { viewType } = useParams<{ viewType: string }>();
-    const { salesMix } = useOutletContext<LayoutContextType>();
+    const { salesMix, setSalesMix } = useOutletContext<LayoutContextType>();
     const [searchParams] = useSearchParams();
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' } | null>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
@@ -140,35 +165,44 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex justify-between items-center bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
-                <h2 className="text-2xl font-extrabold text-white">Analysis: <span className="text-sky-400">{title}</span></h2>
-                <Link to="/" className="px-4 py-2 bg-sky-600 text-white font-bold rounded-lg text-sm hover:bg-sky-700 transition-all flex items-center gap-2">
-                    Dashboard
-                </Link>
+            <div className="flex flex-col md:flex-row justify-between items-center bg-slate-800/40 p-5 rounded-xl border border-slate-700/50 gap-4">
+                <div>
+                    <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Analysis: <span className="text-sky-400">{title}</span></h2>
+                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-[0.2em] mt-1">Detailed Hierarchy deep-dive</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <SalesMixSelector current={salesMix} onChange={setSalesMix} />
+                    <Link to="/" className="px-5 py-2.5 bg-sky-600 text-white font-black text-[10px] uppercase tracking-widest rounded-lg shadow-xl hover:bg-sky-500 transition-all border border-sky-400/20">
+                        Exit View
+                    </Link>
+                </div>
             </div>
 
             {/* Visual Summary: Pie Chart Section */}
-            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 flex flex-col items-center justify-center min-h-[300px] w-full">
-                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Top 5 Revenue Contributors</h3>
-                <div className="flex flex-col md:flex-row items-center justify-around w-full gap-8">
-                    <div className="flex-1 w-full max-w-[400px]">
-                        <ResponsiveContainer width="100%" height={260}>
+            <div className="bg-slate-800/50 p-8 rounded-2xl border border-slate-700/80 flex flex-col items-center justify-center min-h-[350px] w-full shadow-2xl">
+                <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-10 border-b border-slate-700/50 pb-2">Top 5 Revenue Contributors</h3>
+                <div className="flex flex-col md:flex-row items-center justify-around w-full gap-12">
+                    <div className="flex-1 w-full max-w-[420px]">
+                        <ResponsiveContainer width="100%" height={280}>
                             <PieChart>
-                                <Pie data={topFiveData} dataKey="sales2025" nameKey="name" cx="50%" cy="50%" outerRadius={100} innerRadius={65} paddingAngle={5}>
+                                <Pie data={topFiveData} dataKey="sales2025" nameKey="name" cx="50%" cy="50%" outerRadius={110} innerRadius={75} paddingAngle={8}>
                                     {topFiveData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                                 </Pie>
                                 <Tooltip content={<CustomTooltipForPie />} />
                             </PieChart>
                         </ResponsiveContainer>
                     </div>
-                    <div className="flex flex-col gap-3 flex-1">
+                    <div className="flex flex-col gap-4 flex-1 w-full">
                         {topFiveData.map((d, i) => (
-                            <div key={i} className="flex items-center justify-between gap-4 bg-slate-900/40 p-3 rounded-lg border border-slate-700/50">
-                                <div className="flex items-center gap-3 overflow-hidden">
-                                    <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
-                                    <span className="text-xs font-bold text-slate-200 truncate">{d.name}</span>
+                            <div key={i} className="flex items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-700/50 hover:border-slate-500 transition-all">
+                                <div className="flex items-center gap-4 overflow-hidden">
+                                    <div className="w-4 h-4 rounded-full shrink-0 shadow-lg" style={{ backgroundColor: COLORS[i % COLORS.length] }}></div>
+                                    <span className="text-xs font-black text-slate-200 truncate uppercase tracking-tight">{d.name}</span>
                                 </div>
-                                <span className="text-xs font-numeric font-bold text-sky-400">{formatNumberAbbreviated(d.sales2025)}</span>
+                                <div className="text-right">
+                                    <p className="text-sm font-numeric font-black text-sky-400 leading-none">{formatNumberAbbreviated(d.sales2025)}</p>
+                                    <p className="text-[9px] font-bold text-slate-500 mt-1">2025 TARGET MET</p>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -176,36 +210,39 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             </div>
 
             {/* Table Section */}
-            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 space-y-4">
-                <div className="flex flex-wrap items-center gap-4 border-b border-slate-700/50 pb-4">
+            <div className="bg-slate-800/50 p-6 rounded-2xl border border-slate-700 space-y-6">
+                <div className="flex flex-wrap items-center gap-6 border-b border-slate-700/50 pb-6">
                     <div className="relative flex-grow max-w-sm">
-                        <input type="text" placeholder={`Search ${title}...`} value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
+                        <input type="text" placeholder={`Filter ${title}...`} value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-bold" />
+                        <svg className="absolute left-3 top-3 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                     </div>
-                    <FilterDropdown label="Division" options={globalFilterOptions?.divisions || []} selected={localDivisions} onChange={setLocalDivisions} />
-                    <FilterDropdown label="Department" options={globalFilterOptions?.departments || []} selected={localDepartments} onChange={setLocalDepartments} />
+                    <div className="flex gap-3">
+                        <FilterDropdown label="Division" options={globalFilterOptions?.divisions || []} selected={localDivisions} onChange={setLocalDivisions} />
+                        <FilterDropdown label="Department" options={globalFilterOptions?.departments || []} selected={localDepartments} onChange={setLocalDepartments} />
+                    </div>
                 </div>
 
                 <div className="table-container">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="text-[10px] uppercase bg-slate-900 sticky top-0 z-20 font-bold border-b border-slate-700">
+                        <thead className="text-[9px] uppercase bg-slate-950 sticky top-0 z-20 font-black tracking-[0.1em] border-b border-slate-800">
                             <tr>
                                 {columns.map(col => (
-                                    <th key={col.key} className={`${col.header.includes('2024') ? 'text-sky-400' : col.header.includes('2025') ? 'text-green-400' : 'text-slate-400'} ${col.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                    <th key={col.key} className={`${col.header.includes('2024') ? 'text-sky-400' : col.header.includes('2025') ? 'text-green-400' : 'text-slate-500'} ${col.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                         {col.header} {sortConfig?.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                                     </th>
                                 ))}
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-700/50">
+                        <tbody className="divide-y divide-slate-800">
                             {sortedData.map((row, i) => (
-                                <tr key={i} className="hover:bg-slate-700/30 transition-colors text-xs font-numeric">
+                                <tr key={i} className="hover:bg-slate-700/20 transition-colors text-xs font-numeric group">
                                     {columns.map(col => {
                                         const val = row[col.key as keyof typeof row];
                                         return (
-                                            <td key={col.key} className={`${col.isNumeric ? 'text-right' : 'font-sans'} ${col.key.toString().includes('2024') ? 'text-sky-400/90 font-bold' : col.key.toString().includes('2025') ? 'text-green-400 font-bold' : ''}`}>
+                                            <td key={col.key} className={`${col.isNumeric ? 'text-right' : 'font-bold uppercase tracking-tight'} ${col.key.toString().includes('2024') ? 'text-sky-400/80' : col.key.toString().includes('2025') ? 'text-green-400' : 'text-slate-300'}`}>
                                                 {(() => {
                                                     if (col.key === 'no') return i + 1;
-                                                    if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:underline font-sans">{val}</Link>;
+                                                    if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:text-sky-300 underline underline-offset-4 decoration-sky-500/20">{val}</Link>;
                                                     if (col.key.toString().toLowerCase().includes('growth')) return <GrowthIndicator value={val as number} />;
                                                     if (col.key.toString().includes('contribution')) return `${(val as number).toFixed(2)}%`;
                                                     if (col.isNumeric) return formatNumberAbbreviated(val as number);
@@ -228,16 +265,16 @@ const CustomTooltipForPie = ({ active, payload }: any) => {
     if (active && payload?.length) {
         const item = payload[0].payload;
         return (
-            <div className="bg-slate-950/90 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl min-w-[200px]">
-                <p className="font-black text-white mb-3 text-[10px] uppercase tracking-wider border-b border-slate-800 pb-2 truncate max-w-[180px]">{payload[0].name}</p>
-                <div className="flex flex-col gap-2">
-                    <div className="flex justify-between items-baseline border-l-2 border-sky-500/50 pl-2">
-                        <span className="text-[9px] font-bold text-sky-400/70 uppercase">2024</span>
-                        <span className="text-xs font-numeric font-bold text-sky-400">{formatNumberAbbreviated(item.sales2024 || 0)}</span>
+            <div className="bg-slate-950/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl min-w-[220px]">
+                <p className="font-black text-white mb-3 text-[10px] uppercase tracking-widest border-b border-slate-800 pb-2 truncate max-w-[200px]">{payload[0].name}</p>
+                <div className="flex flex-col gap-3">
+                    <div className="flex justify-between items-baseline border-l-4 border-sky-500/50 pl-3">
+                        <span className="text-[9px] font-black text-sky-400/70 uppercase">2024</span>
+                        <span className="text-sm font-numeric font-black text-sky-400">{formatNumberAbbreviated(item.sales2024 || 0)}</span>
                     </div>
-                    <div className="flex justify-between items-baseline border-l-2 border-emerald-500/50 pl-2">
-                        <span className="text-[9px] font-bold text-emerald-400/70 uppercase">2025</span>
-                        <span className="text-xs font-numeric font-bold text-emerald-400">{formatNumberAbbreviated(item.sales2025 || 0)}</span>
+                    <div className="flex justify-between items-baseline border-l-4 border-emerald-500/50 pl-3">
+                        <span className="text-[9px] font-black text-emerald-400/70 uppercase">2025</span>
+                        <span className="text-sm font-numeric font-black text-emerald-400">{formatNumberAbbreviated(item.sales2025 || 0)}</span>
                     </div>
                 </div>
             </div>

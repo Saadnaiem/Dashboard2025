@@ -1,4 +1,3 @@
-
 export interface RawSalesDataRow {
     [key: string]: any;
     'DIVISION': string;
@@ -122,4 +121,5 @@ export type SalesMix = 'Total' | 'Cash' | 'Credit';
 
 export interface LayoutContextType {
     salesMix: SalesMix;
+    setSalesMix: (mix: SalesMix) => void;
 }
