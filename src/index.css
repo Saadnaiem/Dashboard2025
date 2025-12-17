@@ -8,8 +8,21 @@ body {
     color: #e5e7eb;
 }
 
+@layer utilities {
+    .font-numeric {
+        font-variant-numeric: tabular-nums;
+        font-family: 'JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', monospace;
+    }
+
+    /* Prevent wide tables from breaking layout while keeping scrolling contained */
+    .table-container {
+        @apply max-w-full overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/20;
+        scrollbar-width: thin;
+        scrollbar-color: #475569 transparent;
+    }
+}
+
 @layer components {
-    /* Custom Checkbox styles for a better multi-select experience */
     .form-checkbox {
         @apply appearance-none h-4 w-4 border border-slate-500 rounded-sm bg-slate-800 shrink-0;
         @apply checked:bg-sky-600 checked:border-transparent;
@@ -22,111 +35,37 @@ body {
         background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
     }
 
-    /* Custom scrollbar for filter lists */
     .filter-list::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
     }
+    .filter-list::-webkit-scrollbar-track { @apply bg-slate-800 rounded-r-lg; }
+    .filter-list::-webkit-scrollbar-thumb { @apply bg-slate-600 rounded-full; }
 
-    .filter-list::-webkit-scrollbar-track {
-        @apply bg-slate-800 rounded-r-lg;
-    }
-
-    .filter-list::-webkit-scrollbar-thumb {
-        @apply bg-slate-600 rounded-full;
-    }
-
-    .filter-list::-webkit-scrollbar-thumb:hover {
-        @apply bg-slate-500;
-    }
-
-    /* Styles for the new filter pills */
     .filter-pill {
-        @apply inline-flex items-center gap-2 bg-sky-900/50 text-sky-200 text-sm font-medium pl-2 pr-3 py-1 rounded-full;
-        @apply border border-sky-700 truncate;
-        max-width: 200px;
+        @apply inline-flex items-center gap-2 bg-sky-900/50 text-sky-200 text-xs font-medium pl-2 pr-3 py-1 rounded-full border border-sky-700 truncate;
+        max-width: 180px;
     }
     
-    .filter-pill-type {
-        @apply text-sky-400 capitalize font-semibold;
-    }
-
+    .filter-pill-type { @apply text-sky-400 capitalize font-semibold mr-1; }
     .filter-pill-remove {
-        @apply flex items-center justify-center w-4 h-4 bg-sky-800 text-sky-300 rounded-full text-xs font-bold shrink-0;
-        @apply hover:bg-rose-500 hover:text-white focus:bg-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-400 focus:ring-offset-2 focus:ring-offset-slate-800;
-        transition: background-color 150ms, color 150ms;
-        line-height: 1;
+        @apply flex items-center justify-center w-4 h-4 bg-sky-800 text-sky-300 rounded-full text-[10px] font-bold shrink-0;
+        @apply hover:bg-rose-500 hover:text-white transition-colors;
     }
 }
 
-
-.recharts-tooltip-cursor {
-    fill: rgba(255, 255, 255, 0.1);
-}
-
-.table-sortable th {
-    @apply cursor-pointer select-none transition-colors;
-}
-
-.table-sortable th:hover {
-    @apply bg-slate-700;
-}
-
-.table-sortable .sort-asc::after {
-    content: ' ▲';
-    @apply text-sky-400;
-}
-
-.table-sortable .sort-desc::after {
-    content: ' ▼';
-    @apply text-sky-400;
-}
-
-.table-banded tbody tr:nth-child(even) {
-    @apply bg-slate-800/20;
-}
+.recharts-tooltip-cursor { fill: rgba(255, 255, 255, 0.1); }
+.table-sortable th { @apply cursor-pointer select-none transition-colors px-4 py-3; }
+.table-sortable th:hover { @apply bg-slate-700; }
+.table-sortable td { @apply px-4 py-3; }
 
 .item-name-cell {
-    max-width: 250px;
+    max-width: 200px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
-/* Comparison Page Selector Styles */
-.comparison-selector-grid {
-    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4;
-}
-
-.comparison-selector-list::-webkit-scrollbar {
-    width: 6px;
-}
-.comparison-selector-list::-webkit-scrollbar-track {
-    @apply bg-slate-700 rounded-lg;
-}
-.comparison-selector-list::-webkit-scrollbar-thumb {
-    @apply bg-slate-500 rounded-full;
-}
-.comparison-selector-list::-webkit-scrollbar-thumb:hover {
-    @apply bg-slate-400;
-}
-
-/* Breadcrumb Styles */
-.breadcrumb {
-    @apply flex items-center gap-2 flex-wrap;
-}
-
-.breadcrumb-item {
-    @apply text-sm font-semibold text-slate-400;
-}
-
-.breadcrumb-link {
-    @apply hover:text-sky-400 hover:underline;
-}
-
-.breadcrumb-separator {
-    @apply text-slate-500;
-}
-
-.breadcrumb-current {
-    @apply text-white font-bold;
-}
+.breadcrumb-item { @apply text-sm font-semibold text-slate-400; }
+.breadcrumb-link { @apply hover:text-sky-400 hover:underline; }
+.breadcrumb-separator { @apply text-slate-500 px-1; }
+.breadcrumb-current { @apply text-white font-bold; }

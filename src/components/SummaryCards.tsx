@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ProcessedData, FilterState } from '../types';
@@ -26,9 +25,9 @@ const SummaryCard: React.FC<{ title: string; icon: string; children: React.React
 
 const MetricCard: React.FC<{ title: string; icon: string; value2025: number; value2024: number; to: string; }> = ({ title, icon, value2025, value2024, to }) => (
     <SummaryCard title={title} icon={icon} to={to}>
-        <div className="text-3xl font-extrabold text-green-400">{formatNumber(value2025, 0)}</div>
-        <div className="font-bold text-lg text-sky-400">2024: {formatNumber(value2024, 0)}</div>
-        <GrowthIndicator value={value2025 - value2024} unit="" className="text-xl" />
+        <div className="text-3xl font-numeric font-extrabold text-green-400">{formatNumber(value2025, 0)}</div>
+        <div className="font-numeric font-bold text-lg text-sky-400">2024: {formatNumber(value2024, 0)}</div>
+        <GrowthIndicator value={value2025 - value2024} unit="" className="text-xl mt-1" />
     </SummaryCard>
 );
 
@@ -45,24 +44,17 @@ interface SummaryCardsProps {
 const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }) => {
     const buildLink = (basePath: string, excludeKeys: (keyof FilterState)[] = []) => {
         const params = new URLSearchParams();
-        if (searchTerm) {
-            params.set('search', searchTerm);
-        }
-
+        if (searchTerm) params.set('search', searchTerm);
         (Object.keys(filters) as Array<keyof FilterState>).forEach(key => {
             if (excludeKeys.includes(key)) return;
             const value = filters[key];
-            if (Array.isArray(value) && value.length > 0) {
-                params.set(key, value.join(','));
-            }
+            if (Array.isArray(value) && value.length > 0) params.set(key, value.join(','));
         });
-
         const queryString = params.toString();
         return queryString ? `${basePath}?${queryString}` : basePath;
     };
 
     const isSingleDivisionFiltered = filters.divisions.length === 1;
-
     const topDivisionLink = isSingleDivisionFiltered
         ? buildLink(`/division/${filters.divisions[0]}`, ['divisions'])
         : buildLink('/details/divisions');
@@ -73,25 +65,21 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                 <SectionTitle>Key Metrics</SectionTitle>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
                     <SummaryCard title="Total Sales (2025)" icon="💰">
-                        <div className="text-3xl font-extrabold text-green-400">{formatNumberAbbreviated(data.totalSales2025)}</div>
-                        <div className="font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalSales2024)}</div>
+                        <div className="text-3xl font-numeric font-extrabold text-green-400">{formatNumberAbbreviated(data.totalSales2025)}</div>
+                        <div className="font-numeric font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalSales2024)}</div>
                         <GrowthIndicator value={data.salesGrowthPercentage} className="text-xl" />
                     </SummaryCard>
 
                     <SummaryCard title="Cash Sales (2025)" icon="💵">
-                        <div className="text-3xl font-extrabold text-emerald-400">{formatNumberAbbreviated(data.totalCash2025)}</div>
-                         <div className="font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalCash2024)}</div>
-                        <div className="flex items-center justify-between">
-                            <GrowthIndicator value={data.cashGrowthPercentage} className="text-xl" />
-                        </div>
+                        <div className="text-3xl font-numeric font-extrabold text-emerald-400">{formatNumberAbbreviated(data.totalCash2025)}</div>
+                         <div className="font-numeric font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalCash2024)}</div>
+                        <GrowthIndicator value={data.cashGrowthPercentage} className="text-xl" />
                     </SummaryCard>
 
                     <SummaryCard title="Credit Sales (2025)" icon="💳">
-                        <div className="text-3xl font-extrabold text-indigo-400">{formatNumberAbbreviated(data.totalCredit2025)}</div>
-                         <div className="font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalCredit2024)}</div>
-                        <div className="flex items-center justify-between">
-                             <GrowthIndicator value={data.creditGrowthPercentage} className="text-xl" />
-                        </div>
+                        <div className="text-3xl font-numeric font-extrabold text-indigo-400">{formatNumberAbbreviated(data.totalCredit2025)}</div>
+                         <div className="font-numeric font-bold text-lg text-sky-400 mb-1">2024: {formatNumberAbbreviated(data.totalCredit2024)}</div>
+                        <GrowthIndicator value={data.creditGrowthPercentage} className="text-xl" />
                     </SummaryCard>
                     
                     <MetricCard title="Branches" icon="🏬" value2025={data.branchCount2025} value2024={data.branchCount2024} to={buildLink('/details/branches')} />
@@ -100,7 +88,7 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                          {data.topDivision ? (
                             <>
                                 <div className="text-xl font-bold text-sky-400 truncate" title={data.topDivision.name}>{data.topDivision.name}</div>
-                                <div className="text-sm text-slate-400">2025 Sales: {formatNumberAbbreviated(data.topDivision.sales2025)}</div>
+                                <div className="text-sm font-numeric text-slate-400">2025: {formatNumberAbbreviated(data.topDivision.sales2025)}</div>
                                 <GrowthIndicator value={data.topDivision.growth} className="text-xl" />
                             </>
                          ) : <div className="text-xl font-bold text-slate-400">-</div>}
@@ -120,44 +108,26 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                 <SectionTitle>Pareto Analysis (80/20 Rule)</SectionTitle>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <SummaryCard title="Top 20% Branches" icon="📊" to={buildLink('/details/pareto_branches')}>
-                        <p className="text-sm">
-                            Top <b>{formatNumber(data.pareto.branches.topCount)}</b> of <b>{formatNumber(data.pareto.branches.totalContributors)}</b> branches generate:
-                        </p>
+                        <p className="text-sm">Top <b>{formatNumber(data.pareto.branches.topCount)}</b> branches generate:</p>
                         <div className="flex items-baseline justify-start gap-4 mt-2">
-                            <div className="text-green-400 font-extrabold text-3xl" title={`Exact: ${data.pareto.branches.salesPercent.toFixed(4)}%`}>
-                                {data.pareto.branches.salesPercent.toFixed(1)}%
-                            </div>
-                            <div className="text-sky-400 font-bold text-xl">
-                                {formatNumberAbbreviated(data.pareto.branches.topSales)}
-                            </div>
+                            <div className="text-green-400 font-numeric font-extrabold text-3xl">{data.pareto.branches.salesPercent.toFixed(1)}%</div>
+                            <div className="text-sky-400 font-numeric font-bold text-xl">{formatNumberAbbreviated(data.pareto.branches.topSales)}</div>
                         </div>
                         <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
                     <SummaryCard title="Top 20% Brands" icon="📊" to={buildLink('/details/pareto_brands')}>
-                        <p className="text-sm">
-                           Top <b>{formatNumber(data.pareto.brands.topCount)}</b> of <b>{formatNumber(data.pareto.brands.totalContributors)}</b> brands generate:
-                        </p>
+                        <p className="text-sm">Top <b>{formatNumber(data.pareto.brands.topCount)}</b> brands generate:</p>
                         <div className="flex items-baseline justify-start gap-4 mt-2">
-                            <div className="text-green-400 font-extrabold text-3xl" title={`Exact: ${data.pareto.brands.salesPercent.toFixed(4)}%`}>
-                                {data.pareto.brands.salesPercent.toFixed(1)}%
-                            </div>
-                            <div className="text-sky-400 font-bold text-xl">
-                                {formatNumberAbbreviated(data.pareto.brands.topSales)}
-                            </div>
+                            <div className="text-green-400 font-numeric font-extrabold text-3xl">{data.pareto.brands.salesPercent.toFixed(1)}%</div>
+                            <div className="text-sky-400 font-numeric font-bold text-xl">{formatNumberAbbreviated(data.pareto.brands.topSales)}</div>
                         </div>
                         <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
                     <SummaryCard title="Top 20% Items" icon="📊" to={buildLink('/details/pareto_items')}>
-                        <p className="text-sm">
-                           Top <b>{formatNumber(data.pareto.items.topCount)}</b> of <b>{formatNumber(data.pareto.items.totalContributors)}</b> items generate:
-                        </p>
+                        <p className="text-sm">Top <b>{formatNumber(data.pareto.items.topCount)}</b> items generate:</p>
                         <div className="flex items-baseline justify-start gap-4 mt-2">
-                            <div className="text-green-400 font-extrabold text-3xl" title={`Exact: ${data.pareto.items.salesPercent.toFixed(4)}%`}>
-                                {data.pareto.items.salesPercent.toFixed(1)}%
-                            </div>
-                            <div className="text-sky-400 font-bold text-xl">
-                                {formatNumberAbbreviated(data.pareto.items.topSales)}
-                            </div>
+                            <div className="text-green-400 font-numeric font-extrabold text-3xl">{data.pareto.items.salesPercent.toFixed(1)}%</div>
+                            <div className="text-sky-400 font-numeric font-bold text-xl">{formatNumberAbbreviated(data.pareto.items.topSales)}</div>
                         </div>
                         <p className="text-xs text-slate-400 mt-1">of total 2025 sales</p>
                     </SummaryCard>
@@ -168,27 +138,27 @@ const SummaryCards: React.FC<SummaryCardsProps> = ({ data, searchTerm, filters }
                 <SectionTitle>Brand & Item Lifecycle</SectionTitle>
                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <SummaryCard title="New Brands (2025)" icon="✨" to={buildLink('/details/new_brands')}>
-                        <div className="text-3xl font-extrabold text-green-400">{formatNumber(data.newEntities.brands.count)}</div>
-                        <div className="text-sm">Sales: {formatNumberAbbreviated(data.newEntities.brands.sales)}</div>
-                        <div className="text-sm">{data.newEntities.brands.percentOfTotal.toFixed(2)}% of Total Sales</div>
+                        <div className="text-3xl font-numeric font-extrabold text-green-400">{formatNumber(data.newEntities.brands.count)}</div>
+                        <div className="text-sm font-numeric">Sales: {formatNumberAbbreviated(data.newEntities.brands.sales)}</div>
+                        <div className="text-xs text-slate-400">{data.newEntities.brands.percentOfTotal.toFixed(2)}% of Total Sales</div>
                     </SummaryCard>
                     
                     <SummaryCard title="Lost Brands (2024)" icon="👋" to={buildLink('/details/lost_brands')}>
-                         <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.brands.count)}</div>
-                        <div className="font-bold text-lg text-sky-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.brands.sales2024)}</div>
-                        <div className="text-sm">{data.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
+                         <div className="text-3xl font-numeric font-extrabold text-rose-400">{formatNumber(data.lostEntities.brands.count)}</div>
+                        <div className="font-numeric font-bold text-lg text-sky-400">2024: {formatNumberAbbreviated(data.lostEntities.brands.sales2024)}</div>
+                        <div className="text-xs text-slate-400">{data.lostEntities.brands.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
                     </SummaryCard>
 
                     <SummaryCard title="New Items (2025)" icon="💡" to={buildLink('/details/new_items')}>
-                         <div className="text-3xl font-extrabold text-green-400">{formatNumber(data.newEntities.items.count)}</div>
-                        <div className="text-sm">Sales: {formatNumberAbbreviated(data.newEntities.items.sales)}</div>
-                        <div className="text-sm">{data.newEntities.items.percentOfTotal.toFixed(2)}% of Total Sales</div>
+                         <div className="text-3xl font-numeric font-extrabold text-green-400">{formatNumber(data.newEntities.items.count)}</div>
+                        <div className="text-sm font-numeric">Sales: {formatNumberAbbreviated(data.newEntities.items.sales)}</div>
+                        <div className="text-xs text-slate-400">{data.newEntities.items.percentOfTotal.toFixed(2)}% of Total Sales</div>
                     </SummaryCard>
                     
                     <SummaryCard title="Lost Items (2024)" icon="📉" to={buildLink('/details/lost_items')}>
-                         <div className="text-3xl font-extrabold text-rose-400">{formatNumber(data.lostEntities.items.count)}</div>
-                        <div className="font-bold text-lg text-sky-400">2024 Sales: {formatNumberAbbreviated(data.lostEntities.items.sales2024)}</div>
-                        <div className="text-sm">{data.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
+                         <div className="text-3xl font-numeric font-extrabold text-rose-400">{formatNumber(data.lostEntities.items.count)}</div>
+                        <div className="font-numeric font-bold text-lg text-sky-400">2024: {formatNumberAbbreviated(data.lostEntities.items.sales2024)}</div>
+                        <div className="text-xs text-slate-400">{data.lostEntities.items.percentOfTotal.toFixed(2)}% of 2024 Sales</div>
                     </SummaryCard>
                  </div>
             </section>

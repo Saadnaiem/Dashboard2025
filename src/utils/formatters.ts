@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // For full numbers (counts)
@@ -23,11 +22,9 @@ export const GrowthIndicator: React.FC<{ value: number, unit?: string, invert?: 
     const icon = isPositive ? '▲' : '▼';
     
     if (value === Infinity) {
-        // FIX: Replaced JSX with React.createElement to be compatible with a .ts file, resolving "Cannot find name 'div'" and "Cannot find name 'New'".
-        return React.createElement('div', { className: `font-bold text-green-400 ${className}` }, '▲ New');
+        return React.createElement('div', { className: `font-numeric font-bold text-green-400 ${className}` }, '▲ New');
     }
-    // FIX: Replaced JSX with React.createElement to be compatible with a .ts file, resolving "Cannot find name 'div'".
-    if (isNaN(value)) return React.createElement('div', { className: className || 'text-slate-400' }, '-');
-    // FIX: Replaced JSX with React.createElement to be compatible with a .ts file, resolving "Cannot find name 'div'".
-    return React.createElement('div', { className: `font-bold ${color} ${className}` }, `${icon} ${Math.abs(value).toFixed(2)}${unit}`);
+    if (isNaN(value)) return React.createElement('div', { className: `font-numeric ${className || 'text-slate-400'}` }, '-');
+    
+    return React.createElement('div', { className: `font-numeric font-bold ${color} ${className}` }, `${icon} ${Math.abs(value).toFixed(2)}${unit}`);
 };
