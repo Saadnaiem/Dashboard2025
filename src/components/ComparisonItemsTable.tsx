@@ -45,60 +45,64 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }
         { key: 'cashContrib2025', header: 'Cash Cont%', isNumeric: true, year: '2025' },
         { key: 'creditContrib2025', header: 'Credit Cont%', isNumeric: true, year: '2025' },
         { key: 'growth', header: 'Growth%', isNumeric: true },
-        { key: 'cashGrowth', header: 'Cash GR%', isNumeric: true },
-        { key: 'creditGrowth', header: 'Credit GR%', isNumeric: true }
     ];
 
     return (
-        <div className="bg-slate-800/50 rounded-3xl shadow-2xl border border-slate-700/80 overflow-hidden">
-            <div className="p-6 flex flex-col md:flex-row justify-between items-center gap-6 border-b border-slate-700 bg-slate-800/40">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-600/20 rounded-xl flex items-center justify-center border border-indigo-500/30">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
+        <div className="bg-slate-800/40 backdrop-blur-md rounded-[2rem] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.5)] border border-slate-700/60 overflow-hidden">
+            <div className="p-8 flex flex-col md:flex-row justify-between items-center gap-6 border-b border-slate-700/50 bg-slate-800/20">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-indigo-600/10 rounded-2xl flex items-center justify-center border border-indigo-500/20 shadow-inner">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h7" /></svg>
                     </div>
-                    <h3 className="text-[10px] font-black text-white uppercase tracking-[0.3em]">Consolidated performance table</h3>
+                    <div>
+                        <h3 className="text-[11px] font-black text-white uppercase tracking-[0.4em]">Aggregated Entity Mapping</h3>
+                        <p className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">Consolidated Dataset View</p>
+                    </div>
                 </div>
-                <div className="relative w-full md:max-w-xs">
-                    <input type="text" placeholder="Quick filter items..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900 border border-slate-700 rounded-xl py-2 pl-10 pr-4 text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-bold" />
-                    <svg className="absolute left-3 top-2.5 h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                <div className="relative w-full md:max-w-sm group">
+                    <input type="text" placeholder="Scanning items..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-900/80 border border-slate-700 rounded-2xl py-3 pl-11 pr-4 text-xs text-white focus:outline-none focus:ring-1 focus:ring-sky-500 font-bold placeholder:text-slate-600 transition-all shadow-xl" />
+                    <svg className="absolute left-4 top-3 h-4 w-4 text-slate-600 group-focus-within:text-sky-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                 </div>
             </div>
             
-            <div className="table-container border-none rounded-none max-h-[600px] overflow-y-auto">
+            <div className="table-container border-none rounded-none max-h-[700px] overflow-y-auto">
                 <table className="w-full text-left text-slate-300">
-                    <thead className="bg-slate-950/90 sticky top-0 z-20">
-                        <tr className="border-b-2 border-slate-800">
-                            <th className="p-4 text-[9px] text-slate-600 uppercase font-black">#</th>
+                    <thead className="bg-slate-700/70 backdrop-blur-xl sticky top-0 z-30">
+                        <tr className="border-b border-slate-600/50">
+                            <th className="p-5 text-[9px] text-slate-400 uppercase font-black tracking-widest">Index</th>
                             {columns.map(c => (
-                                <th key={c.key} className={`p-4 text-[9px] font-black uppercase tracking-[0.15em] cursor-pointer hover:bg-slate-800 transition-colors ${c.year === '2024' ? 'text-sky-400' : c.year === '2025' ? 'text-emerald-400' : 'text-slate-500'} ${c.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: c.key as SortableKeys, direction: sortConfig.key === c.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                    {c.header} {sortConfig.key === c.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                <th key={c.key} className={`p-5 text-[9px] font-black uppercase tracking-[0.2em] cursor-pointer hover:bg-slate-600/50 transition-colors ${c.year === '2024' ? 'text-sky-400' : c.year === '2025' ? 'text-emerald-400' : 'text-slate-400'} ${c.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: c.key as SortableKeys, direction: sortConfig.key === c.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                    <div className="flex items-center justify-end gap-1">
+                                        {c.header}
+                                        <span className="text-[7px] text-slate-600/50">{sortConfig.key === c.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</span>
+                                    </div>
                                 </th>
                             ))}
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/60 font-numeric text-[11px]">
-                        <tr className="bg-slate-900/80 font-black sticky top-12 z-10 shadow-lg">
-                            <td className="p-4 text-slate-600">Σ</td>
-                            <td className="p-4 uppercase text-slate-400 tracking-widest">Grand Total</td>
-                            <td className="p-4 uppercase text-slate-400 tracking-tight">Across Display Set</td>
-                            <td className="p-4 text-right text-sky-400 font-numeric">{formatNumberAbbreviated(totals.s24)}</td>
-                            <td className="p-4 text-right text-emerald-400 font-numeric">{formatNumberAbbreviated(totals.s25)}</td>
-                            <td className="p-4 text-right text-emerald-400 font-numeric">100.0%</td>
-                            <td className="p-4 text-right text-emerald-400 font-numeric">{formatNumberAbbreviated(totals.c25)}</td>
-                            <td className="p-4 text-right text-emerald-400 font-numeric">{formatNumberAbbreviated(totals.cr25)}</td>
-                            <td className="p-4 text-right text-emerald-400 font-numeric">100.0%</td>
-                            <td className="p-4 text-right text-emerald-400 font-numeric">100.0%</td>
-                            <td colSpan={3} className="p-4 bg-slate-950/20"></td>
+                    <tbody className="divide-y divide-slate-800/50 font-numeric text-[11px]">
+                        <tr className="bg-slate-900/90 backdrop-blur font-black sticky top-[53px] z-20 shadow-2xl ring-1 ring-white/5">
+                            <td className="p-5 text-indigo-400 font-black">Σ</td>
+                            <td className="p-5 uppercase text-slate-200 tracking-[0.2em] font-black">GRAND TOTAL</td>
+                            <td className="p-5 uppercase text-slate-500 tracking-tight font-bold italic">SCOPE SUMMARY</td>
+                            <td className="p-5 text-right text-sky-400 font-black">{formatNumberAbbreviated(totals.s24)}</td>
+                            <td className="p-5 text-right text-emerald-400 font-black">{formatNumberAbbreviated(totals.s25)}</td>
+                            <td className="p-5 text-right text-emerald-400 font-black">100.0%</td>
+                            <td className="p-5 text-right text-emerald-400 font-black">{formatNumberAbbreviated(totals.c25)}</td>
+                            <td className="p-5 text-right text-emerald-400 font-black">{formatNumberAbbreviated(totals.cr25)}</td>
+                            <td className="p-5 text-right text-emerald-400 font-black">100.0%</td>
+                            <td className="p-5 text-right text-emerald-400 font-black">100.0%</td>
+                            <td className="p-5 bg-slate-950/20"></td>
                         </tr>
                         {filteredAndSortedData.map((item, index) => (
-                            <tr key={index} className="hover:bg-slate-700/20 transition-all group border-b border-slate-800">
-                                <td className="p-4 text-slate-600 text-[10px] font-bold">{index + 1}</td>
+                            <tr key={index} className="hover:bg-sky-500/5 transition-all group border-b border-slate-800/30">
+                                <td className="p-5 text-slate-600 text-[10px] font-bold border-r border-slate-800/20">{index + 1}</td>
                                 {columns.map(c => (
-                                    <td key={c.key} className={`p-4 ${c.isNumeric ? 'text-right' : ''} ${c.year === '2024' ? 'text-sky-400/80' : c.year === '2025' ? 'text-emerald-400/90 font-bold' : ''}`}>
+                                    <td key={c.key} className={`p-5 ${c.isNumeric ? 'text-right' : ''} ${c.year === '2024' ? 'text-sky-400/80 group-hover:text-sky-300' : c.year === '2025' ? 'text-emerald-400/90 group-hover:text-emerald-300 font-bold' : 'group-hover:text-slate-100'}`}>
                                         {(() => {
                                             const val = item[c.key as keyof typeof item];
-                                            if (c.key === 'code') return <span className="text-slate-500 font-bold">{val}</span>;
-                                            if (c.key === 'name') return <span className="font-sans font-black text-slate-200 uppercase tracking-tight group-hover:text-white transition-colors">{val}</span>;
+                                            if (c.key === 'code') return <span className="text-slate-500 font-bold tracking-tighter">{val}</span>;
+                                            if (c.key === 'name') return <span className="font-sans font-black text-slate-200 uppercase tracking-tight transition-colors">{val}</span>;
                                             if (c.key.toString().includes('Growth')) return <GrowthIndicator value={val as number} className="text-[10px]" />;
                                             if (c.key.toString().includes('Cont') || c.key.toString().includes('cont')) return `${(val as number).toFixed(1)}%`;
                                             if (c.isNumeric) return formatNumberAbbreviated(val as number);
@@ -112,8 +116,11 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }
                 </table>
             </div>
             {filteredAndSortedData.length === 0 && (
-                <div className="p-20 text-center bg-slate-900/40">
-                    <p className="text-slate-500 font-black uppercase tracking-[0.2em] text-xs">No records found matching criteria</p>
+                <div className="p-32 text-center bg-slate-900/20 flex flex-col items-center justify-center">
+                    <div className="w-16 h-16 bg-slate-800/50 rounded-full flex items-center justify-center mb-6 border border-slate-700 shadow-2xl opacity-50">
+                         <svg className="w-8 h-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.054.585l-1.835 1.835a2 2 0 01-3.167-2.147l1.172-3.125a2 2 0 01.31-.563l2.457-3.276a6 6 0 015.441-2.484l2.585.259a6 6 0 004.97-1.428l1.432-1.288a2 2 0 013.167 2.147l-1.172 3.125a2 2 0 01-.31.563l-2.457 3.276a6 6 0 01-5.441 2.484l-2.585-.259a6 6 0 00-4.97 1.428l-1.432 1.288a2 2 0 01-3.167-2.147z" /></svg>
+                    </div>
+                    <p className="text-slate-600 font-black uppercase tracking-[0.4em] text-[10px]">No matches found in this universe</p>
                 </div>
             )}
         </div>
