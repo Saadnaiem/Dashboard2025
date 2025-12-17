@@ -51,20 +51,20 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             
             <div className="table-container border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
                 <table className="w-full text-left text-slate-300">
-                    <thead className="bg-slate-950/80 sticky top-0 z-20">
+                    <thead className="bg-indigo-900/80 backdrop-blur sticky top-0 z-20 border-b border-white/5">
                         <tr>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-500">Department / Category</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-sky-400 text-right">2024 Sales</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-400 text-right">2025 Sales</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-400 text-right">2025 Cont%</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-400 text-right">2025 Cash</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-400 text-right">2025 Credit</th>
-                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right">Growth%</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-300">Department / Category</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-sky-300 text-right">2024 Sales</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-300 text-right">2025 Sales</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-300 text-right">2025 Cont%</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-300 text-right">2025 Cash</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-emerald-300 text-right">2025 Credit</th>
+                            <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-300 text-right">Growth%</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800 font-numeric">
                         {processed.map((row, i) => (
-                            <tr key={i} className="hover:bg-slate-700/20 transition-colors text-[11px] group cursor-pointer" onClick={() => navigate(`/division/${encodeURIComponent(divisionName!)}/${encodeURIComponent(row.department)}/${encodeURIComponent(row.category)}`)}>
+                            <tr key={i} className="hover:bg-indigo-500/5 transition-colors text-[11px] group cursor-pointer" onClick={() => navigate(`/division/${encodeURIComponent(divisionName!)}/${encodeURIComponent(row.department)}/${encodeURIComponent(row.category)}`)}>
                                 <td className="p-4">
                                     <span className="block text-slate-500 font-bold uppercase text-[9px] tracking-widest">{row.department}</span>
                                     <span className="block text-slate-200 font-sans font-bold uppercase tracking-tight">{row.category}</span>

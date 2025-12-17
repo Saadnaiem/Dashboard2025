@@ -67,21 +67,21 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }
             
             <div className="table-container border-none rounded-none max-h-[700px] overflow-y-auto">
                 <table className="w-full text-left text-slate-300">
-                    <thead className="bg-slate-700/70 backdrop-blur-xl sticky top-0 z-30">
-                        <tr className="border-b border-slate-600/50">
-                            <th className="p-5 text-[9px] text-slate-400 uppercase font-black tracking-widest">Index</th>
+                    <thead className="bg-indigo-900/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5">
+                        <tr>
+                            <th className="p-5 text-[9px] text-slate-300 uppercase font-black tracking-widest">Index</th>
                             {columns.map(c => (
-                                <th key={c.key} className={`p-5 text-[9px] font-black uppercase tracking-[0.2em] cursor-pointer hover:bg-slate-600/50 transition-colors ${c.year === '2024' ? 'text-sky-400' : c.year === '2025' ? 'text-emerald-400' : 'text-slate-400'} ${c.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: c.key as SortableKeys, direction: sortConfig.key === c.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
+                                <th key={c.key} className={`p-5 text-[9px] font-black uppercase tracking-[0.2em] cursor-pointer hover:bg-white/10 transition-colors ${c.year === '2024' ? 'text-sky-300' : c.year === '2025' ? 'text-emerald-300' : 'text-slate-300'} ${c.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: c.key as SortableKeys, direction: sortConfig.key === c.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
                                     <div className="flex items-center justify-end gap-1">
                                         {c.header}
-                                        <span className="text-[7px] text-slate-600/50">{sortConfig.key === c.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</span>
+                                        <span className="text-[7px] opacity-40">{sortConfig.key === c.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}</span>
                                     </div>
                                 </th>
                             ))}
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/50 font-numeric text-[11px]">
-                        <tr className="bg-slate-900/90 backdrop-blur font-black sticky top-[53px] z-20 shadow-2xl ring-1 ring-white/5">
+                        <tr className="bg-slate-900/95 backdrop-blur font-black sticky top-[53px] z-20 shadow-2xl ring-1 ring-white/5">
                             <td className="p-5 text-indigo-400 font-black">Σ</td>
                             <td className="p-5 uppercase text-slate-200 tracking-[0.2em] font-black">GRAND TOTAL</td>
                             <td className="p-5 uppercase text-slate-500 tracking-tight font-bold italic">SCOPE SUMMARY</td>
@@ -95,7 +95,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }
                             <td className="p-5 bg-slate-950/20"></td>
                         </tr>
                         {filteredAndSortedData.map((item, index) => (
-                            <tr key={index} className="hover:bg-sky-500/5 transition-all group border-b border-slate-800/30">
+                            <tr key={index} className="hover:bg-indigo-500/5 transition-all group border-b border-slate-800/30">
                                 <td className="p-5 text-slate-600 text-[10px] font-bold border-r border-slate-800/20">{index + 1}</td>
                                 {columns.map(c => (
                                     <td key={c.key} className={`p-5 ${c.isNumeric ? 'text-right' : ''} ${c.year === '2024' ? 'text-sky-400/80 group-hover:text-sky-300' : c.year === '2025' ? 'text-emerald-400/90 group-hover:text-emerald-300 font-bold' : 'group-hover:text-slate-100'}`}>
