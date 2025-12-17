@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList, LegendType } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
 import { useWindowSize } from '../hooks/useWindowSize';
@@ -6,7 +6,7 @@ import { CustomYAxisTick } from './charts/CustomYAxisTick';
 
 const COLORS = {
     green: '#34d399',  // emerald-400
-    blue: '#38bdf8',   // sky-500
+    blue: '#38bdf8',   // sky-400
     red: '#f87171',    // red-400
     violet: '#a78bfa', // violet-400
     slate: '#9ca3af',
@@ -35,26 +35,26 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                 
                 {itemPayload.sales2024 !== undefined && itemPayload.sales2025 !== undefined ? (
                     <div className="grid grid-cols-1 gap-y-2">
-                        {/* 2024 FIRST */}
+                        {/* 2024 DATA FIRST */}
                         <div className="flex justify-between items-center text-sky-400 font-bold border-l-4 border-sky-500 pl-2">
                             <span>2024 Total:</span>
                             <span>{formatNumber(itemPayload.sales2024)}</span>
                         </div>
                         <div className="flex justify-between items-center text-sky-400/80 pl-4 text-xs">
-                             <span>Cash: {formatNumber(itemPayload.cash2024)}</span>
-                             <span>Credit: {formatNumber(itemPayload.credit2024)}</span>
+                             <span>Cash: {formatNumber(itemPayload.cash2024 || 0)}</span>
+                             <span>Credit: {formatNumber(itemPayload.credit2024 || 0)}</span>
                         </div>
 
                         <div className="border-t border-slate-700 my-1"></div>
 
-                        {/* 2025 SECOND */}
+                        {/* 2025 DATA SECOND */}
                         <div className="flex justify-between items-center text-green-300 font-bold border-l-4 border-green-500 pl-2">
                             <span>2025 Total:</span>
                             <span>{formatNumber(itemPayload.sales2025)}</span>
                         </div>
                         <div className="flex justify-between items-center text-green-300/80 pl-4 text-xs">
-                             <span>Cash: {formatNumber(itemPayload.cash2025)}</span>
-                             <span>Credit: {formatNumber(itemPayload.credit2025)}</span>
+                             <span>Cash: {formatNumber(itemPayload.cash2025 || 0)}</span>
+                             <span>Credit: {formatNumber(itemPayload.credit2025 || 0)}</span>
                         </div>
 
                          {itemPayload.growth !== undefined && (
@@ -98,7 +98,7 @@ const renderActiveShape = (props: any) => {
             <text x={cx} y={cy + 40} dy={8} textAnchor="middle" fill={growthColor} className="text-base font-numeric font-bold">{growthText}</text>
             <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} />
         </g>
-    );
+    ) as any; // Cast to fix Recharts type mismatch
 };
 
 const renderGrowthLabel = (props: any) => {
@@ -198,7 +198,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             <ChartCard title="Sales by Division">
                 <ResponsiveContainer width="100%" height={400}>
                     <PieChart onMouseLeave={onPieLeave}>
-                        <Pie activeIndex={activeIndex} activeShape={renderActiveShape} data={data.salesByDivision} cx="50%" cy="50%" innerRadius={100} outerRadius={140} dataKey="sales2025" onMouseEnter={onPieEnter} onClick={handleDonutClick} className="cursor-pointer">
+                        <Pie activeIndex={activeIndex} activeShape={renderActiveShape as any} data={data.salesByDivision} cx="50%" cy="50%" innerRadius={100} outerRadius={140} dataKey="sales2025" onMouseEnter={onPieEnter} onClick={handleDonutClick} className="cursor-pointer">
                             {data.salesByDivision.map((_, index) => <Cell key={index} fill={DIVISION_CHART_PALETTE[index % DIVISION_CHART_PALETTE.length]} />)}
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />

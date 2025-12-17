@@ -14,7 +14,7 @@ body {
         font-family: 'JetBrains Mono', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', monospace;
     }
 
-    /* Prevent wide tables from breaking layout while keeping scrolling contained */
+    /* Contain horizontal scroll within cards, avoid page-level scrollbars */
     .table-container {
         @apply max-w-full overflow-x-auto rounded-xl border border-slate-700 bg-slate-800/20;
         scrollbar-width: thin;

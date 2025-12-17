@@ -1,10 +1,6 @@
-
 import React, { useMemo, useState, useRef } from 'react';
 import { useParams, useSearchParams, Link, useOutletContext } from 'react-router-dom';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
-import Papa from 'papaparse';
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData, LayoutContextType } from '../types';
 import { processSalesData, getSalesValue } from '../services/dataProcessor';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
@@ -45,13 +41,17 @@ const FilterDropdown: React.FC<{
     );
 };
 
-// FIX: Define SortableKeys as keys available in EntitySalesData plus dynamically added contribution fields and row index.
 type SortableKeys = keyof EntitySalesData | 'no' | 'contribution2024' | 'contribution2025';
 
-// FIX: Define DrilldownViewProps to resolve the missing name error for the component's props.
 interface DrilldownViewProps {
     allRawData: RawSalesDataRow[];
     globalFilterOptions?: ProcessedData['filterOptions'];
+}
+
+interface ColumnDef {
+    key: string;
+    header: string;
+    isNumeric?: boolean;
 }
 
 const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterOptions }) => {
@@ -99,14 +99,18 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const { title, dataForTable, columns, topFiveData } = useMemo(() => {
         if (!processedViewData) return { title: 'Loading...', dataForTable: [], columns: [], topFiveData: [] };
-        let title = '', data: any[] = [], cols: any[] = [];
-        const base = [
-            { key: 'name', header: 'Name' },
+        let titleStr = '', data: any[] = [];
+        const base: ColumnDef[] = [
+            { key: 'name', header: 'Name', isNumeric: false },
             { key: 'sales2024', header: '2024 Sales', isNumeric: true },
             { key: 'contribution2024', header: 'Contrib % (24)', isNumeric: true },
             { key: 'sales2025', header: '2025 Sales', isNumeric: true },
             { key: 'contribution2025', header: 'Contrib % (25)', isNumeric: true },
             { key: 'growth', header: 'Growth %', isNumeric: true },
+            ...(salesMix === 'Total' ? [
+                { key: 'cashGrowth', header: 'Cash GR%', isNumeric: true },
+                { key: 'creditGrowth', header: 'Credit GR%', isNumeric: true },
+            ] : [])
         ];
         const addContrib = (d: any[]) => d.map(r => ({ ...r, 
             contribution2024: processedViewData.totalSales2024 > 0 ? (r.sales2024/processedViewData.totalSales2024)*100 : 0,
@@ -114,17 +118,17 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         }));
 
         switch (viewType) {
-            case 'divisions': title = 'Divisions'; data = addContrib(processedViewData.salesByDivision); break;
-            case 'branches': title = 'Branches'; data = addContrib(processedViewData.salesByBranch); break;
-            case 'brands': title = 'Brands'; data = addContrib(processedViewData.salesByBrand); break;
-            case 'items': title = 'Items'; data = addContrib(processedViewData.salesByItem); break;
-            default: title = 'View'; data = [];
+            case 'divisions': titleStr = 'Divisions'; data = addContrib(processedViewData.salesByDivision); break;
+            case 'branches': titleStr = 'Branches'; data = addContrib(processedViewData.salesByBranch); break;
+            case 'brands': titleStr = 'Brands'; data = addContrib(processedViewData.salesByBrand); break;
+            case 'items': titleStr = 'Items'; data = addContrib(processedViewData.salesByItem); break;
+            default: titleStr = 'View'; data = [];
         }
         
-        const filteredCols = base.filter(c => salesMix === 'Total' || !c.key.includes('cash'));
         const top5 = [...data].sort((a,b) => b.sales2025 - a.sales2025).slice(0, 5);
+        const finalCols: ColumnDef[] = [{key:'no', header:'No.', isNumeric: false}, ...base];
         
-        return { title, dataForTable: data, columns: [{key:'no', header:'No.'}, ...filteredCols], topFiveData: top5 };
+        return { title: titleStr, dataForTable: data, columns: finalCols, topFiveData: top5 };
     }, [viewType, processedViewData, salesMix]);
 
     const sortedData = useMemo(() => {
@@ -139,14 +143,13 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             <div className="flex justify-between items-center bg-slate-800/40 p-4 rounded-xl border border-slate-700/50">
                 <h2 className="text-2xl font-extrabold text-white">Analysis: <span className="text-sky-400">{title}</span></h2>
                 <Link to="/" className="px-4 py-2 bg-sky-600 text-white font-bold rounded-lg text-sm hover:bg-sky-700 transition-all flex items-center gap-2">
-                    <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/></svg>
                     Dashboard
                 </Link>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 bg-slate-800/50 p-6 rounded-2xl border border-slate-700 flex flex-col items-center justify-center min-h-[300px]">
-                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Top 5 Contribution (2025)</h3>
+                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Top 5 Per 2025 Sales</h3>
                     <ResponsiveContainer width="100%" height={220}>
                         <PieChart>
                             <Pie data={topFiveData} dataKey="sales2025" nameKey="name" cx="50%" cy="50%" outerRadius={80} innerRadius={50} paddingAngle={5}>
@@ -169,9 +172,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                     <div className="flex flex-wrap items-center gap-4 border-b border-slate-700/50 pb-4">
                         <div className="relative flex-grow max-w-sm">
                             <input type="text" placeholder={`Search ${title}...`} value={localSearchTerm} onChange={(e) => setLocalSearchTerm(e.target.value)} className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-sm text-white focus:outline-none focus:ring-1 focus:ring-sky-500" />
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
-                                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                            </div>
                         </div>
                         <FilterDropdown label="Division" options={globalFilterOptions?.divisions || []} selected={localDivisions} onChange={setLocalDivisions} />
                         <FilterDropdown label="Department" options={globalFilterOptions?.departments || []} selected={localDepartments} onChange={setLocalDepartments} />
@@ -190,15 +190,15 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                             </thead>
                             <tbody className="divide-y divide-slate-700/50">
                                 {sortedData.map((row, i) => (
-                                    <tr key={i} className="hover:bg-slate-700/30 transition-colors text-xs">
+                                    <tr key={i} className="hover:bg-slate-700/30 transition-colors text-xs font-numeric">
                                         {columns.map(col => {
                                             const val = row[col.key as keyof typeof row];
                                             return (
-                                                <td key={col.key} className={`font-numeric ${col.isNumeric ? 'text-right' : ''} ${col.key.toString().includes('2024') ? 'text-sky-400/90' : col.key.toString().includes('2025') ? 'text-green-400 font-bold' : ''}`}>
+                                                <td key={col.key} className={`${col.isNumeric ? 'text-right' : 'font-sans'} ${col.key.toString().includes('2024') ? 'text-sky-400/90 font-bold' : col.key.toString().includes('2025') ? 'text-green-400 font-bold' : ''}`}>
                                                     {(() => {
                                                         if (col.key === 'no') return i + 1;
-                                                        if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:underline">{val}</Link>;
-                                                        if (col.key.toString().includes('growth')) return <GrowthIndicator value={val as number} />;
+                                                        if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:underline font-sans">{val}</Link>;
+                                                        if (col.key.toString().toLowerCase().includes('growth')) return <GrowthIndicator value={val as number} />;
                                                         if (col.key.toString().includes('contribution')) return `${(val as number).toFixed(2)}%`;
                                                         if (col.isNumeric) return formatNumberAbbreviated(val as number);
                                                         return val;
@@ -219,11 +219,12 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
 const CustomTooltipForPie = ({ active, payload }: any) => {
     if (active && payload?.length) {
+        const item = payload[0].payload;
         return (
-            <div className="bg-slate-900 border border-slate-700 p-2 rounded shadow-xl text-xs font-numeric">
-                <p className="font-bold text-white mb-1">{payload[0].name}</p>
-                <p className="text-sky-400">2024: {formatNumberAbbreviated(payload[0].payload.sales2024)}</p>
-                <p className="text-green-400 font-bold">2025: {formatNumberAbbreviated(payload[0].value)}</p>
+            <div className="bg-slate-900 border border-slate-700 p-3 rounded-lg shadow-xl text-xs font-numeric">
+                <p className="font-bold text-white mb-2 font-sans">{payload[0].name}</p>
+                <p className="text-sky-400 font-bold mb-1">2024: {formatNumberAbbreviated(item.sales2024 || 0)}</p>
+                <p className="text-green-400 font-bold">2025: {formatNumberAbbreviated(item.sales2025 || 0)}</p>
             </div>
         );
     }
