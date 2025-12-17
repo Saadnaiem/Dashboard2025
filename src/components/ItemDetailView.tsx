@@ -119,7 +119,7 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="bg-indigo-900/80 backdrop-blur sticky top-0 z-20 border-b border-white/5">
+                        <thead className="bg-black/90 backdrop-blur sticky top-0 z-20 border-b border-white/5">
                             <tr>
                                 {columns.map(col => {
                                     let colorClass = 'text-sky-200';

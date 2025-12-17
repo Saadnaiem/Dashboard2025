@@ -209,7 +209,7 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             )}
              <div className="table-container">
                 <table className="w-full text-left text-slate-300 table-sortable">
-                    <thead className="bg-indigo-900/80 backdrop-blur sticky top-0 z-20 border-b border-white/5 uppercase text-[10px] font-bold">
+                    <thead className="bg-black/90 backdrop-blur sticky top-0 z-20 border-b border-white/5 uppercase text-[10px] font-bold">
                         <tr>
                             {columns.map(col => (
                                 <th key={col.key} scope="col" className={`p-4 whitespace-nowrap cursor-pointer hover:bg-white/10 ${col.is24 ? 'text-sky-300' : col.is25 ? 'text-emerald-300 font-black' : 'text-slate-300'} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>

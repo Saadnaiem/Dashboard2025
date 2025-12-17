@@ -51,7 +51,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             
             <div className="table-container border border-slate-700 rounded-2xl overflow-hidden shadow-2xl">
                 <table className="w-full text-left text-slate-300">
-                    <thead className="bg-indigo-900/80 backdrop-blur sticky top-0 z-20 border-b border-white/5">
+                    <thead className="bg-black/90 backdrop-blur sticky top-0 z-20 border-b border-white/5">
                         <tr>
                             <th className="p-4 text-[9px] font-black uppercase tracking-widest text-slate-300">Department / Category</th>
                             <th className="p-4 text-[9px] font-black uppercase tracking-widest text-sky-300 text-right">2024 Sales</th>

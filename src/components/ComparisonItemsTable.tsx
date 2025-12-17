@@ -67,7 +67,7 @@ const ComparisonItemsTable: React.FC<ComparisonItemsTableProps> = ({ itemsData }
             
             <div className="table-container border-none rounded-none max-h-[700px] overflow-y-auto">
                 <table className="w-full text-left text-slate-300">
-                    <thead className="bg-indigo-900/80 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5">
+                    <thead className="bg-black/90 backdrop-blur-xl sticky top-0 z-30 border-b border-white/5">
                         <tr>
                             <th className="p-5 text-[9px] text-slate-300 uppercase font-black tracking-widest">Index</th>
                             {columns.map(c => (

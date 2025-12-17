@@ -30,7 +30,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         const itemPayload = payload[0].payload;
 
         return (
-            <div className="bg-indigo-950/95 backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[240px] ring-1 ring-white/5">
+            <div className="bg-black backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[240px] ring-1 ring-white/5">
                 <p className="font-black text-white mb-4 text-xs uppercase tracking-[0.15em] border-b border-white/10 pb-3">{finalLabel}</p>
                 <div className="flex flex-col gap-4">
                     {/* 2024 DATA SECTION - ALWAYS FIRST */}
@@ -50,7 +50,7 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                     {/* 2025 DATA SECTION */}
                     <div className="border-l-4 border-emerald-500/50 pl-3 bg-white/5 py-1.5 rounded-r-lg">
                         <div className="flex justify-between items-baseline gap-4">
-                            <span className="text-[10px] font-black text-emerald-400/70 uppercase">2025 Total</span>
+                            <span className="text-[10px] font-black text-emerald-400/70 uppercase">2025 Realized</span>
                             <span className="text-sm font-numeric font-black text-emerald-400">{formatNumber(itemPayload.sales2025 || 0)}</span>
                         </div>
                          {(itemPayload.cash2025 !== undefined || itemPayload.credit2025 !== undefined) && (

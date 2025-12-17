@@ -60,10 +60,10 @@ const FilterDropdown: React.FC<{
     );
 };
 
-const MiniStat: React.FC<{ label: string; value: string; color: string; sub?: React.ReactNode }> = ({ label, value, color, sub }) => (
+const MiniStat: React.FC<{ label: string; value: string; color: string; labelColor?: string; sub?: React.ReactNode }> = ({ label, value, color, labelColor = "text-slate-500", sub }) => (
     <div className="flex-1 min-w-[180px] bg-gradient-to-br from-slate-800/60 to-slate-900/60 backdrop-blur-md border border-slate-700/40 p-5 rounded-2xl shadow-xl hover:border-slate-500/60 transition-all group relative overflow-hidden">
         <div className="absolute top-0 right-0 w-24 h-24 bg-white/5 rounded-full -mr-8 -mt-8 blur-2xl group-hover:bg-white/10 transition-colors"></div>
-        <p className="text-[10px] font-black text-slate-500 uppercase tracking-[0.25em] mb-2 group-hover:text-slate-400 transition-colors relative z-10">{label}</p>
+        <p className={`text-[10px] font-black uppercase tracking-[0.25em] mb-2 transition-colors relative z-10 ${labelColor}`}>{label}</p>
         <p className={`text-2xl font-numeric font-black ${color} relative z-10 tracking-tight`}>{value}</p>
         {sub && <div className="mt-2 relative z-10">{sub}</div>}
     </div>
@@ -165,7 +165,7 @@ const DrilldownView: React.FC<{ allRawData: RawSalesDataRow[]; globalFilterOptio
             <div className="flex flex-col md:flex-row justify-between items-center bg-gradient-to-r from-slate-800/80 to-slate-900/80 backdrop-blur-xl p-8 rounded-[2rem] border border-slate-700/50 shadow-2xl gap-6">
                 <div>
                     <h2 className="text-4xl font-black text-white uppercase tracking-tighter leading-none">Deep-Dive: <span className="text-sky-400">{title}</span></h2>
-                    <p className="text-[11px] text-slate-500 font-bold uppercase tracking-[0.4em] mt-3 italic flex items-center gap-2">
+                    <p className="text-[11px] text-sky-400 font-bold uppercase tracking-[0.4em] mt-3 italic flex items-center gap-2">
                         <span className="w-2 h-2 rounded-full bg-sky-500 animate-pulse"></span>
                         Granular Analytical Environment
                     </p>
@@ -177,9 +177,24 @@ const DrilldownView: React.FC<{ allRawData: RawSalesDataRow[]; globalFilterOptio
 
             {summary && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <MiniStat label="2024 Baseline" value={formatNumberAbbreviated(summary.s24)} color="text-sky-400" />
-                    <MiniStat label="2025 Performance" value={formatNumberAbbreviated(summary.s25)} color="text-emerald-400" sub={<GrowthIndicator value={summary.growth} className="text-sm bg-emerald-500/10 px-3 py-1 rounded-full inline-block" />} />
-                    <MiniStat label="Total Entities Scanned" value={summary.count.toLocaleString()} color="text-indigo-400" />
+                    <MiniStat 
+                        label="2024 Baseline" 
+                        labelColor="text-sky-400"
+                        value={formatNumberAbbreviated(summary.s24)} 
+                        color="text-sky-400" 
+                    />
+                    <MiniStat 
+                        label="2025 Performance" 
+                        value={formatNumberAbbreviated(summary.s25)} 
+                        color="text-emerald-400" 
+                        sub={<GrowthIndicator value={summary.growth} className="text-sm bg-emerald-500/10 px-3 py-1 rounded-full inline-block" />} 
+                    />
+                    <MiniStat 
+                        label={`Total ${title}`} 
+                        labelColor="text-indigo-400"
+                        value={summary.count.toLocaleString()} 
+                        color="text-indigo-400" 
+                    />
                 </div>
             )}
 
@@ -206,7 +221,6 @@ const DrilldownView: React.FC<{ allRawData: RawSalesDataRow[]; globalFilterOptio
                             </PieChart>
                         </ResponsiveContainer>
                         
-                        {/* Relocated Sales Mix Selector: Under the pie chart at the right side */}
                         <div className="w-full flex justify-end pr-8">
                             <div className="flex bg-slate-950/60 p-2 rounded-2xl border border-slate-700 ring-1 ring-white/5 shadow-2xl">
                                 {['Total', 'Cash', 'Credit'].map((m) => (
@@ -237,7 +251,7 @@ const DrilldownView: React.FC<{ allRawData: RawSalesDataRow[]; globalFilterOptio
 
                     <div className="table-container border-slate-700/30 rounded-3xl overflow-hidden bg-slate-950/20 backdrop-blur-sm">
                         <table className="w-full text-left text-slate-300">
-                            <thead className="bg-indigo-900/60 backdrop-blur-xl sticky top-0 z-20 border-b border-white/5">
+                            <thead className="bg-black/90 backdrop-blur-xl sticky top-0 z-20 border-b border-white/5">
                                 <tr>
                                     {columns.map((col: any) => (
                                         <th key={col.key} className={`p-5 text-[9px] font-black uppercase tracking-[0.25em] cursor-pointer hover:bg-white/10 transition-colors ${col.year === '2024' ? 'text-sky-300' : col.year === '2025' ? 'text-emerald-300' : 'text-slate-300'} ${col.isNumeric ? 'text-right' : ''}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig?.direction === 'asc' ? 'desc' : 'asc' })}>
@@ -287,7 +301,7 @@ const CustomTooltipForPie = ({ active, payload }: any) => {
     if (active && payload?.length) {
         const item = payload[0].payload;
         return (
-            <div className="bg-indigo-950/98 backdrop-blur-2xl border border-white/10 p-6 rounded-3xl shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] min-w-[280px] ring-1 ring-white/10">
+            <div className="bg-black backdrop-blur-2xl border border-white/10 p-6 rounded-3xl shadow-[0_35px_60px_-15px_rgba(0,0,0,0.6)] min-w-[280px] ring-1 ring-white/10">
                 <p className="font-black text-white mb-5 text-[11px] uppercase tracking-[0.2em] border-b border-white/10 pb-4">{payload[0].name}</p>
                 <div className="flex flex-col gap-4">
                     <div className="flex justify-between items-baseline border-l-4 border-sky-500 pl-4 py-1.5 bg-sky-500/5 rounded-r-xl">
@@ -295,7 +309,7 @@ const CustomTooltipForPie = ({ active, payload }: any) => {
                         <span className="text-base font-numeric font-black text-sky-400">{formatNumberAbbreviated(item.sales2024 || 0)}</span>
                     </div>
                     <div className="flex justify-between items-baseline border-l-4 border-emerald-500 pl-4 py-1.5 bg-emerald-500/5 rounded-r-xl">
-                        <span className="text-[10px] font-black text-emerald-400/70 uppercase tracking-widest">2025 Target</span>
+                        <span className="text-[10px] font-black text-emerald-400/70 uppercase tracking-widest">2025 Realized</span>
                         <span className="text-base font-numeric font-black text-emerald-400">{formatNumberAbbreviated(item.sales2025 || 0)}</span>
                     </div>
                 </div>
