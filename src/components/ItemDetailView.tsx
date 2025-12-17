@@ -34,11 +34,6 @@ type ItemData = {
 
 type SortableKeys = keyof ItemData;
 
-const ContributionCell: React.FC<{ value: number }> = ({ value }) => {
-    if (isNaN(value)) return <span className="text-right block w-full">-</span>;
-    return <span className="text-right block w-full">{value.toFixed(2)}%</span>;
-};
-
 const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
     const { divisionName, departmentName, categoryName } = useParams<{ divisionName: string; departmentName: string; categoryName: string }>();
     const { salesMix } = useOutletContext<LayoutContextType>();
@@ -61,69 +56,43 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
 
     const itemsData = useMemo(() => {
         if (!divisionName || !departmentName || !categoryName) return [];
-
         const filteredRaw = allRawData.filter(row =>
             row.DIVISION === divisionName &&
             row.DEPARTMENT === departmentName &&
             row.CATEGORY === categoryName
         );
-
-        const aggregatedItems = new Map<string, { code: string; name: string; sales2024: number; sales2025: number; cash2024: number; credit2024: number; cash2025: number; credit2025: number; }>();
-
+        const aggregatedItems = new Map<string, any>();
         filteredRaw.forEach(row => {
             const itemCode = row['ITEM CODE'] || 'Unknown';
             const itemName = row['ITEM DESCRIPTION'];
-
             if (!itemName) return;
-
             const s24 = getSalesValue(row, '2024', salesMix);
             const s25 = getSalesValue(row, '2025', salesMix);
-
-            if (aggregatedItems.has(itemName)) {
-                const existing = aggregatedItems.get(itemName)!;
-                existing.sales2024 += s24;
-                existing.sales2025 += s25;
-                existing.cash2024 += row.SALES2024_CASH || 0;
-                existing.credit2024 += row.SALES2024_CREDIT || 0;
-                existing.cash2025 += row.SALES2025_CASH || 0;
-                existing.credit2025 += row.SALES2025_CREDIT || 0;
-            } else {
-                aggregatedItems.set(itemName, {
-                    code: itemCode,
-                    name: itemName,
-                    sales2024: s24,
-                    sales2025: s25,
-                    cash2024: row.SALES2024_CASH || 0,
-                    credit2024: row.SALES2024_CREDIT || 0,
-                    cash2025: row.SALES2025_CASH || 0,
-                    credit2025: row.SALES2025_CREDIT || 0,
+            if (!aggregatedItems.has(itemCode)) {
+                aggregatedItems.set(itemCode, {
+                    code: itemCode, name: itemName,
+                    sales2024: 0, sales2025: 0, cash2025: 0, credit2025: 0
                 });
             }
+            const item = aggregatedItems.get(itemCode);
+            item.sales2024 += s24;
+            item.sales2025 += s25;
+            item.cash2025 += row.SALES2025_CASH || 0;
+            item.credit2025 += row.SALES2025_CREDIT || 0;
         });
-
-        const uniqueItemsArray = Array.from(aggregatedItems.values());
-
-        return uniqueItemsArray.map(item => ({
+        return Array.from(aggregatedItems.values()).map(item => ({
             ...item,
             growth: calculateGrowth(item.sales2025, item.sales2024),
-            cashGrowth: calculateGrowth(item.cash2025, item.cash2024),
-            creditGrowth: calculateGrowth(item.credit2025, item.credit2024),
-            contribution2024: categoryTotalSales.s24 > 0 ? (item.sales2024 / categoryTotalSales.s24) * 100 : 0,
-            contribution2025: categoryTotalSales.s25 > 0 ? (item.sales2025 / categoryTotalSales.s25) * 100 : 0,
             cashPercent2025: item.sales2025 > 0 ? (item.cash2025 / item.sales2025) * 100 : 0,
+            contribution2025: categoryTotalSales.s25 > 0 ? (item.sales2025 / categoryTotalSales.s25) * 100 : 0,
         }));
     }, [allRawData, divisionName, departmentName, categoryName, categoryTotalSales, salesMix]);
 
     const filteredAndSortedData = useMemo(() => {
         const lowercasedTerm = localSearchTerm.toLowerCase();
-        
-        const filtered = localSearchTerm
-            ? itemsData.filter(item =>
-                item.name.toLowerCase().includes(lowercasedTerm) ||
-                item.code.toLowerCase().includes(lowercasedTerm)
-            )
-            : itemsData;
-
+        const filtered = itemsData.filter(item =>
+            item.name.toLowerCase().includes(lowercasedTerm) || item.code.toLowerCase().includes(lowercasedTerm)
+        );
         return [...filtered].sort((a, b) => {
             const aVal = a[sortConfig.key];
             const bVal = b[sortConfig.key];
@@ -133,206 +102,53 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
         });
     }, [itemsData, localSearchTerm, sortConfig]);
 
-    const totalRow = useMemo(() => {
-        if (filteredAndSortedData.length === 0) return null;
-        const totals = filteredAndSortedData.reduce((acc, item) => {
-            acc.s24 += item.sales2024;
-            acc.s25 += item.sales2025;
-            acc.c24 += item.cash2024;
-            acc.cr24 += item.credit2024;
-            acc.c25 += item.cash2025;
-            acc.cr25 += item.credit2025;
-            acc.c24_contrib += item.contribution2024;
-            acc.c25_contrib += item.contribution2025;
-            return acc;
-        }, { s24: 0, s25: 0, c24: 0, cr24: 0, c25: 0, cr25: 0, c24_contrib: 0, c25_contrib: 0 });
-
-        return {
-            code: 'TOTAL',
-            name: `Total (${filteredAndSortedData.length} items)`,
-            sales2024: totals.s24,
-            sales2025: totals.s25,
-            cash2024: totals.c24,
-            credit2024: totals.cr24,
-            cash2025: totals.c25,
-            credit2025: totals.cr25,
-            growth: calculateGrowth(totals.s25, totals.s24),
-            cashGrowth: calculateGrowth(totals.c25, totals.c24),
-            creditGrowth: calculateGrowth(totals.cr25, totals.cr24),
-            contribution2024: totals.c24_contrib,
-            contribution2025: totals.c25_contrib,
-            cashPercent2025: totals.s25 > 0 ? (totals.c25 / totals.s25) * 100 : 0,
-        };
-    }, [filteredAndSortedData]);
-    
-    const requestSort = (key: SortableKeys) => {
-        let direction: 'asc' | 'desc' = 'asc';
-        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
-            direction = 'desc';
-        }
-        setSortConfig({ key, direction });
-    };
-
-    const allColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
-        { key: 'code', header: 'Item Code' },
-        { key: 'name', header: 'Item Description' },
+    const allColumns = [
+        { key: 'code', header: 'Code' },
+        { key: 'name', header: 'Description' },
         { key: 'sales2024', header: '2024 Sales', isNumeric: true },
         { key: 'sales2025', header: '2025 Sales', isNumeric: true },
-        { key: 'cash2025', header: '2025 Cash', isNumeric: true },
-        { key: 'credit2025', header: '2025 Credit', isNumeric: true },
-        { key: 'cashPercent2025', header: 'Cash %', isNumeric: true },
-        { key: 'contribution2025', header: 'Contrib % (Category)', isNumeric: true },
-        { key: 'growth', header: 'Growth %', isNumeric: true },
-        { key: 'cashGrowth', header: 'Cash Gr%', isNumeric: true },
-        { key: 'creditGrowth', header: 'Credit Gr%', isNumeric: true },
+        { key: 'cashPercent2025', header: '2025 Cash%', isNumeric: true },
+        { key: 'contribution2025', header: 'Contrib%', isNumeric: true },
+        { key: 'growth', header: 'Growth%', isNumeric: true },
     ];
 
     const columns = allColumns.filter(col => {
         if (salesMix === 'Total') return true;
-        const k = col.key.toString().toLowerCase();
-        return !k.startsWith('cash') && !k.startsWith('credit');
+        return !col.key.toString().toLowerCase().includes('cash');
     });
-    
-    const handleExport = (format: 'csv' | 'pdf') => {
-        const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
-        const title = `Items in ${categoryName} for ${departmentName}, ${divisionName}`;
-        const head = [columns.map(c => c.header)];
-        
-        const body = filteredAndSortedData.map(item => [
-            item.code, item.name, 
-            formatNumberAbbreviated(item.sales2024),
-            formatNumberAbbreviated(item.sales2025),
-            formatNumberAbbreviated(item.cash2025),
-            formatNumberAbbreviated(item.credit2025),
-            `${item.cashPercent2025.toFixed(2)}%`,
-            `${item.contribution2025.toFixed(2)}%`,
-            `${item.growth.toFixed(2)}%`,
-            `${item.cashGrowth.toFixed(2)}%`,
-            `${item.creditGrowth.toFixed(2)}%`
-        ]);
-
-        if (totalRow) {
-             body.unshift([
-                totalRow.code, totalRow.name,
-                formatNumberAbbreviated(totalRow.sales2024),
-                formatNumberAbbreviated(totalRow.sales2025),
-                formatNumberAbbreviated(totalRow.cash2025),
-                formatNumberAbbreviated(totalRow.credit2025),
-                `${totalRow.cashPercent2025.toFixed(2)}%`,
-                `${totalRow.contribution2025.toFixed(2)}%`,
-                `${totalRow.growth.toFixed(2)}%`,
-                `${totalRow.cashGrowth.toFixed(2)}%`,
-                `${totalRow.creditGrowth.toFixed(2)}%`
-             ]);
-        }
-        
-        const filename = `items_${divisionName}_${departmentName}_${categoryName}`.toLowerCase().replace(/[^a-z0-9]/g, '_');
-
-        if (format === 'pdf') {
-            doc.text(title, 14, 15);
-            doc.autoTable({ startY: 20, head, body, theme: 'striped' });
-            doc.save(`${filename}.pdf`);
-        } else {
-            const csv = Papa.unparse({ fields: head[0], data: body });
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `${filename}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    };
-
 
     return (
         <div className="flex flex-col gap-6">
-            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <div className="text-center sm:text-left">
-                     <h2 className="text-2xl font-bold text-white">
-                        Item Analysis
-                    </h2>
-                    <p className="text-sm text-slate-400">
-                        <span className="font-bold text-sky-400">{divisionName}</span> &gt; <span className="font-bold text-sky-400">{departmentName}</span> &gt; <span className="font-bold text-sky-400">{categoryName}</span>
-                    </p>
-                </div>
-                <Link to={`/division/${encodeURIComponent(divisionName!)}`} className="px-4 py-2 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg>
-                    Back to Division View
-                </Link>
-            </div>
-             <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                 <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-700">
-                    <div className="relative w-full md:max-w-md">
-                        <input
-                            type="text"
-                            placeholder="Search items..."
-                            value={localSearchTerm}
-                            onChange={(e) => setLocalSearchTerm(e.target.value)}
-                            className="w-full bg-slate-700 border border-slate-600 rounded-lg py-2 pl-10 pr-4 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
-                        />
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => handleExport('csv')} className="px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">Export CSV</button>
-                        <button onClick={() => handleExport('pdf')} className="px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">Export PDF</button>
-                    </div>
-                 </div>
-                <div className="overflow-x-auto p-4">
+            <h2 className="text-2xl font-bold text-white">Item Analysis: {categoryName}</h2>
+            <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 overflow-hidden">
+                <div className="overflow-x-auto">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="text-xs text-sky-300 uppercase bg-slate-800 sticky top-0 z-10 font-bold">
+                        <thead className="text-xs uppercase bg-slate-800 sticky top-0 z-20 font-bold">
                             <tr>
-                                {columns.map(col => (
-                                    <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key)}>
-                                        {col.header} {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                    </th>
-                                ))}
+                                {columns.map(col => {
+                                    let colorClass = 'text-sky-300';
+                                    if (col.header.includes('2024')) colorClass = 'text-sky-400';
+                                    if (col.header.includes('2025')) colorClass = 'text-green-400';
+                                    return (
+                                        <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${colorClass} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc'})}>
+                                            {col.header}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
-                        <tbody>
-                             {totalRow && (
-                                <tr className="bg-sky-900/60 font-bold text-white text-sm">
-                                    <td className="p-3">{totalRow.code}</td>
-                                    <td className="p-3">{totalRow.name}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2024)}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.sales2025)}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.cash2025)}</td>
-                                    <td className="p-3 text-right">{formatNumberAbbreviated(totalRow.credit2025)}</td>
-                                    <td className="p-3 text-right"><span className="text-right block w-full">{totalRow.cashPercent2025.toFixed(2)}%</span></td>
-                                    <td className="p-3 text-right"><ContributionCell value={totalRow.contribution2025} /></td>
-                                    <td className="p-3 text-right"><GrowthIndicator value={totalRow.growth} /></td>
-                                    <td className="p-3 text-right"><GrowthIndicator value={totalRow.cashGrowth} /></td>
-                                    <td className="p-3 text-right"><GrowthIndicator value={totalRow.creditGrowth} /></td>
-                                </tr>
-                             )}
+                        <tbody className="divide-y divide-slate-700/50">
                             {filteredAndSortedData.map((item, index) => (
-                                <tr key={item.code + index} className="hover:bg-slate-700/50 transition-colors text-sm border-b border-slate-700">
+                                <tr key={index} className="hover:bg-slate-700/50 transition-colors text-sm">
                                     {columns.map(col => (
-                                        <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
-                                            {(() => {
-                                                const value = item[col.key];
-                                                switch (col.key) {
-                                                    case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
-                                                    case 'cash2025': case 'credit2025': return formatNumberAbbreviated(value as number);
-                                                    case 'contribution2025': return <ContributionCell value={value as number} />;
-                                                    case 'cashPercent2025': return <span className="text-right block w-full">{(value as number).toFixed(2)}%</span>;
-                                                    case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
-                                                    default: return value;
-                                                }
-                                            })()}
+                                        <td key={col.key} className={`p-3 ${col.isNumeric ? 'text-right font-mono' : ''}`}>
+                                            {col.key === 'growth' ? <GrowthIndicator value={item[col.key]} /> : (col.isNumeric ? formatNumberAbbreviated(item[col.key]) : item[col.key])}
                                         </td>
                                     ))}
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                     {filteredAndSortedData.length === 0 && (
-                        <div className="text-center py-8 text-slate-400">
-                            No items found for this selection.
-                        </div>
-                    )}
                 </div>
             </div>
         </div>

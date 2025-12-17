@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import Papa from 'papaparse';
 import { RawSalesDataRow, ProcessedData, FilterState } from './types';
 import { processSalesData, normalizeRow } from './services/dataProcessor';
@@ -35,7 +34,6 @@ const createEmptyProcessedData = (filterOptions: ProcessedData['filterOptions'])
         items: { count: 0, sales: 0, percentOfTotal: 0 },
     },
     newBrandsList: [], newItemsList: [],
-    // FIX: Replaced type declarations with initial numeric values (0) to resolve "'number' only refers to a type, but is being used as a value here" errors.
     lostEntities: {
         brands: { count: 0, sales2024: 0, percentOfTotal: 0 },
         items: { count: 0, sales2024: 0, percentOfTotal: 0 },
@@ -53,7 +51,6 @@ const App: React.FC = () => {
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
     const [isAuthenticated, setIsAuthenticated] = useState(localStorage.getItem('isAuthenticated') === 'true');
     const navigate = useNavigate();
-    const location = useLocation();
 
     useEffect(() => {
         const handleStorageChange = () => {
@@ -111,7 +108,6 @@ const App: React.FC = () => {
         const lowercasedTerm = debouncedSearchTerm.toLowerCase();
         const finalFilteredRows = allData.filter(row => {
             const { divisions, departments, categories, branches, brands, items } = filters;
-            // FIX: Removed unnecessary assignments (branchMatch =, brandMatch =, itemMatch =) within the conditional expression to fix "Cannot find name" errors.
             const dropdownMatch = (divisions.length === 0 || divisions.includes(row['DIVISION'])) &&
                                   (departments.length === 0 || departments.includes(row['DEPARTMENT'])) &&
                                   (categories.length === 0 || categories.includes(row['CATEGORY'])) &&

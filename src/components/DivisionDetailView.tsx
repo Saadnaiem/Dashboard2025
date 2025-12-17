@@ -106,13 +106,9 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         const tableMap = new Map<string, { department: string; category: string; s24: number; c24: number; cr24: number; s25: number; c25: number; cr25: number; }>();
 
         divisionData.forEach(row => {
-            // Apply sales mix filter if needed
             const s24 = getSalesValue(row, '2024', salesMix);
             const s25 = getSalesValue(row, '2025', salesMix);
             
-            // These remain full totals regardless of mix for detailed breakdown if needed, 
-            // but for the main table view we might want consistency.
-            // However, the detailed view specifically shows cash/credit columns, so we should keep original values for those specific columns
             const c24 = row.SALES2024_CASH || 0;
             const cr24 = row.SALES2024_CREDIT || 0;
             const c25 = row.SALES2025_CASH || 0;
@@ -121,7 +117,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
             totalSales2024 += s24;
             totalSales2025 += s25;
             
-            // Accumulate raw totals for footer
             totalCash2024 += c24;
             totalCredit2024 += cr24;
             totalCash2025 += c25;
@@ -182,7 +177,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
 
     const allBranchesData = useMemo(() => {
         if (!processedData) return [];
-        // Use division total for consistent contribution %
         const { totalSales2025 } = processedData;
         const sourceData = departmentFilteredDivisionData; 
         
@@ -207,7 +201,6 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         const sortedBranches = allBranchesSales.sort((a, b) => b.sales2025 - a.sales2025);
         
         if (selectedDepartment) {
-            // Only show branches that have sales for the selected department
             return sortedBranches.filter(b => b.sales2024 !== 0 || b.sales2025 !== 0);
         }
 
@@ -258,62 +251,7 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         return groupedData.filter(group => group.departmentName === selectedDepartment);
     }, [groupedData, selectedDepartment]);
 
-    const handleExport = (format: 'csv' | 'pdf') => {
-        const doc = new jsPDF() as jsPDF & { autoTable: (options: any) => jsPDF; };
-        const title = `Division Analysis: ${divisionName}${selectedDepartment ? ` - ${selectedDepartment}`: ''}`;
-        const head = [['Department', 'Category', '2024 Sales', '2025 Sales', '2025 Cash', '2025 Credit', 'Cash %', 'Growth %', 'Cash Gr%', 'Credit Gr%']];
-        
-        const body: (string|number)[][] = [];
-        
-        if (!selectedDepartment && processedData) {
-            body.push(['GRAND TOTAL', '---', 
-                formatNumberAbbreviated(processedData.grandTotal.sales2024), 
-                formatNumberAbbreviated(processedData.grandTotal.sales2025),
-                formatNumberAbbreviated(processedData.grandTotal.cash2025), 
-                formatNumberAbbreviated(processedData.grandTotal.credit2025),
-                `${processedData.grandTotal.cashPercent2025.toFixed(2)}%`,
-                `${processedData.grandTotal.growth.toFixed(2)}%`,
-                `${processedData.grandTotal.cashGrowth.toFixed(2)}%`,
-                `${processedData.grandTotal.creditGrowth.toFixed(2)}%`
-            ]);
-        }
-
-        finalGroupedData.forEach(group => {
-            body.push([group.departmentName, 'TOTAL', 
-                formatNumberAbbreviated(group.total.sales2024), formatNumberAbbreviated(group.total.sales2025), 
-                formatNumberAbbreviated(group.total.cash2025), formatNumberAbbreviated(group.total.credit2025),
-                `${group.total.cashPercent2025.toFixed(2)}%`,
-                `${group.total.growth.toFixed(2)}%`, `${group.total.cashGrowth.toFixed(2)}%`, `${group.total.creditGrowth.toFixed(2)}%`
-            ]);
-            group.categories.forEach(cat => {
-                body.push([group.departmentName, cat.category,
-                    formatNumberAbbreviated(cat.sales2024), formatNumberAbbreviated(cat.sales2025),
-                    formatNumberAbbreviated(cat.cash2025), formatNumberAbbreviated(cat.credit2025),
-                    `${cat.cashPercent2025.toFixed(2)}%`,
-                    `${cat.growth.toFixed(2)}%`, `${cat.cashGrowth.toFixed(2)}%`, `${cat.creditGrowth.toFixed(2)}%`
-                ]);
-            });
-        });
-        
-        const filename = `division_analysis_${divisionName?.toLowerCase().replace(/ /g, '_')}`;
-
-        if (format === 'pdf') {
-            doc.text(title, 14, 15);
-            doc.autoTable({ startY: 20, head, body, theme: 'striped' });
-            doc.save(`${filename}.pdf`);
-        } else {
-            const csv = Papa.unparse({ fields: head[0], data: body });
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.setAttribute("download", `${filename}.csv`);
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        }
-    };
-
-    if (!processedData) return <div className="text-center py-10">No data available for this division or filter combination.</div>;
+    if (!processedData) return <div className="text-center py-10">No data available.</div>;
     
     const allTableColumns: { key: keyof TableData; header: string; isNumeric?: boolean }[] = [
         { key: 'category', header: 'Category' }, 
@@ -335,152 +273,81 @@ const DivisionDetailView: React.FC<DivisionDetailViewProps> = ({ allRawData }) =
         return !k.startsWith('cash') && !k.startsWith('credit');
     });
 
-    const departmentChartHeight = Math.max(400, (processedData?.departmentsData?.length || 0) * 40);
-    const branchChartHeight = Math.max(500, allBranchesData.length * 35);
-
     return (
         <div className="flex flex-col gap-6">
             <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-                <h2 className="text-2xl font-bold text-white text-center sm:text-left">
-                    Division Analysis: <span className="text-sky-400">{divisionName}</span>
+                <h2 className="text-2xl font-bold text-white">
+                    Division: <span className="text-sky-400">{divisionName}</span>
                 </h2>
                 <Link to="/" className="px-4 py-2 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm.707-10.293a1 1 0 00-1.414-1.414l-3 3a1 1 0 000 1.414l3 3a1 1 0 001.414-1.414L9.414 11H13a1 1 0 100-2H9.414l1.293-1.293z" clipRule="evenodd" /></svg>
                     Back to Dashboard
                 </Link>
             </div>
             
-            <ChartCard title={`Department Sales Performance (${salesMix} View)`} className="lg:col-span-2">
-                 <ResponsiveContainer width="100%" height={departmentChartHeight}>
-                    <BarChart data={processedData?.departmentsData || []} layout="vertical" margin={{ left: 100, right: 20 }} barCategoryGap="25%">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
-                        <YAxis type="category" dataKey="name" stroke="white" width={100} tick={<CustomYAxisTick maxChars={15} />} interval={0} />
-                        <Tooltip content={<EnhancedTooltip />} cursor={{ fill: 'rgba(100, 116, 139, 0.2)' }}/>
-                        <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                        <Bar dataKey="sales2024" name="2024 Sales" onClick={handleDepartmentClick}>
-                            {(processedData?.departmentsData || []).map((entry, index) => (
-                                <Cell key={`cell-24-${index}`} cursor="pointer" fill="#38bdf8" opacity={!selectedDepartment || selectedDepartment === entry.name ? 1 : 0.3} />
-                            ))}
-                        </Bar>
-                        <Bar dataKey="sales2025" name="2025 Sales" onClick={handleDepartmentClick}>
-                             {(processedData?.departmentsData || []).map((entry, index) => (
-                                <Cell key={`cell-25-${index}`} cursor="pointer" fill="#34d399" opacity={!selectedDepartment || selectedDepartment === entry.name ? 1 : 0.3} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
-            </ChartCard>
-            
-            <ChartCard title={`Branch Performance${selectedDepartment ? ` for ${selectedDepartment}` : ''} (${salesMix} View)`}>
-                <ResponsiveContainer width="100%" height={branchChartHeight}>
-                    <BarChart layout="vertical" data={allBranchesData} margin={{ left: 120, right: 20 }} barCategoryGap="25%">
-                        <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                        <XAxis type="number" stroke="white" tickFormatter={formatNumberAbbreviated} />
-                        <YAxis type="category" dataKey="name" stroke="white" width={120} tick={<CustomYAxisTick maxChars={18} />} interval={0} />
-                        <Tooltip content={<EnhancedTooltip />} cursor={{ fill: 'rgba(100, 116, 139, 0.2)' }} />
-                        <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                        <Bar dataKey="sales2024" name="2024 Sales" fill="#38bdf8" />
-                        <Bar dataKey="sales2025" name="2025 Sales" fill="#34d399" />
-                    </BarChart>
-                </ResponsiveContainer>
-            </ChartCard>
-
             <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700">
-                 <div className="p-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-700">
-                    <h3 className="text-xl font-bold text-white text-center">
-                        Detailed Performance {selectedDepartment ? ` for ${selectedDepartment}` : ' (All Departments)'}
-                    </h3>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => handleExport('csv')} className="px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">Export CSV</button>
-                        <button onClick={() => handleExport('pdf')} className="px-4 py-2 bg-slate-600 text-white text-sm font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2">Export PDF</button>
-                    </div>
-                 </div>
                 <div className="overflow-x-auto p-4">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="text-xs text-sky-300 uppercase bg-slate-800 sticky top-0 z-20 font-bold">
+                        <thead className="text-xs uppercase bg-slate-800 sticky top-0 z-20 font-bold">
                             <tr>
-                                <th className="p-3 whitespace-nowrap text-left">Department</th>
-                                {tableColumns.map(col => (
-                                    <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig(c => ({key: col.key, direction: c.key === col.key && c.direction === 'asc' ? 'desc' : 'asc'}))}>
-                                        {col.header} {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                    </th>
-                                ))}
+                                <th className="p-3 text-slate-400">Department</th>
+                                {tableColumns.map(col => {
+                                    let colorClass = 'text-sky-300';
+                                    if (col.header.includes('2024')) colorClass = 'text-sky-400';
+                                    if (col.header.includes('2025')) colorClass = 'text-green-400';
+                                    
+                                    return (
+                                        <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${colorClass} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig(c => ({key: col.key, direction: c.key === col.key && c.direction === 'asc' ? 'desc' : 'asc'}))}>
+                                            {col.header} {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody>
                              {!selectedDepartment && (
                                 <tr className="bg-sky-900/60 font-bold text-white sticky top-[41px] z-10 backdrop-blur-sm">
-                                    <td className="p-3 whitespace-nowrap" colSpan={2}>GRAND TOTAL</td>
-                                    {tableColumns.slice(1).map(col => {
-                                        let content: React.ReactNode = '';
-                                        const key = col.key as keyof typeof processedData.grandTotal;
-                                        
-                                        if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') && !col.key.toString().includes('Percent') || col.key.toString().startsWith('credit')) {
-                                            content = formatNumberAbbreviated(processedData.grandTotal[key as 'sales2024']);
-                                        } else if (col.key === 'cashPercent2025') {
-                                            content = `${processedData.grandTotal.cashPercent2025.toFixed(2)}%`;
-                                        } else if (col.key.toString().startsWith('contribution')) {
-                                            // grand total contribution is always 100% or summed up
-                                            content = "100.00%";
-                                        } else {
-                                            content = <GrowthIndicator value={processedData.grandTotal[key as 'growth']} />;
-                                        }
-
-                                        return (
-                                            <td key={col.key} className={`p-3 whitespace-nowrap text-right ${col.key === 'cashPercent2025' ? 'text-emerald-400' : ''}`}>
-                                                {content}
-                                            </td>
-                                        );
-                                    })}
+                                    <td className="p-3" colSpan={2}>GRAND TOTAL</td>
+                                    {tableColumns.slice(1).map(col => (
+                                        <td key={col.key} className={`p-3 text-right`}>
+                                            {(() => {
+                                                const val = processedData.grandTotal[col.key as keyof typeof processedData.grandTotal];
+                                                if (col.key === 'growth') return <GrowthIndicator value={val as number} />;
+                                                if (col.key === 'cashPercent2025') return `${(val as number).toFixed(2)}%`;
+                                                return formatNumberAbbreviated(val as number);
+                                            })()}
+                                        </td>
+                                    ))}
                                 </tr>
                              )}
                             {finalGroupedData.map((group, deptIndex) => (
                                 <React.Fragment key={group.departmentName}>
                                     <tr className="bg-slate-700/60 font-bold text-white text-sm">
-                                        <td className="p-3 whitespace-nowrap" colSpan={2}>{group.departmentName} TOTAL</td>
-                                        {tableColumns.slice(1).map(col => {
-                                            let content: React.ReactNode = '';
-                                            const key = col.key as keyof typeof group.total;
-                                            
-                                            if (col.key.toString().startsWith('sales') || col.key.toString().startsWith('cash') && !col.key.toString().includes('Percent') || col.key.toString().startsWith('credit')) {
-                                                content = formatNumberAbbreviated(group.total[key as 'sales2024']);
-                                            } else if (col.key === 'cashPercent2025') {
-                                                content = `${group.total.cashPercent2025.toFixed(2)}%`;
-                                            } else if (col.key.toString().startsWith('contribution')) {
-                                                content = <ContributionCell value={group.total[key as 'contribution2024']} />;
-                                            } else {
-                                                content = <GrowthIndicator value={group.total[key as 'growth']} />;
-                                            }
-
-                                            return (
-                                                <td key={col.key} className={`p-3 whitespace-nowrap text-right ${col.key === 'cashPercent2025' ? 'text-emerald-400' : ''}`}>
-                                                    {content}
-                                                </td>
-                                            );
-                                        })}
+                                        <td className="p-3" colSpan={2}>{group.departmentName} TOTAL</td>
+                                        {tableColumns.slice(1).map(col => (
+                                            <td key={col.key} className={`p-3 text-right`}>
+                                                {(() => {
+                                                    const val = group.total[col.key as keyof typeof group.total];
+                                                    if (col.key === 'growth') return <GrowthIndicator value={val as number} />;
+                                                    if (col.key === 'cashPercent2025') return `${(val as number).toFixed(2)}%`;
+                                                    return formatNumberAbbreviated(val as number);
+                                                })()}
+                                            </td>
+                                        ))}
                                     </tr>
                                     {group.categories.map((row, catIndex) => (
                                         <tr 
                                             key={`${group.departmentName}-${catIndex}`} 
                                             className={`hover:bg-slate-700/50 transition-colors text-sm cursor-pointer ${DEPT_ROW_COLORS[deptIndex % DEPT_ROW_COLORS.length]}`}
                                             onClick={() => handleRowClick(group.departmentName, row.category)}
-                                            role="link"
-                                            aria-label={`View items for category ${row.category} in department ${group.departmentName}`}
                                         >
-                                           <td className="p-3 whitespace-nowrap border-l-4 border-transparent"></td>
+                                           <td className="p-3"></td>
                                            {tableColumns.map(col => (
-                                               <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
+                                               <td key={col.key} className={`p-3 ${col.isNumeric ? 'text-right font-mono' : ''}`}>
                                                     {(() => {
-                                                        const value = row[col.key];
-                                                        switch(col.key) {
-                                                            case 'sales2024': case 'sales2025': return formatNumberAbbreviated(value as number);
-                                                            case 'cash2024': case 'cash2025': case 'credit2024': case 'credit2025': return formatNumberAbbreviated(value as number);
-                                                            case 'contribution2024': case 'contribution2025': return <ContributionCell value={value as number} />;
-                                                            case 'cashPercent2025': return <span className="text-right block w-full">{(value as number).toFixed(2)}%</span>;
-                                                            case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
-                                                            default: return value;
-                                                        }
+                                                        const value = row[col.key as keyof typeof row];
+                                                        if (col.key === 'growth') return <GrowthIndicator value={value as number} />;
+                                                        if (col.isNumeric) return formatNumberAbbreviated(value as number);
+                                                        return value;
                                                     })()}
                                                </td>
                                            ))}

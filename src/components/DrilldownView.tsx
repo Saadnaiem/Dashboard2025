@@ -1,14 +1,12 @@
 
-import React, { useMemo, useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { useParams, useSearchParams, Link, useOutletContext } from 'react-router-dom';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import Papa from 'papaparse';
-import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { RawSalesDataRow, ProcessedData, FilterState, EntitySalesData, LayoutContextType } from '../types';
 import { processSalesData, getSalesValue } from '../services/dataProcessor';
 import { formatNumberAbbreviated, GrowthIndicator } from '../utils/formatters';
-import { CustomYAxisTick } from './charts/CustomYAxisTick';
 import useOnClickOutside from '../hooks/useOnClickOutside';
 
 interface DrilldownViewProps {
@@ -90,12 +88,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
     const [sortConfig, setSortConfig] = useState<{ key: SortableKeys; direction: 'asc' | 'desc' } | null>({ key: 'sales2025', direction: 'desc' });
     const [localSearchTerm, setLocalSearchTerm] = useState('');
     
-    // Internal state for page-specific filters
     const [localDivisions, setLocalDivisions] = useState<string[]>([]);
     const [localDepartments, setLocalDepartments] = useState<string[]>([]);
-
-    const isLostView = viewType === 'lost_brands' || viewType === 'lost_items';
-    const isNewView = viewType === 'new_brands' || viewType === 'new_items';
 
     const globalFilters: FilterState = useMemo(() => ({
         divisions: searchParams.get('divisions')?.split(',').filter(Boolean) || [],
@@ -108,7 +102,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
     const globalSearchTerm = useMemo(() => searchParams.get('search') || '', [searchParams]);
 
-    // Available options based on context
     const filterChoices = useMemo(() => {
         return {
             divisions: [...new Set(allRawData.map(r => r['DIVISION']))].filter(Boolean).sort(),
@@ -120,8 +113,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         const lowercasedTerm = globalSearchTerm.toLowerCase();
         return allRawData.filter(row => {
             const { divisions, departments, categories, branches, brands, items } = globalFilters;
-            
-            // Combine global search params with local page overrides
             const effectiveDivisions = localDivisions.length > 0 ? localDivisions : divisions;
             const effectiveDepts = localDepartments.length > 0 ? localDepartments : departments;
 
@@ -163,16 +154,13 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         return [...new Set(allRawData.map(r => r['BRANCH NAME']))].filter(Boolean).sort();
     }, [allRawData]);
 
-    const { title, dataForTable, columns, performanceMetric } = useMemo(() => {
-        if (!processedViewData) return { title: 'Loading...', dataForTable: [], columns: [], performanceMetric: null };
+    const { title, dataForTable, columns } = useMemo(() => {
+        if (!processedViewData) return { title: 'Loading...', dataForTable: [], columns: [] };
 
         let title = '';
         let data: any[] = [];
         let allColumns: { key: SortableKeys | 'no'; header: string; isNumeric?: boolean }[] = [];
-        let performanceMetric: { title: string, value: number, subtext: string } | null = null;
         
-        const totalBranchesInSystem = globalFilterOptions ? globalFilterOptions.branches.length : 40;
-
         const baseColumns: { key: SortableKeys; header: string; isNumeric?: boolean }[] = [
             { key: 'name', header: 'Name', isNumeric: false },
             { key: 'sales2024', header: '2024 Sales', isNumeric: true },
@@ -210,8 +198,6 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
             cashPercent2025: row.sales2025 > 0 ? (row.cash2025 / row.sales2025) * 100 : 0
         }));
         
-        const perfRate = (count: number, total: number) => total > 0 ? (count / total) * 100 : 0;
-
         switch (viewType) {
             case 'divisions': title = 'All Divisions'; data = addContribution(processedViewData.salesByDivision); allColumns = baseColumns; break;
             case 'branches':
@@ -224,11 +210,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                 });
                 data = addContribution(mergedBranches); 
                 allColumns = baseColumns;
-                performanceMetric = { title: 'Branch Availability %', value: perfRate(processedViewData.branchCount2025, totalBranchesInSystem), subtext: `${processedViewData.branchCount2025} / ${totalBranchesInSystem} Available` };
                 break;
-            case 'brands': title = 'All Brands'; data = addContribution(processedViewData.salesByBrand); allColumns = baseColumns;
-                performanceMetric = { title: 'Brand Performance Rate', value: perfRate(processedViewData.brandCount2025, processedViewData.brandCount2024), subtext: `${processedViewData.brandCount2025} / ${processedViewData.brandCount2024} Active` };
-                break;
+            case 'brands': title = 'All Brands'; data = addContribution(processedViewData.salesByBrand); allColumns = baseColumns; break;
             case 'items': title = 'All Items'; data = addContribution(processedViewData.salesByItem); allColumns = itemBaseColumns; break;
             case 'pareto_branches': title = 'Top 20% Branches (Pareto)'; data = addContribution(processedViewData.paretoContributors.branches); allColumns = baseColumns; break;
             case 'pareto_brands': title = 'Top 20% Brands (Pareto)'; data = addContribution(processedViewData.paretoContributors.brands); allColumns = baseColumns; break;
@@ -245,8 +228,8 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
         });
 
         const finalColumns = [{ key: 'no', header: 'No.', isNumeric: false }, ...filteredColumns];
-        return { title, dataForTable: data, columns: finalColumns, performanceMetric };
-    }, [viewType, processedViewData, globalFilterOptions, globalFilters, masterBranchList, salesMix]);
+        return { title, dataForTable: data, columns: finalColumns };
+    }, [viewType, processedViewData, masterBranchList, salesMix]);
 
     const finalData = useMemo(() => {
         if (!dataForTable) return [];
@@ -382,13 +365,24 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
 
                 <div className="overflow-x-auto rounded-xl border border-slate-700">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="text-xs text-sky-300 uppercase bg-slate-800 sticky top-0 z-20 font-bold">
+                        <thead className="text-xs uppercase bg-slate-800 sticky top-0 z-20 font-bold">
                             <tr>
-                                {columns.map(col => (
-                                    <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}>
-                                        {col.header} {sortConfig?.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
-                                    </th>
-                                ))}
+                                {columns.map(col => {
+                                    let colorClass = 'text-sky-300';
+                                    if (col.header.includes('2024')) colorClass = 'text-sky-400';
+                                    if (col.header.includes('2025')) colorClass = 'text-green-400';
+                                    
+                                    return (
+                                        <th 
+                                            key={col.key} 
+                                            scope="col" 
+                                            className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${colorClass} ${col.isNumeric ? 'text-right' : 'text-left'}`} 
+                                            onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig?.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc' })}
+                                        >
+                                            {col.header} {sortConfig?.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
+                                        </th>
+                                    );
+                                })}
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-700/50">
@@ -415,7 +409,7 @@ const DrilldownView: React.FC<DrilldownViewProps> = ({ allRawData, globalFilterO
                                     {columns.map(col => {
                                         const val = row[col.key as keyof typeof row];
                                         return (
-                                            <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''} ${col.key.toString().includes('2025') && col.isNumeric ? 'font-bold text-green-400' : ''}`}>
+                                            <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right font-mono' : 'text-left'} ${col.key.toString().includes('2025') && col.isNumeric ? 'font-bold text-green-400' : ''}`}>
                                                 {(() => {
                                                     if (col.key === 'no') return i + 1;
                                                     if (col.key === 'name' && viewType === 'brands') return <Link to={`/brand/${encodeURIComponent(val)}`} className="text-sky-400 hover:underline">{val}</Link>;
