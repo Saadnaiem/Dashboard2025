@@ -24,7 +24,7 @@ export const GrowthIndicator: React.FC<{ value: number, unit?: string, invert?: 
     if (value === Infinity) {
         return React.createElement('div', { className: `font-numeric font-bold text-green-400 ${className}` }, '▲ New');
     }
-    if (isNaN(value)) return React.createElement('div', { className: `font-numeric ${className || 'text-slate-400'}` }, '-');
+    if (isNaN(value) || value === null) return React.createElement('div', { className: `font-numeric ${className || 'text-slate-400'}` }, '-');
     
     return React.createElement('div', { className: `font-numeric font-bold ${color} ${className}` }, `${icon} ${Math.abs(value).toFixed(2)}${unit}`);
 };

@@ -30,7 +30,7 @@ const SummaryCard: React.FC<{ title: string; children: React.ReactNode }> = ({ t
 const Breadcrumbs: React.FC<{ path: ComparisonEntity[], onNavigate: (index: number) => void }> = ({ path, onNavigate }) => (
     <nav aria-label="Breadcrumb" className="breadcrumb">
         <div className="breadcrumb-item">
-            <button onClick={() => onNavigate(-1)} className="breadcrumb-link">
+            <button onClick={() => onNavigate(-1)} className="breadcrumb-link font-bold">
                 Home
             </button>
         </div>
@@ -39,9 +39,9 @@ const Breadcrumbs: React.FC<{ path: ComparisonEntity[], onNavigate: (index: numb
                 <span className="breadcrumb-separator">/</span>
                 <div className="breadcrumb-item">
                     {index === path.length - 1 ? (
-                        <span className="breadcrumb-current" aria-current="page">{item.name}</span>
+                        <span className="breadcrumb-current text-sky-400" aria-current="page">{item.name}</span>
                     ) : (
-                        <button onClick={() => onNavigate(index)} className="breadcrumb-link">
+                        <button onClick={() => onNavigate(index)} className="breadcrumb-link font-bold">
                             {item.name}
                         </button>
                     )}
@@ -54,17 +54,12 @@ const Breadcrumbs: React.FC<{ path: ComparisonEntity[], onNavigate: (index: numb
 const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedData }) => {
     const { salesMix } = useOutletContext<LayoutContextType>();
     const [drilldownPath, setDrilldownPath] = useState<ComparisonEntity[]>([]);
-    // Support multiple selected entities at the current level
     const [selectedEntities, setSelectedEntities] = useState<ComparisonEntity[]>([]);
     const [isSelectorOpen, setSelectorOpen] = useState(false);
 
     const displayData = useMemo(() => {
-        // If we haven't selected anything yet, show empty
         if (selectedEntities.length === 0 && drilldownPath.length === 0) return [];
-        
-        // If we have selectedEntities, show them
         if (selectedEntities.length > 0) return selectedEntities;
-
         return [];
     }, [selectedEntities, drilldownPath]);
 
@@ -166,7 +161,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
     const handleDrilldown = (entity: ComparisonEntity) => {
         if (entity.type === 'items') return;
         setDrilldownPath(prev => [...prev, entity]);
-        // After drilldown, we need to show the CHILDREN of this new entity
         const nextType = HIERARCHY[drilldownPath.length + 1];
         if (!nextType) return;
 
@@ -208,8 +202,6 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         }
         const newPath = drilldownPath.slice(0, -1);
         setDrilldownPath(newPath);
-        // If we went back, we might want to reset to the previous siblings or something? 
-        // For simplicity, just clearing for now or re-triggering selector
         if (newPath.length === 0) {
             setSelectedEntities([]);
             setSelectorOpen(true);
@@ -263,13 +255,13 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <SummaryCard title={`Group Total ${salesMix} Sales`}>
-                            <p className="text-3xl font-bold">{formatNumberAbbreviated(summaryStats.totalSales)}</p>
+                            <p className="text-3xl font-numeric font-bold">{formatNumberAbbreviated(summaryStats.totalSales)}</p>
                         </SummaryCard>
                          <SummaryCard title="Avg YoY Growth">
                             <GrowthIndicator value={summaryStats.growth} className="text-3xl" />
                         </SummaryCard>
                         <SummaryCard title={`Items in Comparison`}>
-                            <p className="text-3xl font-bold">{summaryStats.totalEntities}</p>
+                            <p className="text-3xl font-numeric font-bold">{summaryStats.totalEntities}</p>
                         </SummaryCard>
                     </div>
 
@@ -286,9 +278,9 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                     </div>
 
                     <div className="mt-8">
+                        {/* FIX: Removed comparisonData prop to match ComparisonItemsTable interface */}
                         <ComparisonItemsTable
                             itemsData={aggregatedItemsData}
-                            comparisonData={comparisonDataForTable}
                         />
                     </div>
                 </>

@@ -32,45 +32,35 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         return (
             <div className="bg-slate-900/95 backdrop-blur-sm border border-slate-700 p-4 rounded-lg shadow-xl text-sm font-numeric">
                 <p className="font-bold text-white mb-2 text-lg border-b border-slate-700 pb-1">{finalLabel}</p>
-                
-                {itemPayload.sales2024 !== undefined && itemPayload.sales2025 !== undefined ? (
-                    <div className="grid grid-cols-1 gap-y-2">
-                        {/* 2024 DATA FIRST */}
-                        <div className="flex justify-between items-center text-sky-400 font-bold border-l-4 border-sky-500 pl-2">
-                            <span>2024 Total:</span>
-                            <span>{formatNumber(itemPayload.sales2024)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-sky-400/80 pl-4 text-xs">
-                             <span>Cash: {formatNumber(itemPayload.cash2024 || 0)}</span>
-                             <span>Credit: {formatNumber(itemPayload.credit2024 || 0)}</span>
-                        </div>
-
-                        <div className="border-t border-slate-700 my-1"></div>
-
-                        {/* 2025 DATA SECOND */}
-                        <div className="flex justify-between items-center text-green-300 font-bold border-l-4 border-green-500 pl-2">
-                            <span>2025 Total:</span>
-                            <span>{formatNumber(itemPayload.sales2025)}</span>
-                        </div>
-                        <div className="flex justify-between items-center text-green-300/80 pl-4 text-xs">
-                             <span>Cash: {formatNumber(itemPayload.cash2025 || 0)}</span>
-                             <span>Credit: {formatNumber(itemPayload.credit2025 || 0)}</span>
-                        </div>
-
-                         {itemPayload.growth !== undefined && (
-                             <div className={`mt-2 flex justify-end font-bold text-base ${itemPayload.growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                 YoY Growth: {itemPayload.growth === Infinity ? 'New' : `${itemPayload.growth.toFixed(1)}%`}
-                             </div>
-                         )}
+                <div className="grid grid-cols-1 gap-y-2">
+                    {/* 2024 FIRST */}
+                    <div className="flex justify-between items-center text-sky-400 font-bold border-l-4 border-sky-500 pl-2">
+                        <span>2024 Total:</span>
+                        <span>{formatNumber(itemPayload.sales2024 || 0)}</span>
                     </div>
-                ) : (
-                    [...payload].reverse().map((pld: any, index: number) => (
-                        <div key={index} className="flex justify-between gap-4 py-1" style={{ color: pld.color || pld.fill }}>
-                            <span className="font-bold">{pld.name}:</span>
-                            <span>{formatNumber(pld.value)}</span>
-                        </div>
-                    ))
-                )}
+                    <div className="flex justify-between items-center text-sky-400/80 pl-4 text-xs">
+                         <span>Cash: {formatNumber(itemPayload.cash2024 || 0)}</span>
+                         <span>Credit: {formatNumber(itemPayload.credit2024 || 0)}</span>
+                    </div>
+
+                    <div className="border-t border-slate-700 my-1"></div>
+
+                    {/* 2025 SECOND */}
+                    <div className="flex justify-between items-center text-green-300 font-bold border-l-4 border-green-500 pl-2">
+                        <span>2025 Total:</span>
+                        <span>{formatNumber(itemPayload.sales2025 || 0)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-green-300/80 pl-4 text-xs">
+                         <span>Cash: {formatNumber(itemPayload.cash2025 || 0)}</span>
+                         <span>Credit: {formatNumber(itemPayload.credit2025 || 0)}</span>
+                    </div>
+
+                     {itemPayload.growth !== undefined && (
+                         <div className={`mt-2 flex justify-end font-bold text-base ${itemPayload.growth >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                             YoY Growth: {itemPayload.growth === Infinity ? 'New' : `${itemPayload.growth.toFixed(1)}%`}
+                         </div>
+                     )}
+                </div>
             </div>
         );
     }
@@ -98,7 +88,7 @@ const renderActiveShape = (props: any) => {
             <text x={cx} y={cy + 40} dy={8} textAnchor="middle" fill={growthColor} className="text-base font-numeric font-bold">{growthText}</text>
             <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} />
         </g>
-    ) as any; // Cast to fix Recharts type mismatch
+    );
 };
 
 const renderGrowthLabel = (props: any) => {
@@ -165,8 +155,8 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
     }, [activeIndex, data.salesByDivision, onFilterChange, filters]);
     
     const yearComparisonData = [
-        { name: '2024', value: data.totalSales2024, fill: COLORS.blue },
-        { name: '2025', value: data.totalSales2025, fill: COLORS.green },
+        { name: '2024', value: data.totalSales2024, sales2024: data.totalSales2024, sales2025: 0, fill: COLORS.blue },
+        { name: '2025', value: data.totalSales2025, sales2024: 0, sales2025: data.totalSales2025, fill: COLORS.green },
     ];
     
     const yoyGrowth = data.salesGrowthPercentage;
