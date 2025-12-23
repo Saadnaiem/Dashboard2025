@@ -56,7 +56,9 @@ const App: React.FC = () => {
             setError(null);
             setLoadingState({ isLoading: true, progress: 10, message: 'Downloading data from Google Drive...' });
 
-            // Try multiple fetch strategies
+            // Try multiple fetch strategies in order of reliability
+            // Note: Direct Google Drive may fail in browsers due to CORS, but can work in server-side rendering
+            // CORS proxy is tried as fallback if direct access fails
             const fetchStrategies = [
                 { url: DIRECT_GDRIVE_URL, name: 'Direct Google Drive' },
                 { url: CORS_PROXY_URL, name: 'CORS Proxy' },
