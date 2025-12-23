@@ -61,31 +61,71 @@ const App: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        const GDRIVE_URL = 'https://corsproxy.io/?https://drive.google.com/uc?export=download&id=1yqGiPMAQ8GMKeNvWWW6QeTvjOQ7Yz3Fg';
+        const GDRIVE_FILE_ID = '1yqGiPMAQ8GMKeNvWWW6QeTvjOQ7Yz3Fg';
+        const DIRECT_GDRIVE_URL = `https://drive.google.com/uc?export=download&id=${GDRIVE_FILE_ID}`;
+        const CORS_PROXY_URL = `https://corsproxy.io/?${DIRECT_GDRIVE_URL}`;
+        
         const fetchData = async () => {
             setError(null);
             setLoadingState({ isLoading: true, progress: 10, message: 'Downloading data...' });
-            try {
-                const response = await fetch(GDRIVE_URL);
-                if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
-                const csvText = await response.text();
-                Papa.parse<Record<string, string>>(csvText, {
-                    header: true, skipEmptyLines: true, worker: true,
-                    complete: (results) => {
-                        const fileHeaders = results.meta.fields?.map(h => h.trim().toUpperCase()) || [];
-                        setAllData(results.data.map(row => normalizeRow(row, fileHeaders)));
-                        setLoadingState({ isLoading: true, progress: 75, message: 'Processing data...' });
-                    },
-                    error: (err: any) => {
-                        setError(`Failed to parse CSV data: ${err.message}`);
-                        setLoadingState({ isLoading: false, progress: 0, message: '' });
+            
+            // Try multiple fetch strategies
+            const fetchStrategies = [
+                { url: DIRECT_GDRIVE_URL, name: 'Direct Google Drive' },
+                { url: CORS_PROXY_URL, name: 'CORS Proxy' },
+            ];
+            
+            let lastError: Error | null = null;
+            
+            for (const strategy of fetchStrategies) {
+                try {
+                    setLoadingState({ isLoading: true, progress: 10, message: `Trying ${strategy.name}...` });
+                    const response = await fetch(strategy.url);
+                    
+                    if (!response.ok) {
+                        throw new Error(`${strategy.name} failed: ${response.status} ${response.statusText}`);
                     }
-                });
-            } catch (err: any) {
-                 setError(`Failed to fetch data: ${err instanceof Error ? err.message : String(err)}`);
-                 setLoadingState({ isLoading: false, progress: 0, message: '' });
+                    
+                    const csvText = await response.text();
+                    
+                    // Verify we got actual CSV data, not an error page
+                    if (!csvText || csvText.trim().length === 0) {
+                        throw new Error(`${strategy.name} returned empty data`);
+                    }
+                    
+                    setLoadingState({ isLoading: true, progress: 25, message: 'Parsing data...' });
+                    
+                    Papa.parse<Record<string, string>>(csvText, {
+                        header: true, skipEmptyLines: true, worker: true,
+                        complete: (results) => {
+                            const fileHeaders = results.meta.fields?.map(h => h.trim().toUpperCase()) || [];
+                            setAllData(results.data.map(row => normalizeRow(row, fileHeaders)));
+                            setLoadingState({ isLoading: true, progress: 75, message: 'Processing data...' });
+                        },
+                        error: (err: any) => {
+                            setError(`Failed to parse CSV data: ${err.message}`);
+                            setLoadingState({ isLoading: false, progress: 0, message: '' });
+                        }
+                    });
+                    
+                    // If we successfully fetched and started parsing, break out of the loop
+                    return;
+                    
+                } catch (err: any) {
+                    console.error(`${strategy.name} failed:`, err);
+                    lastError = err instanceof Error ? err : new Error(String(err));
+                    // Continue to next strategy
+                }
+            }
+            
+            // If all strategies failed, show error
+            if (lastError) {
+                const errorMessage = `Failed to fetch data after trying all methods. Last error: ${lastError.message}. Please check your internet connection and try again.`;
+                setError(errorMessage);
+                setLoadingState({ isLoading: false, progress: 0, message: '' });
             }
         };
+        
         fetchData();
     }, []);
 
