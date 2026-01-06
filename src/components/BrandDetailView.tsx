@@ -209,10 +209,10 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
             )}
              <div className="table-container">
                 <table className="w-full text-left text-slate-300 table-sortable">
-                    <thead className="bg-black/90 backdrop-blur sticky top-0 z-20 border-b border-white/5 uppercase text-[10px] font-bold">
+                    <thead className="text-[10px] uppercase bg-slate-900 sticky top-0 z-20 font-bold border-b border-slate-700">
                         <tr>
                             {columns.map(col => (
-                                <th key={col.key} scope="col" className={`p-4 whitespace-nowrap cursor-pointer hover:bg-white/10 ${col.is24 ? 'text-sky-300' : col.is25 ? 'text-emerald-300 font-black' : 'text-slate-300'} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>
+                                <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${col.is24 ? 'text-sky-400' : col.is25 ? 'text-green-400' : 'text-slate-400'} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => requestSort(col.key as SortableKeys)}>
                                     {col.header} {sortConfig.key === col.key ? (sortConfig.direction === 'asc' ? '▲' : '▼') : ''}
                                 </th>
                             ))}
@@ -220,15 +220,15 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                     </thead>
                     <tbody className="divide-y divide-slate-700/50 font-numeric">
                          {totalRow && (
-                            <tr className="bg-sky-900/40 font-bold text-white text-xs">
+                            <tr className="bg-sky-900/60 font-bold text-white text-xs">
                                 {columns.map(col => (
-                                    <td key={`total-${col.key}`} className={`p-4 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
+                                    <td key={`total-${col.key}`} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
                                         {(() => {
                                             const value = totalRow[col.key as keyof typeof totalRow];
                                             switch (col.key) {
                                                 case 'no': return 'TOTAL';
                                                 case 'sales2024': return <span className="text-sky-400">{formatNumberAbbreviated(value as number)}</span>;
-                                                case 'sales2025': return <span className="text-emerald-400">{formatNumberAbbreviated(value as number)}</span>;
+                                                case 'sales2025': return <span className="text-green-400">{formatNumberAbbreviated(value as number)}</span>;
                                                 case 'contribution2025': return `${(value as number).toFixed(2)}%`;
                                                 case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} />;
                                                 default: return value;
@@ -239,15 +239,15 @@ const BrandDetailView: React.FC<BrandDetailViewProps> = ({ allRawData }) => {
                             </tr>
                          )}
                         {filteredAndSortedData.map((item, index) => (
-                            <tr key={item.code + index} className="hover:bg-indigo-500/5 transition-colors text-xs border-b border-slate-700/30">
+                            <tr key={item.code + index} className="hover:bg-slate-700/50 transition-colors text-xs border-b border-slate-700">
                                 {columns.map(col => (
-                                    <td key={col.key} className={`p-4 whitespace-nowrap ${col.isNumeric ? 'text-right' : 'font-bold uppercase'}`}>
+                                    <td key={col.key} className={`p-3 whitespace-nowrap ${col.isNumeric ? 'text-right' : ''}`}>
                                         {(() => {
                                             if (col.key === 'no') return index + 1;
                                             const value = item[col.key as keyof typeof item];
                                             switch (col.key) {
                                                 case 'sales2024': return <span className="text-sky-400/80">{formatNumberAbbreviated(value as number)}</span>;
-                                                case 'sales2025': return <span className="text-emerald-300 font-black">{formatNumberAbbreviated(value as number)}</span>;
+                                                case 'sales2025': return <span className="text-green-300 font-bold">{formatNumberAbbreviated(value as number)}</span>;
                                                 case 'contribution2025': return `${(value as number).toFixed(2)}%`;
                                                 case 'growth': case 'cashGrowth': case 'creditGrowth': return <GrowthIndicator value={value as number} className="text-xs" />;
                                                 default: return <span className="font-sans">{value}</span>;

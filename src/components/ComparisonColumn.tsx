@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { RawSalesDataRow } from '../types';
 import { ComparisonEntity } from './ComparisonPage';
@@ -14,9 +15,9 @@ const calculateGrowth = (current: number, previous: number) =>
     previous === 0 ? (current > 0 ? Infinity : 0) : ((current - previous) / previous) * 100;
 
 const KPICard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
-    <div className={`bg-slate-700/20 backdrop-blur-sm p-3 rounded-xl text-center h-full flex flex-col justify-center border border-slate-700/30 hover:border-slate-600/50 transition-colors ${className}`}>
-        <h4 className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-1.5 truncate" title={title}>{title}</h4>
-        <div className="text-white relative z-10">{children}</div>
+    <div className={`bg-slate-700/50 p-2 rounded-lg text-center h-full flex flex-col justify-center ${className}`}>
+        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1 truncate" title={title}>{title}</h4>
+        <div className="text-white">{children}</div>
     </div>
 );
 
@@ -119,55 +120,54 @@ const ComparisonColumn: React.FC<ComparisonColumnProps> = ({ entity, allRawData,
 
     const renderEntityName = () => {
         const content = (
-             <div className="flex flex-col">
-                <span className="text-[9px] uppercase font-black tracking-[0.3em] text-sky-500/80 mb-1">{entityTypeLabel}</span>
-                <h3 className="text-lg font-black text-white truncate tracking-tight leading-tight group-hover:text-sky-300 transition-colors" title={entity.name}>{entity.name}</h3>
-             </div>
+             <>
+                <span className="text-xs uppercase font-bold text-sky-400">{entityTypeLabel}</span>
+                <h3 className="text-base font-extrabold text-white truncate" title={entity.name}>{entity.name}</h3>
+             </>
         );
 
         if (isDrillable) {
             return (
                  <button 
                     onClick={() => onDrilldown(entity)} 
-                    className="text-left w-full h-full p-4 rounded-2xl hover:bg-slate-700/40 transition-all focus:outline-none focus:ring-2 focus:ring-sky-500 group relative overflow-hidden"
+                    className="text-left w-full h-full p-2 rounded-lg hover:bg-slate-700/50 transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500"
                     title={`Drill down into ${entity.name}`}
                 >
-                    <div className="absolute top-0 left-0 w-1 h-full bg-sky-500/50 transform -translate-x-full group-hover:translate-x-0 transition-transform"></div>
                     {content}
                  </button>
             );
         }
-        return <div className="p-4" title={entity.name}>{content}</div>;
+        return <div className="p-2" title={entity.name}>{content}</div>;
     };
 
     return (
-        <div className="bg-gradient-to-r from-slate-800/40 to-slate-900/40 backdrop-blur-md p-3 rounded-2xl shadow-xl border border-slate-700/40 flex flex-col md:flex-row items-stretch gap-4 w-full hover:border-sky-500/40 transition-all hover:shadow-sky-500/5">
-            <div className="flex-shrink-0 w-full md:w-56 flex items-center border-r border-slate-700/30 pr-2">
+        <div className="bg-slate-800/50 p-2 rounded-xl shadow-lg border border-slate-700 flex flex-col md:flex-row items-center gap-3 w-full hover:border-sky-600 transition-colors">
+            <div className="flex-shrink-0 w-full md:w-48 text-center md:text-left">
                 {renderEntityName()}
             </div>
-            <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 w-full">
-                <KPICard title="Current Revenue">
-                    <p className="text-xl font-numeric font-black text-white">{formatNumberAbbreviated(stats.sales2025)}</p>
+            <div className="flex-grow grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 w-full">
+                <KPICard title="Sales (2025)">
+                    <p className="text-lg font-bold">{formatNumberAbbreviated(stats.sales2025)}</p>
                 </KPICard>
-                <KPICard title="Overall Growth">
-                    <GrowthIndicator value={stats.growth} className="text-xl" />
+                <KPICard title="YoY Growth %">
+                    <GrowthIndicator value={stats.growth} className="text-lg" />
                 </KPICard>
-                <KPICard title="Cash Growth">
-                    <GrowthIndicator value={stats.cashGrowth} className="text-xl text-emerald-400" />
+                <KPICard title="Cash Growth %">
+                    <GrowthIndicator value={stats.cashGrowth} className="text-lg text-emerald-400" />
                 </KPICard>
-                <KPICard title="Credit Growth">
-                    <GrowthIndicator value={stats.creditGrowth} className="text-xl text-indigo-400" />
+                <KPICard title="Credit Growth %">
+                    <GrowthIndicator value={stats.creditGrowth} className="text-lg text-indigo-400" />
                 </KPICard>
-                <KPICard title={`Cont. to ${parentTypeLabel}`}>
-                    <p className="text-xl font-numeric font-black text-sky-400">{stats.contribution.toFixed(1)}%</p>
+                <KPICard title={`Contrib% to ${parentTypeLabel}`}>
+                    <p className="text-lg font-bold">{stats.contribution.toFixed(1)}%</p>
                 </KPICard>
-                 <KPICard title="Total Inventory">
-                    <p className="text-xl font-numeric font-black text-slate-200">
+                 <KPICard title="Active Items">
+                    <p className="text-lg font-bold">
                         {formatNumber(stats.itemCount2025)}
                     </p>
                 </KPICard>
-                <KPICard title="New Item Count">
-                    <p className="text-xl font-numeric font-black text-emerald-400">{formatNumber(stats.newItems.count)}</p>
+                <KPICard title="New Items">
+                    <p className="text-lg font-bold text-green-400">{formatNumber(stats.newItems.count)}</p>
                 </KPICard>
             </div>
         </div>

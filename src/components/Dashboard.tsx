@@ -1,4 +1,3 @@
-
 import React, { useMemo } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ProcessedData, FilterState, EntitySalesData, LayoutContextType } from '../types';
@@ -125,8 +124,10 @@ const Dashboard: React.FC<DashboardProps> = ({ data, filters, onFilterChange, se
                 onReset={handleReset}
             />
             
-            <SummaryCards data={transformedData} searchTerm={searchTerm} filters={filters} />
-            <Charts data={transformedData} filters={filters} onFilterChange={onFilterChange} />
+            <div className="flex flex-col gap-6">
+                <SummaryCards data={transformedData} searchTerm={searchTerm} filters={filters} />
+                <Charts data={transformedData} filters={filters} onFilterChange={onFilterChange} />
+            </div>
 
             <div className="mt-8 flex justify-center">
                 <button 

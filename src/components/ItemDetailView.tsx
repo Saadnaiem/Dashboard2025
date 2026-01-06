@@ -119,14 +119,14 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
             <div className="bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-slate-300 table-sortable">
-                        <thead className="bg-black/90 backdrop-blur sticky top-0 z-20 border-b border-white/5">
+                        <thead className="text-xs uppercase bg-slate-800 sticky top-0 z-20 font-bold">
                             <tr>
                                 {columns.map(col => {
-                                    let colorClass = 'text-sky-200';
-                                    if (col.header.includes('2024')) colorClass = 'text-sky-300';
-                                    if (col.header.includes('2025')) colorClass = 'text-emerald-300 font-black';
+                                    let colorClass = 'text-sky-300';
+                                    if (col.header.includes('2024')) colorClass = 'text-sky-400';
+                                    if (col.header.includes('2025')) colorClass = 'text-green-400';
                                     return (
-                                        <th key={col.key} scope="col" className={`p-4 text-[10px] font-black uppercase tracking-widest whitespace-nowrap cursor-pointer hover:bg-white/10 ${colorClass} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc'})}>
+                                        <th key={col.key} scope="col" className={`p-3 whitespace-nowrap cursor-pointer hover:bg-slate-700 ${colorClass} ${col.isNumeric ? 'text-right' : 'text-left'}`} onClick={() => setSortConfig({ key: col.key as SortableKeys, direction: sortConfig.key === col.key && sortConfig.direction === 'asc' ? 'desc' : 'asc'})}>
                                             {col.header}
                                         </th>
                                     );
@@ -135,9 +135,9 @@ const ItemDetailView: React.FC<ItemDetailViewProps> = ({ allRawData }) => {
                         </thead>
                         <tbody className="divide-y divide-slate-700/50">
                             {filteredAndSortedData.map((item, index) => (
-                                <tr key={index} className="hover:bg-indigo-500/5 transition-colors text-sm">
+                                <tr key={index} className="hover:bg-slate-700/50 transition-colors text-sm">
                                     {columns.map(col => (
-                                        <td key={col.key} className={`p-4 ${col.isNumeric ? 'text-right font-numeric' : 'font-bold uppercase'}`}>
+                                        <td key={col.key} className={`p-3 ${col.isNumeric ? 'text-right font-mono' : ''}`}>
                                             {col.key === 'growth' ? <GrowthIndicator value={item[col.key]} /> : (col.isNumeric ? formatNumberAbbreviated(item[col.key]) : item[col.key])}
                                         </td>
                                     ))}

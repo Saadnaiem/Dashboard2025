@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
@@ -169,6 +170,8 @@ const renderLegendText = (value: string) => {
 
 interface ChartsProps {
     data: ProcessedData;
+    // Added missing prop filters passed from Dashboard.tsx
+    filters: FilterState;
     onFilterChange: (filters: FilterState) => void;
 }
 
@@ -193,7 +196,16 @@ const Charts: React.FC<ChartsProps> = ({ data, onFilterChange }) => {
     const handleBarClick = useCallback((filterKey: keyof FilterState, payload: any) => {
         if (payload && payload.name) {
             const value = payload.name;
-            onFilterChange({ divisions: [], branches: [], brands: [], items: [], [filterKey]: [value] });
+            // FIX: Include all properties required by FilterState to resolve type assignment error.
+            onFilterChange({
+                divisions: [],
+                departments: [],
+                categories: [],
+                branches: [],
+                brands: [],
+                items: [],
+                [filterKey]: [value]
+            });
         }
     }, [onFilterChange]);
 
@@ -201,7 +213,15 @@ const Charts: React.FC<ChartsProps> = ({ data, onFilterChange }) => {
     const handleDonutClick = () => {
         if (data.salesByDivision && data.salesByDivision[activeIndex]) {
             const divisionName = data.salesByDivision[activeIndex].name;
-            onFilterChange({ divisions: [divisionName], branches: [], brands: [], items: [] });
+            // FIX: Include all properties required by FilterState to resolve type assignment error.
+            onFilterChange({
+                divisions: [divisionName],
+                departments: [],
+                categories: [],
+                branches: [],
+                brands: [],
+                items: []
+            });
         }
     };
     

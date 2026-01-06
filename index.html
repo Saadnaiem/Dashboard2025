@@ -3,30 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pharmacy Analytics</title>
+    <title>Enterprise Sales Intelligence Hub</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<script type="importmap">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <script>
+        // Polyfill for process.env
+        window.process = {
+            env: {
+                NODE_ENV: 'production',
+                API_KEY: '' 
+            }
+        };
+    </script>
+    <script type="importmap">
 {
   "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^6.25.1",
-    "vite": "https://aistudiocdn.com/vite@^7.1.12",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.0",
-    "papaparse": "https://aistudiocdn.com/papaparse@^5.5.3",
-    "recharts": "https://aistudiocdn.com/recharts@^3.3.0",
-    "jspdf": "https://aistudiocdn.com/jspdf@^2.5.1",
-    "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^3.8.2",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^0.14.0"
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "react-router-dom": "https://esm.sh/react-router-dom@6.28.1",
+    "papaparse": "https://esm.sh/papaparse@5.5.2",
+    "recharts": "https://esm.sh/recharts@2.15.0",
+    "jspdf": "https://esm.sh/jspdf@2.5.2",
+    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.4",
+    "@google/genai": "https://esm.sh/@google/genai@0.21.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
+    "vite": "https://esm.sh/vite@^7.3.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2"
   }
 }
 </script>
+    <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="antialiased">
+<body class="antialiased bg-slate-950 text-slate-50 font-sans overflow-x-hidden">
     <div id="root"></div>
-    <script type="module" src="/src/index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
 </body>
 </html>

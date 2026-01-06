@@ -20,28 +20,21 @@ interface ComparisonPageProps {
 
 const HIERARCHY: ComparisonEntityType[] = ['divisions', 'departments', 'categories', 'brands', 'items'];
 
-const SummaryCard: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <div className="bg-slate-700/50 p-4 rounded-lg text-center flex-1">
-        <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-1">{title}</h4>
-        <div className="text-white">{children}</div>
-    </div>
-);
-
 const Breadcrumbs: React.FC<{ path: ComparisonEntity[], onNavigate: (index: number) => void }> = ({ path, onNavigate }) => (
-    <nav aria-label="Breadcrumb" className="breadcrumb">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-3">
         <div className="breadcrumb-item">
-            <button onClick={() => onNavigate(-1)} className="breadcrumb-link font-bold">
-                Home
+            <button onClick={() => onNavigate(-1)} className="breadcrumb-link font-black uppercase tracking-widest text-[10px]">
+                Lab Home
             </button>
         </div>
         {path.map((item, index) => (
             <React.Fragment key={index}>
-                <span className="breadcrumb-separator">/</span>
+                <span className="text-slate-600 text-xs">/</span>
                 <div className="breadcrumb-item">
                     {index === path.length - 1 ? (
-                        <span className="breadcrumb-current text-sky-400" aria-current="page">{item.name}</span>
+                        <span className="text-sky-400 font-black uppercase tracking-widest text-[10px]" aria-current="page">{item.name}</span>
                     ) : (
-                        <button onClick={() => onNavigate(index)} className="breadcrumb-link font-bold">
+                        <button onClick={() => onNavigate(index)} className="breadcrumb-link font-black uppercase tracking-widest text-[10px]">
                             {item.name}
                         </button>
                     )}
@@ -59,8 +52,7 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
 
     const displayData = useMemo(() => {
         if (selectedEntities.length === 0 && drilldownPath.length === 0) return [];
-        if (selectedEntities.length > 0) return selectedEntities;
-        return [];
+        return selectedEntities;
     }, [selectedEntities, drilldownPath]);
 
     const summaryStats = useMemo(() => {
@@ -77,19 +69,23 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         const relevantNames = new Set(displayData.map(e => e.name));
         const relevantData = currentData.filter(row => relevantNames.has(row[filterKey]));
 
-        const { s24, s25 } = relevantData.reduce((acc, row) => {
+        const totals = relevantData.reduce((acc, row) => {
             acc.s24 += getSalesValue(row, '2024', salesMix);
             acc.s25 += getSalesValue(row, '2025', salesMix);
             return acc;
         }, { s24: 0, s25: 0 });
 
-        const growth = s24 === 0 ? (s25 > 0 ? Infinity : 0) : ((s25 - s24) / s24) * 100;
+        const growth = totals.s24 === 0 ? (totals.s25 > 0 ? Infinity : 0) : ((totals.s25 - totals.s24) / totals.s24) * 100;
 
-        return { totalSales: s25, totalEntities: displayData.length, growth };
+        return { totalSales: totals.s25, totalEntities: displayData.length, growth };
     }, [displayData, allRawData, drilldownPath, salesMix]);
 
-    const comparisonDataForTable = useMemo(() => {
-        return displayData.map(entity => {
+    const itemsDataForTable = useMemo(() => {
+        if (displayData.length === 0) return [];
+
+        const itemsMap = new Map<string, any>();
+
+        displayData.forEach(entity => {
             let currentData = allRawData;
             drilldownPath.forEach(pathEntity => {
                 const pathKey = pathEntity.type === 'divisions' ? 'DIVISION' : pathEntity.type === 'departments' ? 'DEPARTMENT' : pathEntity.type === 'categories' ? 'CATEGORY' : 'BRAND';
@@ -97,31 +93,11 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             });
             const key = entity.type === 'divisions' ? 'DIVISION' : entity.type === 'departments' ? 'DEPARTMENT' : entity.type === 'categories' ? 'CATEGORY' : entity.type === 'brands' ? 'BRAND' : 'ITEM DESCRIPTION';
             const entityData = currentData.filter(row => row[key] === entity.name);
-            return { entity, data: entityData };
-        });
-    }, [displayData, allRawData, drilldownPath]);
 
-    const aggregatedItemsData = useMemo(() => {
-        if (displayData.length === 0) return [];
-
-        const itemsMap = new Map<string, {
-            code: string;
-            name: string;
-            sales2024: number;
-            sales2025: number;
-            cash2024: number;
-            credit2024: number;
-            cash2025: number;
-            credit2025: number;
-            parentEntities: Set<string>;
-        }>();
-
-        comparisonDataForTable.forEach(({ entity, data }) => {
-            const parentEntityLabel = `${entity.type.slice(0, 4)}: ${entity.name}`;
-            data.forEach((row: RawSalesDataRow) => {
-                const itemCode = row['ITEM CODE'];
-                const itemName = row['ITEM DESCRIPTION'];
-                if (!itemCode || !itemName) return;
+            entityData.forEach((row: RawSalesDataRow) => {
+                const itemCode = row['ITEM CODE'] || 'NC';
+                const itemName = row['ITEM DESCRIPTION'] || 'Unnamed';
+                if (!itemName) return;
 
                 const s24 = getSalesValue(row, '2024', salesMix);
                 const s25 = getSalesValue(row, '2025', salesMix);
@@ -132,31 +108,18 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                         name: itemName,
                         sales2024: 0,
                         sales2025: 0,
-                        cash2024: 0,
-                        credit2024: 0,
-                        cash2025: 0,
-                        credit2025: 0,
-                        parentEntities: new Set(),
+                        parentEntity: entity.name,
                     });
                 }
                 const item = itemsMap.get(itemCode)!;
                 item.sales2024 += s24;
                 item.sales2025 += s25;
-                item.cash2024 += row.SALES2024_CASH || 0;
-                item.credit2024 += row.SALES2024_CREDIT || 0;
-                item.cash2025 += row.SALES2025_CASH || 0;
-                item.credit2025 += row.SALES2025_CREDIT || 0;
-                item.parentEntities.add(parentEntityLabel);
+                item.growth = item.sales2024 === 0 ? (item.sales2025 > 0 ? Infinity : 0) : ((item.sales2025 - item.sales2024) / item.sales2024) * 100;
             });
         });
 
-        return Array.from(itemsMap.values()).map(item => ({
-            ...item,
-            parentEntity: Array.from(item.parentEntities).join(' | '),
-        }));
-
-    }, [comparisonDataForTable, displayData, salesMix]);
-
+        return Array.from(itemsMap.values());
+    }, [displayData, allRawData, drilldownPath, salesMix]);
 
     const handleDrilldown = (entity: ComparisonEntity) => {
         if (entity.type === 'items') return;
@@ -195,44 +158,30 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
         handleDrilldown(lastEntity);
     };
 
-    const handleBack = () => {
-        if (drilldownPath.length === 0) {
-            setSelectedEntities([]);
-            return;
-        }
-        const newPath = drilldownPath.slice(0, -1);
-        setDrilldownPath(newPath);
-        if (newPath.length === 0) {
-            setSelectedEntities([]);
-            setSelectorOpen(true);
-        }
-    };
-
     return (
         <div className="flex flex-col gap-8">
-            <div className="p-6 bg-slate-800/50 rounded-2xl shadow-lg border border-slate-700 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="p-8 glass rounded-[2.5rem] flex flex-col sm:flex-row items-center justify-between gap-6">
                 <div>
-                    <h1 className="text-2xl font-extrabold text-white">Comparison Hub</h1>
-                    <p className="text-slate-400">Select and compare multiple items across categories.</p>
+                    <h1 className="text-3xl font-black text-white tracking-tighter uppercase">Comparison Lab</h1>
+                    <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-2">Cross-Entity Behavioral Analysis</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-4">
                     {displayData.length > 0 && (
                         <button
-                            onClick={handleBack}
-                            className="px-4 py-3 bg-slate-600 text-white font-bold rounded-lg shadow-md hover:bg-slate-500 transition-all flex items-center gap-2"
+                            onClick={() => { setDrilldownPath([]); setSelectedEntities([]); setSelectorOpen(true); }}
+                            className="px-6 py-3 bg-slate-900 text-slate-400 font-black uppercase tracking-widest text-[10px] rounded-xl border border-slate-800 hover:text-white transition-all"
                         >
-                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-                            </svg>
-                            Back
+                            Reset Scope
                         </button>
                     )}
                      <button
                         onClick={() => setSelectorOpen(true)}
-                        className="px-6 py-3 bg-sky-600 text-white font-bold rounded-lg shadow-md hover:bg-sky-700 transition-all flex items-center gap-2"
+                        className="px-8 py-4 bg-sky-600 text-white font-black uppercase tracking-[0.2em] rounded-2xl shadow-xl hover:bg-sky-500 transition-all flex items-center gap-3 text-[10px]"
                     >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z" /><path fillRule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clipRule="evenodd" /></svg>
-                        Select Comparison
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                        Configure Experiment
                     </button>
                 </div>
             </div>
@@ -246,26 +195,29 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
             )}
 
             {drilldownPath.length > 0 && (
-                 <div className="p-4 bg-slate-700/50 rounded-lg border border-slate-600">
+                 <div className="p-4 bg-slate-900/40 rounded-[1.5rem] border border-slate-800/50">
                     <Breadcrumbs path={drilldownPath} onNavigate={handleBreadcrumbNavigate} />
                  </div>
             )}
             
             {displayData.length > 0 ? (
                 <>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <SummaryCard title={`Group Total ${salesMix} Sales`}>
-                            <p className="text-3xl font-numeric font-bold">{formatNumberAbbreviated(summaryStats.totalSales)}</p>
-                        </SummaryCard>
-                         <SummaryCard title="Avg YoY Growth">
-                            <GrowthIndicator value={summaryStats.growth} className="text-3xl" />
-                        </SummaryCard>
-                        <SummaryCard title={`Items in Comparison`}>
-                            <p className="text-3xl font-numeric font-bold">{summaryStats.totalEntities}</p>
-                        </SummaryCard>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="glass p-8 rounded-[2rem] text-center border-emerald-500/10">
+                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Group Revenue (2025)</h4>
+                            <p className="text-4xl font-numeric font-black text-emerald-400">{formatNumberAbbreviated(summaryStats.totalSales)}</p>
+                        </div>
+                        <div className="glass p-8 rounded-[2rem] text-center border-sky-500/10">
+                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Aggregated Growth</h4>
+                            <GrowthIndicator value={summaryStats.growth} className="text-4xl" />
+                        </div>
+                        <div className="glass p-8 rounded-[2rem] text-center border-slate-500/10">
+                            <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">Entity Count</h4>
+                            <p className="text-4xl font-numeric font-black text-white">{summaryStats.totalEntities}</p>
+                        </div>
                     </div>
 
-                    <div className="flex flex-col gap-3">
+                    <div className="flex flex-col gap-4">
                         {displayData.map((entity) => (
                             <ComparisonColumn
                                 key={`${entity.type}-${entity.name}`}
@@ -277,18 +229,21 @@ const ComparisonPage: React.FC<ComparisonPageProps> = ({ allRawData, processedDa
                         ))}
                     </div>
 
-                    <div className="mt-8">
-                        {/* FIX: Removed comparisonData prop to match ComparisonItemsTable interface */}
+                    <div className="mt-8 animate-in fade-in duration-1000">
                         <ComparisonItemsTable
-                            itemsData={aggregatedItemsData}
+                            itemsData={itemsDataForTable}
                         />
                     </div>
                 </>
             ) : (
-                 <div className="text-center py-20 bg-slate-800/20 rounded-2xl border-2 border-dashed border-slate-700">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="mx-auto h-12 w-12 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
-                    <h3 className="mt-2 text-lg font-medium text-white">No items selected for comparison</h3>
-                    <p className="mt-1 text-sm text-slate-400">Click "Select Comparison" to choose divisions, brands, or departments.</p>
+                 <div className="text-center py-32 glass rounded-[3rem] border-2 border-dashed border-slate-800">
+                    <div className="w-20 h-20 bg-slate-900/50 rounded-full flex items-center justify-center mx-auto mb-6">
+                        <svg className="h-10 w-10 text-slate-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" />
+                        </svg>
+                    </div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tighter">Laboratory Scope Empty</h3>
+                    <p className="mt-2 text-xs text-slate-500 font-bold uppercase tracking-widest">Select target entities to initialize comparison analysis</p>
                 </div>
             )}
         </div>

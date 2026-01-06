@@ -1,4 +1,5 @@
-// FIX: Moved the AIStudio interface inside the `declare global` block to ensure it's treated as a single global type, resolving the "Subsequent property declarations must have the same type" error.
+
+// FIX: Augment the NodeJS namespace for process.env instead of redeclaring 'process' to avoid "Cannot redeclare block-scoped variable" conflicts with existing global types.
 declare global {
     interface AIStudio {
         hasSelectedApiKey: () => Promise<boolean>;
@@ -7,6 +8,18 @@ declare global {
 
     interface Window {
         aistudio?: AIStudio;
+    }
+
+    /**
+     * Define process.env for accessing environment variables like API_KEY.
+     * As per guidelines, process.env.API_KEY is assumed to be valid and accessible.
+     * We augment the NodeJS namespace which is the standard way to type process.env.
+     */
+    namespace NodeJS {
+        interface ProcessEnv {
+            API_KEY: string;
+            [key: string]: string | undefined;
+        }
     }
 }
 

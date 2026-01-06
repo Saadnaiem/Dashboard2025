@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, Sector, LabelList, LegendType } from 'recharts';
 import { ProcessedData, FilterState } from '../types';
@@ -30,17 +31,17 @@ const CustomTooltip = ({ active, payload, label }: any) => {
         const itemPayload = payload[0].payload;
 
         return (
-            <div className="bg-black backdrop-blur-xl border border-white/10 p-5 rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.5)] min-w-[240px] ring-1 ring-white/5">
-                <p className="font-black text-white mb-4 text-xs uppercase tracking-[0.15em] border-b border-white/10 pb-3">{finalLabel}</p>
-                <div className="flex flex-col gap-4">
+            <div className="bg-slate-950/90 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl min-w-[220px]">
+                <p className="font-black text-white mb-3 text-sm uppercase tracking-wider border-b border-slate-800 pb-2">{finalLabel}</p>
+                <div className="flex flex-col gap-3">
                     {/* 2024 DATA SECTION - ALWAYS FIRST */}
-                    <div className="border-l-4 border-sky-500/50 pl-3 bg-white/5 py-1.5 rounded-r-lg">
+                    <div className="border-l-4 border-sky-500/50 pl-3">
                         <div className="flex justify-between items-baseline gap-4">
-                            <span className="text-[10px] font-black text-sky-400/70 uppercase">2024 Base</span>
-                            <span className="text-sm font-numeric font-black text-sky-400">{formatNumber(itemPayload.sales2024 || 0)}</span>
+                            <span className="text-[10px] font-bold text-sky-400/70 uppercase">2024 Total</span>
+                            <span className="text-sm font-numeric font-bold text-sky-400">{formatNumber(itemPayload.sales2024 || 0)}</span>
                         </div>
                         {(itemPayload.cash2024 !== undefined || itemPayload.credit2024 !== undefined) && (
-                            <div className="flex justify-between mt-1 text-[9px] text-slate-500 font-numeric font-bold uppercase">
+                            <div className="flex justify-between mt-1 text-[10px] text-slate-500 font-numeric">
                                 <span>C: {formatNumber(itemPayload.cash2024 || 0)}</span>
                                 <span>R: {formatNumber(itemPayload.credit2024 || 0)}</span>
                             </div>
@@ -48,13 +49,13 @@ const CustomTooltip = ({ active, payload, label }: any) => {
                     </div>
 
                     {/* 2025 DATA SECTION */}
-                    <div className="border-l-4 border-emerald-500/50 pl-3 bg-white/5 py-1.5 rounded-r-lg">
+                    <div className="border-l-4 border-emerald-500/50 pl-3">
                         <div className="flex justify-between items-baseline gap-4">
-                            <span className="text-[10px] font-black text-emerald-400/70 uppercase">2025 Realized</span>
-                            <span className="text-sm font-numeric font-black text-emerald-400">{formatNumber(itemPayload.sales2025 || 0)}</span>
+                            <span className="text-[10px] font-bold text-emerald-400/70 uppercase">2025 Total</span>
+                            <span className="text-sm font-numeric font-bold text-emerald-400">{formatNumber(itemPayload.sales2025 || 0)}</span>
                         </div>
                          {(itemPayload.cash2025 !== undefined || itemPayload.credit2025 !== undefined) && (
-                            <div className="flex justify-between mt-1 text-[9px] text-slate-500 font-numeric font-bold uppercase">
+                            <div className="flex justify-between mt-1 text-[10px] text-slate-500 font-numeric">
                                 <span>C: {formatNumber(itemPayload.cash2025 || 0)}</span>
                                 <span>R: {formatNumber(itemPayload.credit2025 || 0)}</span>
                             </div>
@@ -63,9 +64,9 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
                     {/* GROWTH SUMMARY */}
                     {itemPayload.growth !== undefined && (
-                        <div className="mt-1 pt-3 border-t border-white/10 flex justify-between items-center">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">YoY Variance</span>
-                            <span className={`text-xs font-numeric font-black px-2 py-0.5 rounded ${itemPayload.growth >= 0 ? 'text-emerald-400 bg-emerald-400/10' : 'text-rose-400 bg-rose-400/10'}`}>
+                        <div className="mt-1 pt-2 border-t border-slate-800 flex justify-between items-center">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase">YoY Growth</span>
+                            <span className={`text-xs font-numeric font-black ${itemPayload.growth >= 0 ? 'text-green-400' : 'text-rose-400'}`}>
                                 {itemPayload.growth === Infinity ? 'NEW' : `${itemPayload.growth >= 0 ? '▲' : '▼'} ${Math.abs(itemPayload.growth).toFixed(1)}%`}
                             </span>
                         </div>
@@ -88,15 +89,15 @@ const renderActiveShape = (props: any) => {
 
     return (
         <g>
-            <text x={cx} y={cy - 40} dy={8} textAnchor="middle" fill={fill} className="text-2xl font-black">{payload.name}</text>
-            <text x={cx} y={cy - 10} dy={8} textAnchor="middle" fill="#e5e7eb" className="text-lg font-numeric font-bold">
+            <text x={cx} y={cy - 35} dy={8} textAnchor="middle" fill={fill} className="text-xl font-extrabold">{payload.name}</text>
+            <text x={cx} y={cy - 10} dy={8} textAnchor="middle" fill="#e5e7eb" className="text-base font-numeric font-semibold">
                 {`2025: ${formatNumber(payload.sales2025)} (${(percent * 100).toFixed(1)}%)`}
             </text>
-            <text x={cx} y={cy + 20} dy={8} textAnchor="middle" fill={COLORS.blue} className="text-base font-numeric font-semibold">
+            <text x={cx} y={cy + 15} dy={8} textAnchor="middle" fill={COLORS.blue} className="text-sm font-numeric font-medium">
                 {`2024: ${formatNumber(payload.sales2024)}`}
             </text>
-            <text x={cx} y={cy + 50} dy={8} textAnchor="middle" fill={growthColor} className="text-lg font-numeric font-black">{growthText}</text>
-            <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 8} startAngle={startAngle} endAngle={endAngle} fill={fill} />
+            <text x={cx} y={cy + 40} dy={8} textAnchor="middle" fill={growthColor} className="text-base font-numeric font-bold">{growthText}</text>
+            <Sector cx={cx} cy={cy} innerRadius={innerRadius} outerRadius={outerRadius + 6} startAngle={startAngle} endAngle={endAngle} fill={fill} />
         </g>
     );
 };
@@ -132,7 +133,7 @@ interface ChartsProps {
 
 const ChartCard: React.FC<{ title: string; children: React.ReactNode; className?: string }> = ({ title, children, className = '' }) => (
     <div className={`bg-slate-800/50 p-6 rounded-2xl shadow-lg border border-slate-700 hover:border-sky-500 transition-all ${className}`}>
-        <h2 className="text-xl font-black text-sky-400 mb-6 text-center uppercase tracking-widest">{title}</h2>
+        <h2 className="text-sm font-black text-slate-400 mb-6 text-center uppercase tracking-[0.2em]">{title}</h2>
         {children}
     </div>
 );
@@ -188,9 +189,10 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                            {yearComparisonData.map((entry, index) => <Cell key={index} fill={entry.fill} />)}
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend payload={legendPayload} formatter={renderLegendText} verticalAlign="bottom" height={36}/>
-                        <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="text-sm font-black uppercase tracking-widest" fill="#94a3b8">YoY Growth</text>
-                        <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" className="text-4xl font-numeric font-black" fill={growthColor}>{growthText}</text>
+                        {/* FIX: Cast Legend props to any to resolve property 'payload' does not exist error. */}
+                        <Legend {...({ payload: legendPayload, formatter: renderLegendText, verticalAlign: "bottom", height: 36 } as any)} />
+                        <text x="50%" y="45%" textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-black uppercase tracking-widest" fill="#94a3b8">YoY Growth</text>
+                        <text x="50%" y="55%" textAnchor="middle" dominantBaseline="middle" className="text-3xl font-numeric font-black" fill={growthColor}>{growthText}</text>
                     </PieChart>
                 </ResponsiveContainer>
             </ChartCard>
@@ -198,19 +200,7 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
             <ChartCard title="Division Distribution">
                 <ResponsiveContainer width="100%" height={400}>
                     <PieChart onMouseLeave={onPieLeave}>
-                        <Pie 
-                            activeIndex={activeIndex} 
-                            activeShape={renderActiveShape as any} 
-                            data={data.salesByDivision} 
-                            cx="50%" 
-                            cy="50%" 
-                            innerRadius={100} 
-                            outerRadius={140} 
-                            dataKey="sales2025" 
-                            onMouseEnter={onPieEnter} 
-                            onClick={handleDonutClick} 
-                            className="cursor-pointer"
-                        >
+                        <Pie activeIndex={activeIndex} activeShape={renderActiveShape as any} data={data.salesByDivision} cx="50%" cy="50%" innerRadius={100} outerRadius={140} dataKey="sales2025" onMouseEnter={onPieEnter} onClick={handleDonutClick} className="cursor-pointer">
                             {data.salesByDivision.map((_, index) => <Cell key={index} fill={DIVISION_CHART_PALETTE[index % DIVISION_CHART_PALETTE.length]} />)}
                         </Pie>
                         <Tooltip content={<CustomTooltip />} />
@@ -225,7 +215,8 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="name" stroke="#94a3b8" width={isMobile ? 80 : 120} tick={<CustomYAxisTick maxChars={isMobile ? 12 : 25} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend payload={legendPayload} formatter={renderLegendText} />
+                        {/* FIX: Cast Legend props to any to resolve property 'payload' does not exist error. */}
+                        <Legend {...({ payload: legendPayload, formatter: renderLegendText } as any)} />
                         <Bar dataKey="sales2024" fill={COLORS.blue} onClick={(p) => handleBarClick('brands', p)} radius={[0, 4, 4, 0]} />
                         <Bar dataKey="sales2025" fill={COLORS.green} onClick={(p) => handleBarClick('brands', p)} radius={[0, 4, 4, 0]}>
                             <LabelList dataKey="growth" content={renderGrowthLabel} />
@@ -241,7 +232,8 @@ const Charts: React.FC<ChartsProps> = ({ data, filters, onFilterChange }) => {
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="name" stroke="#94a3b8" width={isMobile ? 100 : 150} tick={<CustomYAxisTick maxChars={isMobile ? 15 : 30} />} interval={0} />
                         <Tooltip content={<CustomTooltip />} />
-                        <Legend payload={legendPayload} formatter={renderLegendText} />
+                        {/* FIX: Cast Legend props to any to resolve property 'payload' does not exist error. */}
+                        <Legend {...({ payload: legendPayload, formatter: renderLegendText } as any)} />
                         <Bar dataKey="sales2024" fill={COLORS.blue} onClick={(p) => handleBarClick('branches', p)} radius={[0, 4, 4, 0]} />
                         <Bar dataKey="sales2025" fill={COLORS.green} onClick={(p) => handleBarClick('branches', p)} radius={[0, 4, 4, 0]}>
                             <LabelList dataKey="growth" content={renderGrowthLabel} />

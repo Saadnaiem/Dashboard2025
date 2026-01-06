@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ProcessedData } from '../types';
+import { ProcessedData, FilterState } from '../types';
 
 // For full numbers (counts)
 const formatNumber = (num: number, decimals = 0): string => {
@@ -57,6 +57,9 @@ const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => 
 
 interface SummaryCardsProps {
     data: ProcessedData;
+    // Added missing props passed from Dashboard.tsx
+    searchTerm: string;
+    filters: FilterState;
 }
 
 const SummaryCards: React.FC<SummaryCardsProps> = ({ data }) => {

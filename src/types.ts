@@ -1,3 +1,4 @@
+
 export interface RawSalesDataRow {
     [key: string]: any;
     'DIVISION': string;
@@ -25,6 +26,8 @@ export interface ParetoResult {
 }
 
 export interface EntitySalesData {
+    // FIX: Added index signature to allow dynamic property access in charts.
+    [key: string]: any;
     name: string;
     sales2024: number;
     cash2024: number;
@@ -118,6 +121,9 @@ export interface FilterState {
 }
 
 export type SalesMix = 'Total' | 'Cash' | 'Credit';
+
+// FIX: Added DataSource type definition for consistency across the codebase.
+export type DataSource = 'Supabase' | 'Google Drive' | 'None';
 
 export interface LayoutContextType {
     salesMix: SalesMix;
